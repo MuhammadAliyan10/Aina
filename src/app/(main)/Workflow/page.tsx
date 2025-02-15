@@ -1,25 +1,6 @@
-// app/tasks/page.tsx
 "use client"; // Mark as a Client Component
 
-import React, { useState, useCallback } from "react";
-import { format } from "date-fns";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import ReactFlow, {
-  addEdge,
-  Background,
-  Controls,
-  Connection,
-  Edge,
-  Node,
-  ReactFlowProvider,
-  useNodesState,
-  useEdgesState,
-} from "reactflow";
-import "reactflow/dist/style.css";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -30,145 +11,164 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar } from "@/components/ui/calendar";
-import { FileInput } from "@/components/FileInput"; // Custom file input component
-import { CalendarIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import ShinyText from "@/components/Animated/ShinyText";
+import { fetchUserWorkFlow, handleAddWorkFlow } from "./action";
+import { toast } from "@/hooks/use-toast";
+import { Separator } from "@/components/ui/separator";
+import { Loader2, Trash2 } from "lucide-react";
+import Link from "next/link";
 
-interface Task {
-  id: string;
+interface WorkFlow {
   title: string;
   description: string;
-  attachment?: string;
-  time: string;
-  date: Date;
+}
+interface UserWorkFlow {
+  id: string;
+  title: string;
+  description: string | null; // Allow null values
+  createdAt: Date;
 }
 
-const initialNodes: Node[] = [];
-const initialEdges: Edge[] = [];
-
 export default function WorkFlow() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [newTask, setNewTask] = useState<Task>({
-    id: "",
+  const [newWorkFlow, setNewWorkFlow] = useState<WorkFlow>({
     title: "",
     description: "",
-    time: "",
-    date: new Date(),
   });
+  const [workFlow, setWorkFlow] = useState<UserWorkFlow[]>([]);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleAddTask = () => {
-    const taskId = `task-${nodes.length + 1}`;
-    const newNode: Node = {
-      id: taskId,
-      type: "default",
-      data: { label: newTask.title, ...newTask },
-      position: { x: Math.random() * 500, y: Math.random() * 500 },
-    };
+  const handleSubmit = async () => {
+    if (!newWorkFlow.title || !newWorkFlow.description) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    setNodes([...nodes, newNode]);
-    setNewTask({
-      id: "",
-      title: "",
-      description: "",
-      time: "",
-      date: new Date(),
-    });
-    setIsDialogOpen(false); // Close the dialog after adding the task
+    setLoading(true);
+    try {
+      const res = await handleAddWorkFlow(newWorkFlow);
+      if (res) {
+        toast({ title: "Success", description: "Workflow added successfully" });
+        setIsDialogOpen(false);
+        setNewWorkFlow({ title: "", description: "" });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add workflow",
+        variant: "destructive",
+      });
+      console.error("Failed to add workflow:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
-  );
+  useEffect(() => {
+    const fetchData = async () => {
+      const userWorkFlow = await fetchUserWorkFlow();
+      setWorkFlow(userWorkFlow);
+    };
+    fetchData();
+  }, [handleSubmit]);
 
   return (
-    <div className="mx-4">
-      <div className="h-screen w-[100%] flex flex-col">
+    <div className="flex items-center m-10 pt-5 md:pt-0">
+      <div>
+        <ShinyText
+          text="Workflows"
+          className="text-4xl md:text-8xl font-bold mb-4"
+          disabled={false}
+          speed={3}
+        />
+
         {/* Header with Add Task Button */}
-        <div className="p-4 border-b">
+        <div className="p-4">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>Add Task</Button>
+              <Button>Add New Workflow</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add New Task</DialogTitle>
+                <DialogTitle>Add New WorkFlow</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <Input
-                  placeholder="Title"
-                  value={newTask.title}
+                  placeholder="WorkFlow Title"
+                  value={newWorkFlow.title}
                   onChange={(e) =>
-                    setNewTask({ ...newTask, title: e.target.value })
+                    setNewWorkFlow({ ...newWorkFlow, title: e.target.value })
                   }
                 />
                 <Textarea
-                  placeholder="Description"
-                  value={newTask.description}
+                  placeholder="WorkFlow Description"
+                  value={newWorkFlow.description}
                   onChange={(e) =>
-                    setNewTask({ ...newTask, description: e.target.value })
+                    setNewWorkFlow({
+                      ...newWorkFlow,
+                      description: e.target.value,
+                    })
                   }
                 />
-                <Input
-                  type="time"
-                  value={newTask.time}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, time: e.target.value })
-                  }
-                />
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-[280px] justify-start text-left font-normal",
-                        !newTask.date && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {newTask.date ? (
-                        format(newTask.date, "PPP")
-                      ) : (
-                        <span>Pick a date</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={newTask.date}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <FileInput
-                  onChange={(file) =>
-                    setNewTask({ ...newTask, attachment: file.name })
-                  }
-                />
-                <Button onClick={handleAddTask}>Add Task</Button>
+
+                <Button onClick={handleSubmit} disabled={loading}>
+                  {loading ? (
+                    <p className="flex justify-center items-center gap-x-2">
+                      <Loader2 className="size-5 animate-spin" />
+                      <p>Adding...</p>
+                    </p>
+                  ) : (
+                    "Add WorkFlow"
+                  )}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
         </div>
-
-        {/* React Flow Canvas */}
-        <div className="flex-1">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            fitView
-          >
-            <Background />
-            <Controls />
-          </ReactFlow>
+        <div className="py-4">
+          <Separator />
         </div>
+        <ShinyText
+          text="Your Workflows"
+          className="text-4xl md:text-3xl font-bold mb-4"
+          disabled={false}
+          speed={3}
+        />
+        {workFlow.length >= 1 ? (
+          <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-4">
+              {workFlow.map((flow) => {
+                return (
+                  <div className="p-4 border rounded-lg shadow-sm relative cursor-pointer">
+                    <span className="absolute right-0 top-[1px]">
+                      <Trash2
+                        className="text-red-600 text-[10px] cursor-pointer"
+                        size={16}
+                      />
+                    </span>
+                    <Link href={`/tasks/${flow.id}`}>
+                      <p className="absolute right-0 bottom-0 text-muted-foreground text-[10px]">
+                        {new Date(flow.createdAt).toUTCString().slice(0, 17)}
+                      </p>
+                      <p className="font-bold">{flow.title}</p>
+                      <p className="mt-2 text-gray-600">{flow.description}</p>
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <p className="text-muted-foreground">
+            No workflow founded. Kindly create one to start.
+          </p>
+        )}
+        <div></div>
       </div>
     </div>
   );

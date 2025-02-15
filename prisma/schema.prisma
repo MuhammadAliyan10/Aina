@@ -20,6 +20,7 @@ model User {
   apiTokens     APIToken[]
   tasks         Task[]
   assignments   Assignment[]
+  workflows     Workflow[]   // ✅ One user has multiple workflows
 }
 
 model Session {
@@ -32,39 +33,77 @@ model Session {
 }
 
 model Task {
-  id           String   @id @default(uuid())
-  title        String
-  description  String?
-  status       String   @default("pending") // pending, in_progress, completed
-  dueDate      DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignment   Assignment? // Optional Assignment linked to a Task
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  status      String   @default("pending") // pending, in_progress, completed
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  workflowId  String  // ✅ Each Task belongs to a Workflow
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  dependentOnId String?
+  assignment   Assignment?
 }
 
 model Assignment {
   id          String   @id @default(uuid())
   title       String
   description String?
-  fileUrl     String   // URL where the assignment is stored
+  fileUrl     String
   uploadedAt  DateTime @default(now())
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  taskId      String?  @unique // Optional relation to a Task
+  taskId      String?  @unique
   task        Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
 model APIToken {
-  id           String   @id @default(uuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider     String   // e.g., "WhatsApp", "Google", "Slack"
-  accessToken  String
-  refreshToken String?  // Optional if provider uses refresh tokens
-  tokenExpiry  DateTime?
-  createdAt    DateTime @default(now())
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider    String   
+  accessToken String
+  refreshToken String?  
+  tokenExpiry DateTime?
+  createdAt   DateTime @default(now())
 
-  @@unique([userId, provider]) // Ensure a user has only one token per provider
+  @@unique([userId, provider]) 
+}
+model Node {
+  id        String  @id @default(cuid()) // Unique identifier
+  label     String
+  data      Json    // Store additional data
+  positionX Float
+  positionY Float
+  edgesFrom Edge[] @relation("EdgeFrom")
+  edgesTo   Edge[] @relation("EdgeTo")
+}
+
+model Edge {
+  id       String @id @default(cuid()) // Unique identifier
+  sourceId String
+  targetId String
+  type     String
+  label    String?
+
+  source Node @relation("EdgeFrom", fields: [sourceId], references: [id])
+  target Node @relation("EdgeTo", fields: [targetId], references: [id])
+}
+
+model Workflow {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tasks       Task[] // ✅ One Workflow has multiple Tasks
+
+  @@map("workflows") // ✅ Table name in DB
 }
