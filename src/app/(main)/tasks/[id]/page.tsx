@@ -30,10 +30,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
+import { CustomAutomationNode } from "../components/CustomAutomationNode";
 
 const nodeTypes = {
   customTask: CustomTaskNode,
   customAssignment: CustomAssignmentNode,
+  customAutomation: CustomAutomationNode,
 };
 
 export default function TasksPage({ params }: { params: { id: string } }) {
@@ -46,6 +48,42 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   });
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [isFileDialogOpen, setIsFileDialogOpen] = useState(false);
+  const [isAutomationDialogOpen, setIsAutomationDialogOpen] = useState(false);
+  const [automationLink, setAutomationLink] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [websiteName, setWebsiteName] = useState("");
+
+  const handleAddAutomation = () => {
+    if (!automationLink || !email || !password || !websiteName) {
+      toast({
+        title: "Error",
+        description: "All fields are required.",
+      });
+      return;
+    }
+
+    const automationId = `automation-${nodes.length + 1}`;
+    const newAutomationNode: Node = {
+      id: automationId,
+      type: "customAutomation",
+      data: {
+        automationLink,
+        email,
+        password,
+        websiteName,
+        automation: "on", // Indicate that automation is enabled
+      },
+      position: { x: Math.random() * 600, y: Math.random() * 400 },
+    };
+
+    setNodes([...nodes, newAutomationNode]);
+    setAutomationLink("");
+    setEmail("");
+    setPassword("");
+    setWebsiteName("");
+    setIsAutomationDialogOpen(false);
+  };
 
   const handleAddTask = () => {
     if (!newTask.title || !newTask.description || !newTask.dueDate) {
@@ -64,6 +102,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         ...newTask,
         formattedDate: format(newTask.dueDate, "PPPp"),
         assignments: [],
+        status: "Pending", // Default status
       },
       position: { x: Math.random() * 600, y: Math.random() * 400 },
     };
@@ -93,19 +132,72 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
   const onConnect = useCallback(
     (params: Connection) => {
+      if (!params.sourceHandle || !params.targetHandle) {
+        toast({
+          title: "Error",
+          description: "Please connect using the handles.",
+        });
+        return;
+      }
+
       setNodes((nds) =>
         nds.map((node) => {
           if (node.id === params.target) {
-            const assignmentNode = nodes.find((n) => n.id === params.source);
-            if (assignmentNode) {
+            const sourceNode = nodes.find((n) => n.id === params.source);
+            if (sourceNode) {
+              // If the source node is an automation node, update the target node
+              if (sourceNode.type === "customAutomation") {
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    automation: "on", // Enable automation on the target node
+                  },
+                };
+              } else {
+                const attachment =
+                  sourceNode.type === "customAssignment"
+                    ? sourceNode.data.fileName
+                    : sourceNode.data.title;
+
+                return {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    assignments: [...(node.data.assignments || []), attachment],
+                  },
+                };
+              }
+            }
+          }
+          return node;
+        })
+      );
+
+      setEdges((eds) => addEdge({ ...params }, eds));
+    },
+    [nodes]
+  );
+
+  const onEdgeDoubleClick = useCallback(
+    (event: React.MouseEvent, edge: Edge) => {
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id === edge.target) {
+            const sourceNode = nodes.find((n) => n.id === edge.source);
+            if (sourceNode) {
+              const attachment =
+                sourceNode.type === "customAssignment"
+                  ? sourceNode.data.fileName
+                  : sourceNode.data.title;
+
               return {
                 ...node,
                 data: {
                   ...node.data,
-                  assignments: [
-                    ...(node.data.assignments || []),
-                    assignmentNode.data.fileName,
-                  ],
+                  assignments: node.data.assignments.filter(
+                    (a: string) => a !== attachment
+                  ),
                 },
               };
             }
@@ -113,7 +205,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           return node;
         })
       );
-      setEdges((eds) => addEdge(params, eds));
+      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
     },
     [nodes]
   );
@@ -121,6 +213,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   return (
     <div className="h-screen w-full bg-gray-950 text-white flex flex-col">
       <div className="p-4 border-b border-gray-800 gap-4 flex justify-between items-center">
+        <div>
+          <h4>University</h4>
+        </div>
         <div className="flex gap-4">
           <Dialog open={isTaskDialogOpen} onOpenChange={setIsTaskDialogOpen}>
             <DialogTrigger asChild>
@@ -184,6 +279,49 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               </div>
             </DialogContent>
           </Dialog>
+          <Dialog
+            open={isAutomationDialogOpen}
+            onOpenChange={setIsAutomationDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button variant="secondary">Add Automation</Button>
+            </DialogTrigger>
+            <DialogContent className="bg-gray-900 border border-gray-700">
+              <DialogHeader>
+                <DialogTitle className="text-white">Add Automation</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Input
+                  placeholder="Automation Link"
+                  value={automationLink}
+                  onChange={(e) => setAutomationLink(e.target.value)}
+                  className="bg-gray-800 text-white border-gray-600"
+                />
+                <Input
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="bg-gray-800 text-white border-gray-600"
+                />
+                <Input
+                  placeholder="Password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-gray-800 text-white border-gray-600"
+                />
+                <Input
+                  placeholder="Website Name (e.g., Math)"
+                  value={websiteName}
+                  onChange={(e) => setWebsiteName(e.target.value)}
+                  className="bg-gray-800 text-white border-gray-600"
+                />
+                <div className="flex justify-end">
+                  <Button onClick={handleAddAutomation}>Add Automation</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       <div className="flex-1">
@@ -193,6 +331,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onEdgeDoubleClick={onEdgeDoubleClick}
           nodeTypes={nodeTypes}
           fitView
         >

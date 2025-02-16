@@ -67,3 +67,33 @@ export const fetchUserWorkFlow = async () => {
     return [];
   }
 };
+
+export const handleRemoveWorkFlow = async (workFlowID: string) => {
+  try {
+    const { user } = await validateRequest();
+    if (!user) {
+      return { error: "Unauthorized: No user found." };
+    }
+
+    if (!workFlowID) {
+      return { error: "Invalid request: No workflow ID provided." };
+    }
+
+    const workFlow = await prisma.workflow.findFirst({
+      where: { id: workFlowID },
+    });
+
+    if (!workFlow || workFlow.userId !== user.id) {
+      return { error: "Unauthorized: Cannot remove this workflow." };
+    }
+
+    await prisma.workflow.delete({
+      where: { id: workFlowID },
+    });
+
+    return { message: "Workflow removed successfully." };
+  } catch (error) {
+    console.error("Error removing workflow:", error);
+    return { error: "Internal Server Error: Unable to delete workflow." };
+  }
+};
