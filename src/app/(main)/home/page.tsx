@@ -2,15 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import ShinyText from "@/components/Animated/ShinyText";
-import LoginFacebook from "@/components/LoginFacebook";
-import { Check, LoaderCircle } from "lucide-react";
-import { useAuth } from "../AuthContext";
+
 import { Button } from "@/components/ui/button";
 
 const HomePage: React.FC = () => {
-  const [userName, setUserName] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   return (
     <div className="m-10 pt-5 md:pt-0">
       <div className="flex flex-col justify-center h-screen">

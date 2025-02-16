@@ -5,6 +5,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { redirect } from "next/navigation";
 import SessionProvider from "./SessionProvider";
 import { AuthProvider } from "./AuthContext";
+import QueryProvider from "./QueryProvider";
 
 export default async function Layout({
   children,
@@ -18,16 +19,13 @@ export default async function Layout({
   }
 
   return (
-    <SessionProvider
-      value={{
-        user: user ?? null,
-        session: session,
-      }}
-    >
+    <SessionProvider value={{ user: user ?? null, session }}>
       <SidebarProvider>
         <main className="w-full">
           <AppSidebar>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <QueryProvider>{children}</QueryProvider>
+            </AuthProvider>
           </AppSidebar>
 
           <div className="absolute top-11 md:top-2 right-2 ">

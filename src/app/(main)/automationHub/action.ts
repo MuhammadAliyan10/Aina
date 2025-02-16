@@ -8,11 +8,7 @@ import { revalidatePath } from "next/cache";
 export async function addAutomation(automation: {
   title: string;
   description: string;
-  automationUrl: string;
-  type: "UNIVERSITY" | "WORK" | "BLANK";
-  credentials: { email: string; password: string };
-  fileUrl?: string;
-  executeAt: Date;
+  type: string;
 }) {
   try {
     const { user } = await validateRequest();
@@ -24,15 +20,14 @@ export async function addAutomation(automation: {
       data: {
         title: automation.title,
         description: automation.description,
-        automationUrl: automation.automationUrl,
         type: automation.type,
-        credentials: automation.credentials,
-        fileUrl: automation.fileUrl,
-        executeAt: automation.executeAt,
         userId: user.id,
+        automationUrl: "",
+        credentials: {},
+        process: {},
+        executeAt: new Date(),
       },
     });
-    revalidatePath("/automationHub");
     return newAutomation;
   } catch (error) {
     console.error("Error adding automation:", error);
@@ -119,10 +114,7 @@ export const fetchUserAutomation = async () => {
         id: true,
         title: true,
         description: true,
-        automationUrl: true,
         type: true,
-        fileUrl: true,
-        executeAt: true,
         createdAt: true,
         updatedAt: true,
         status: true,
