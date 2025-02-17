@@ -24,7 +24,7 @@ export async function addAutomation(automation: {
         userId: user.id,
         automationUrl: "",
         credentials: {},
-        process: {},
+        process: "",
         executeAt: new Date(),
       },
     });
