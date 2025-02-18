@@ -14,6 +14,7 @@ import AutomationCard from "./components/AutomationCard";
 import { addAutomation, deleteAutomation, fetchUserAutomation } from "./action";
 import { toast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { EvervaultCardDemo } from "@/components/Global/EvervaultCard";
 
 interface UserAutomation {
   id?: string;
@@ -115,15 +116,15 @@ const Page = () => {
     }
   };
   return (
-    <div className="flex items-center m-10 pt-5 md:pt-0">
-      <div>
+    <div className="m-10 w-full pt-5 md:pt-0">
+      <div className="flex flex-col justify-center items-center">
         <ShinyText
           text="Automation Hub"
-          className="text-4xl md:text-8xl font-bold mb-4"
+          className="text-4xl md:text-8xl font-bold mb-4 text-center"
           disabled={false}
           speed={3}
         />
-        <div className="flex my-4">
+        <div className="flex justify-center items-center my-4">
           <Button
             onClick={() => {
               setIsDialogOpen(true);
@@ -181,25 +182,25 @@ const Page = () => {
         </Dialog>
 
         <Separator className="w-full my-6" />
-        <div className="w-full h-[50vh] overflow-auto">
+        <div className="w-full">
           {loadingAutomation ? (
             <div className="flex justify-center items-center gap-x-2">
               <Loader2 className="size-10 animate-spin" />
               <span>Loading automations...</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
               {automations ? (
                 automations.map((automation: UserAutomation) => (
-                  <AutomationCard
-                    key={automation.id}
-                    status={automation.status}
-                    id={automation.id!}
+                  <EvervaultCardDemo
                     title={automation.title}
                     description={automation.description}
-                    type={automation.type}
-                    onDelete={handleDelete}
-                    loading={loadingDelete}
+                    status={automation.status}
+                    id={automation?.id}
+                    createdAt={automation.updatedAt}
+                    onDelete={() =>
+                      automation?.id && handleDelete(automation.id)
+                    }
                   />
                 ))
               ) : (

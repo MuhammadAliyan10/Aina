@@ -22,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import { Loader2, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { DialogOverlay } from "@radix-ui/react-dialog";
+import WorkFlowCard from "./components/WorkflowCard";
 
 interface WorkFlow {
   title: string;
@@ -37,6 +38,7 @@ interface UserWorkFlow {
 
 export default function WorkFlow() {
   const [workflowLoading, setWorkFlowLoading] = useState(false);
+  const [workflowDeleteLoading, setWorkFlowDeleteLoading] = useState(false);
   const [removingWorkFlowId, setRemovingWorkFlowId] = useState<string | null>(
     null
   );
@@ -106,6 +108,7 @@ export default function WorkFlow() {
   };
   const removeWorkFlow = async (workFlowId: string) => {
     try {
+      setWorkFlowDeleteLoading(false);
       setRemovingWorkFlowId(workFlowId);
       const response = await handleRemoveWorkFlow(workFlowId);
 
@@ -131,12 +134,13 @@ export default function WorkFlow() {
         variant: "destructive",
       });
     } finally {
+      setWorkFlowDeleteLoading(true);
       setRemovingWorkFlowId(null);
     }
   };
 
   return (
-    <div className="flex items-center m-10 pt-5 md:pt-0">
+    <div className="m-10 pt-5 md:pt-0">
       <div>
         <ShinyText
           text="Workflows"
@@ -210,48 +214,13 @@ export default function WorkFlow() {
             {workFlow.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-4">
                 {workFlow.map((flow) => (
-                  <div
-                    className="p-8 border rounded-xl shadow-md relative hover:shadow-lg transition-all duration-200"
-                    key={flow.id}
-                  >
-                    <div className="absolute top-3 right-3 flex gap-1">
-                      <button className="p-2 text-white rounded-full transition">
-                        <Pencil size={18} />
-                      </button>
-                      <button
-                        className="p-2 text-red-600 rounded-full transition"
-                        onClick={() => removeWorkFlow(flow.id)}
-                        disabled={removingWorkFlowId === flow.id}
-                      >
-                        {removingWorkFlowId === flow.id ? (
-                          <Loader2 size={18} className="animate-spin" />
-                        ) : (
-                          <Trash2 size={18} />
-                        )}
-                      </button>
-                    </div>
-
-                    <Link href={`/tasks/${flow.id}`}>
-                      {/* Workflow Title */}
-                      <p className="font-semibold text-lg text-white">
-                        {flow.title}
-                      </p>
-
-                      {/* Description */}
-                      <p className="mt-2 text-gray-600 text-sm">
-                        {flow.description || "No description provided."}
-                      </p>
-
-                      {/* Date */}
-                      <p className="absolute right-3 bottom-3 text-gray-400 text-xs">
-                        {new Date(flow.createdAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </p>
-                    </Link>
-                  </div>
+                  <WorkFlowCard
+                    id={flow.id}
+                    title={flow.title}
+                    description={flow.description}
+                    onDelete={() => removeWorkFlow(flow.id)}
+                    loading={workflowDeleteLoading}
+                  />
                 ))}
               </div>
             ) : (

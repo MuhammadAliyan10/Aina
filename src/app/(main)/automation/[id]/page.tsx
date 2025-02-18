@@ -327,8 +327,8 @@ const Page = ({ params }: { params: Promise<{ id: string }> }) => {
         <Button
           className={
             status === "PENDING"
-              ? "bg-red-600 text-white"
-              : "bg-green-500 text-white"
+              ? "bg-red-600 text-white hover:text-black"
+              : "bg-green-500 text-white hover:text-black"
           }
           onClick={() =>
             status === "PENDING" ? setStatus("COMPLETED") : setStatus("PENDING")
@@ -337,13 +337,13 @@ const Page = ({ params }: { params: Promise<{ id: string }> }) => {
           {status}
         </Button>
         <Button
-          className="bg-blue-500 text-white"
+          className="bg-blue-500 text-white hover:text-black"
           onClick={handleSaveAutomation}
         >
           {updatingLoading ? "Saving..." : "Save Automation"}
         </Button>
         <Button
-          className="bg-green-500 text-white"
+          className="bg-green-500 text-white hover:text-black"
           onClick={handleStartAutomation}
         >
           <Play className="mr-2 h-4 w-4" /> Start Automation

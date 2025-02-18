@@ -43,7 +43,7 @@ export const CustomTaskNode: React.FC<CustomTaskNodeProps> = ({ data, id }) => {
       <p className="text-sm text-gray-400">{data.description}</p>
       <p className="text-xs text-gray-500 mt-2">Due: {data.formattedDate}</p>
       <div className="mt-2">
-        {data.automation.length > 0 && data.automation.includes("on") && (
+        {data.automation && data.automation.includes("on") && (
           <span className="px-2 py-1 text-xs bg-green-500 rounded-full">
             Automation: On
           </span>

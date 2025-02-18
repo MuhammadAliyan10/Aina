@@ -105,11 +105,12 @@ export const Header = () => {
   return (
     <div className="max-w-7xl relative mx-auto py-20 md:py-40 px-4 w-full  left-0 top-0">
       <h1 className="text-2xl md:text-7xl font-bold dark:text-white">
-        The Ultimate <br /> suggestions graph
+        The Ultimate <br /> automation AI
       </h1>
       <p className="max-w-2xl text-base md:text-xl mt-8 dark:text-neutral-200">
-        We suggest people closest to you or your friends. We are a team of
-        passionate developers and designers that love to build amazing products.
+        We do your work with AI Web Automation give you best possible services.
+        Just trust us and enjoy time of your life. Just prompt or align your
+        workflow and relax.
       </p>
     </div>
   );

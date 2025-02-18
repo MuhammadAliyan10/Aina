@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { Sidebar, SidebarBody, SidebarLink } from "@/components/Sidebar";
+import userAvatar from "@/assets/UserAvatar.png";
 import {
   IconClipboard,
   IconCurrencyDollar,
@@ -30,6 +31,7 @@ import {
   NotebookPen,
   Workflow,
 } from "lucide-react";
+import { useSession } from "@/app/(main)/SessionProvider";
 
 export function AppSidebar({
   children,
@@ -124,6 +126,9 @@ export function AppSidebar({
     },
   ];
   const [open, setOpen] = useState(false);
+  const { user } = useSession();
+  const name = user?.fullName;
+  const profileImage = user?.profilePic;
 
   return (
     <div
@@ -141,6 +146,23 @@ export function AppSidebar({
                 <SidebarLink key={idx} link={link} />
               ))}
             </div>
+          </div>
+          <div>
+            <SidebarLink
+              link={{
+                label: name || "",
+                href: "/profile",
+                icon: (
+                  <Image
+                    src={profileImage || userAvatar}
+                    className="h-7 w-7 flex-shrink-0 rounded-full border object-cover border-gray-300"
+                    width={50}
+                    height={50}
+                    alt="Avatar"
+                  />
+                ),
+              }}
+            />
           </div>
         </SidebarBody>
       </Sidebar>
