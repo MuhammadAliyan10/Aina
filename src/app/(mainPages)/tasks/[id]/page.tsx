@@ -12,15 +12,21 @@ import ReactFlow, {
   ReactFlowInstance,
   Node,
   XYPosition,
+  MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Zap, FolderPlus, Globe, Chrome } from "lucide-react";
 import { GENERAL, BROWSER, INTERACTION } from "../data/Data";
 import { TriggerNode } from "../Node/TriggerNode";
+import { WorkflowNode } from "../Node/WorkflowNode";
+import { DelayNode } from "../Node/DelayNode";
+import { ExportDataNode } from "../Node/ExportDataNode";
 
 const nodeTypes = {
   customTriggerNode: TriggerNode,
-  customWorkFlow: TriggerNode,
+  customWorkFlow: WorkflowNode,
+  customDelay: DelayNode,
+  customExport: ExportDataNode,
 };
 
 export default function Page() {
@@ -31,9 +37,9 @@ export default function Page() {
   >([
     {
       id: "1",
-      type: "default",
+      type: "customTriggerNode",
       position: { x: 250, y: 150 },
-      data: { label: "Start Node" },
+      data: { label: "Trigger" },
     },
   ]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
@@ -80,10 +86,15 @@ export default function Page() {
   );
 
   // Handle connections
-  const onConnect = useCallback(
-    (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
-    []
-  );
+  const onConnect = useCallback((connection: Connection) => {
+    const edgeWithArrow = {
+      ...connection,
+      id: `edge-${connection.source}-${connection.target}`,
+      arrowHeadType: MarkerType.Arrow,
+      style: { strokeWidth: 3, stroke: "#3b82f6" },
+    };
+    setEdges((eds) => addEdge(edgeWithArrow, eds));
+  }, []);
 
   return (
     <div className="h-screen w-full bg-gray-950 text-white flex">

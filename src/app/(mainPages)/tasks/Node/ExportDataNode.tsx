@@ -1,5 +1,5 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
-import { Play, Edit, Trash } from "lucide-react";
+import { Play, Edit, Trash, Workflow, Download } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const TriggerNode = ({ id, data }: NodeProps) => {
+const ExportDataNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
@@ -36,12 +36,6 @@ const TriggerNode = ({ id, data }: NodeProps) => {
     <div className="relative min-w-[12rem] text-white p-3 rounded-xl shadow-md border border-gray-600 group bg-gray-900 transition-all hover:shadow-lg">
       {/* Action buttons, visible on hover */}
       <div className="absolute -top-[44px] left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md p-2 flex justify-between items-center gap-x-3 opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
-        <Play
-          size={18}
-          className="cursor-pointer text-gray-400 hover:text-red-500 transition-colors"
-          onClick={handleDelete}
-        />
-        <span className="border border-r-white h-[15px]"></span>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Edit
@@ -83,9 +77,9 @@ const TriggerNode = ({ id, data }: NodeProps) => {
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           <span className="p-3 bg-black text-white rounded-lg shadow-md">
-            <Play size={20} />
+            <Download size={20} />
           </span>
-          <span className="text-sm font-semibold">Trigger</span>
+          <span className="text-sm font-semibold">Export Data</span>
         </div>
         {description && (
           <p className="text-xs text-gray-400 italic">{description}</p>
@@ -93,6 +87,11 @@ const TriggerNode = ({ id, data }: NodeProps) => {
       </div>
       <Handle
         type="target"
+        position={Position.Left}
+        style={{ backgroundColor: "white", width: "0.6rem", height: "0.6rem" }}
+      />
+      <Handle
+        type="source"
         position={Position.Right}
         style={{ width: "0.6rem", height: "0.6rem" }}
       />
@@ -100,4 +99,4 @@ const TriggerNode = ({ id, data }: NodeProps) => {
   );
 };
 
-export { TriggerNode };
+export { ExportDataNode };
