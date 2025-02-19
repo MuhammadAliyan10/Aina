@@ -219,7 +219,7 @@ export default function WorkFlow() {
           <Separator />
         </div>
 
-        {workflowLoading ? (
+        {loadingWorkFlow ? (
           <div className="flex justify-center items-center gap-x-3">
             <Loader2 className="size-5 animate-spin" />
             <p>Fetching your workflows...</p>

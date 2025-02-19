@@ -15,17 +15,27 @@ import ReactFlow, {
   MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Zap, FolderPlus, Globe, Chrome } from "lucide-react";
+import { Zap, FolderPlus, Globe, Chrome, Search } from "lucide-react";
 import { GENERAL, BROWSER, INTERACTION } from "../data/Data";
 import { TriggerNode } from "../Node/TriggerNode";
 import { WorkflowNode } from "../Node/WorkflowNode";
 import { DelayNode } from "../Node/DelayNode";
 import { ExportDataNode } from "../Node/ExportDataNode";
 import { HTTPRequestNode } from "../Node/HTTPRequestNode";
-import { ClipBoardNode } from "../Node/ClipboardNode";
+import { ClipBoardNode } from "../Node/ClipBoardNode";
 import { WaitConnectionNode } from "../Node/WaitConnectionNode";
 import { NotificationNode } from "../Node/NotificationNode";
 import { NoteNode } from "../Node/NoteNode";
+import { ActiveTabNode } from "../Node/ActiveTabNode";
+import { NewTabNode } from "../Node/NewTabNode";
+import { SwitchTabsNode } from "../Node/SwitchTabsNode";
+import { NewWindowNode } from "../Node/NewWindowNode";
+import { ProxyNode } from "../Node/ProxyNode";
+import { CloseTabNode } from "../Node/CloseTabNode";
+import { GoBackNode } from "../Node/GoBackNode";
+import { GoForwardNode } from "../Node/GoForwardNode";
+import { ScreenShotNode } from "../Node/ScreenShotNode";
+import { Input } from "@/components/ui/input";
 
 const nodeTypes = {
   customTriggerNode: TriggerNode,
@@ -37,6 +47,15 @@ const nodeTypes = {
   customWaitConnections: WaitConnectionNode,
   customNotifications: NotificationNode,
   customNotes: NoteNode,
+  activeTab: ActiveTabNode,
+  newTab: NewTabNode,
+  switchTabs: SwitchTabsNode,
+  newWindow: NewWindowNode,
+  proxy: ProxyNode,
+  closeTabs: CloseTabNode,
+  goBack: GoBackNode,
+  goForward: GoForwardNode,
+  takeScreenShot: ScreenShotNode,
 };
 
 export default function Page() {
@@ -136,12 +155,24 @@ export default function Page() {
   );
 }
 
-// Sidebar Panel for Dragging Nodes
+// const [searchComponents, setSearchComponents] = useState("");
+// const [filteredComponents, setFilteredComponents] = useState([]);
+// const allData = [...GENERAL, ...BROWSER, INTERACTION];
+
 const NodesPanel = () => (
-  <div className="w-80 h-screen overflow-auto bg-gray-900 p-4 border-r border-gray-800 flex flex-col gap-4">
+  <div className="w-80 h-screen overflow-auto bg-[#27272A] p-4 border-r border-gray-800 flex flex-col gap-4">
     <div className="flex items-center gap-2 mb-4">
       <Zap size={20} className="text-blue-400" />
       <h2 className="text-lg font-semibold">Workflow Components</h2>
+    </div>
+
+    <div className="group relative">
+      <Input
+        // value={searchComponents}
+        // onChange={(e) => setSearchComponents(e.target.value)}
+        placeholder={"Search....."}
+        className="border border-white bg-[#313134] py-2 px-2"
+      />
     </div>
 
     <div className="space-y-2">
@@ -190,7 +221,7 @@ const PanelSection = ({
   icon: React.ReactNode;
   children: React.ReactNode;
 }) => (
-  <div className="bg-gray-800 rounded-lg p-2">
+  <div className="bg-[#313134] rounded-lg p-2">
     <div className="flex items-center gap-2 mb-2 px-2 py-1 text-sm font-medium text-gray-300">
       {icon}
       {title}
@@ -209,7 +240,7 @@ const DraggableNode = ({
   icon: React.ReactNode;
 }) => (
   <div
-    className="p-3 bg-gray-700 rounded-lg cursor-move hover:bg-gray-600 transition-colors shadow-sm"
+    className="p-3 bg-[#27272A] rounded-lg cursor-move hover:bg-gray-600 transition-colors shadow-sm"
     draggable
     onDragStart={(e) => {
       e.dataTransfer.setData("application/reactflow", type);
