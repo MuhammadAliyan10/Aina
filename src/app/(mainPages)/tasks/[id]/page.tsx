@@ -1,66 +1,56 @@
-// app/tasks/page.tsx
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { format } from "date-fns";
 import ReactFlow, {
   useEdgesState,
   useNodesState,
   Connection,
+  Edge,
   Background,
   Controls,
-  Node,
+  addEdge,
   ReactFlowInstance,
+  Node,
   XYPosition,
 } from "reactflow";
-import {
-  ChevronDown,
-  Plus,
-  File,
-  Bot,
-  Save,
-  Trash,
-  MousePointer2,
-  Zap,
-  FolderPlus,
-  Clock,
-  Globe,
-  Chrome,
-} from "lucide-react";
+import "reactflow/dist/style.css";
+import { Zap, FolderPlus, Globe, Chrome } from "lucide-react";
 import { GENERAL, BROWSER, INTERACTION } from "../data/Data";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { useSession } from "@/app/(main)/SessionProvider";
-import { Button } from "@/components/ui/button";
-import { CustomAutomationNode } from "../components/CustomAutomationNode";
-import { CustomFileNode } from "../components/CustomFileNode";
-import { CustomTaskNode } from "../components/CustomTaskNode";
-import { saveFlow } from "../action";
+import { TriggerNode } from "../Node/TriggerNode";
 
-export default function Page({ params }: { params: { id: string } }) {
-  const { user } = useSession();
+const nodeTypes = {
+  customTriggerNode: TriggerNode,
+  customWorkFlow: TriggerNode,
+};
+
+export default function Page() {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node<any>[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<
+    Node<{ label: string }>[]
+  >([
+    {
+      id: "1",
+      type: "default",
+      position: { x: 250, y: 150 },
+      data: { label: "Start Node" },
+    },
+  ]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
 
-  const nodeTypes = {
-    customTask: CustomTaskNode,
-    customFile: CustomFileNode,
-    customAutomation: CustomAutomationNode,
-  };
+  // UUID generator
   const uuidv4 = () => {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
       /[xy]/g,
       function (c) {
-        const r = (Math.random() * 16) | 0,
-          v = c == "x" ? r : (r & 0x3) | 0x8;
+        const r = (Math.random() * 16) | 0;
+        const v = c == "x" ? r : (r & 0x3) | 0x8;
         return v.toString(16);
       }
     );
   };
-  // Drag and drop handlers
+
+  // Dragging handlers
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -79,21 +69,21 @@ export default function Page({ params }: { params: { id: string } }) {
 
       const newNode: Node = {
         id: uuidv4(),
-        type,
+        type: type,
         position,
-        data: {
-          label: `${type} node`,
-          ...(type === "customTask" && { dueDate: new Date() }),
-        },
+        data: { label: `${type}` },
       };
 
-      setNodes((nds) => nds.concat(newNode));
-      setIsDirty(true);
+      setNodes((nds) => [...nds, newNode]);
     },
     [reactFlowInstance]
   );
 
-  // Rest of the existing code...
+  // Handle connections
+  const onConnect = useCallback(
+    (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
+    []
+  );
 
   return (
     <div className="h-screen w-full bg-gray-950 text-white flex">
@@ -103,19 +93,20 @@ export default function Page({ params }: { params: { id: string } }) {
           nodes={nodes}
           edges={edges}
           onInit={setReactFlowInstance}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
           onDragOver={onDragOver}
           onDrop={onDrop}
+          fitView
           nodeTypes={nodeTypes}
-          // Rest of the props...
+          panOnDrag
+          zoomOnScroll
+          zoomOnDoubleClick
         >
-          <Background
-            gap={36}
-            className="bg-gray-900"
-            color="#374151"
-            // variant="lines"
-          />
+          <Background />
           <Controls
-            className="[&>button]:bg-gray-800 [&>button]:text-white [&>button]:border-gray-700 [&>button]:hover:bg-gray-700"
+            className="bg-gray-800 text-white"
             position="bottom-right"
           />
         </ReactFlow>
@@ -124,7 +115,7 @@ export default function Page({ params }: { params: { id: string } }) {
   );
 }
 
-// Enhanced Nodes Panel Component
+// Sidebar Panel for Dragging Nodes
 const NodesPanel = () => (
   <div className="w-80 h-screen overflow-auto bg-gray-900 p-4 border-r border-gray-800 flex flex-col gap-4">
     <div className="flex items-center gap-2 mb-4">
@@ -137,8 +128,8 @@ const NodesPanel = () => (
         {GENERAL.map((item) => (
           <DraggableNode
             type={item.type}
-            label={item.label}
             icon={item.icon}
+            label={item.label}
             key={item.id}
           />
         ))}
@@ -148,18 +139,19 @@ const NodesPanel = () => (
         {BROWSER.map((item) => (
           <DraggableNode
             type={item.type}
-            label={item.label}
             icon={item.icon}
+            label={item.label}
             key={item.id}
           />
         ))}
       </PanelSection>
+
       <PanelSection title="Web Interactions" icon={<Chrome size={16} />}>
         {INTERACTION.map((item) => (
           <DraggableNode
             type={item.type}
-            label={item.label}
             icon={item.icon}
+            label={item.label}
             key={item.id}
           />
         ))}
@@ -186,18 +178,17 @@ const PanelSection = ({
   </div>
 );
 
-// Define DraggableNodeProps type
-type DraggableNodeProps = {
+const DraggableNode = ({
+  type,
+  label,
+  icon,
+}: {
   type: string;
   label: string;
   icon: React.ReactNode;
-};
-
-// Enhanced Draggable Node Component
-const DraggableNode = ({ type, label, icon }: DraggableNodeProps) => (
+}) => (
   <div
-    className="p-3 bg-gray-700 rounded-lg cursor-move 
-      hover:bg-gray-600 transition-colors group shadow-sm"
+    className="p-3 bg-gray-700 rounded-lg cursor-move hover:bg-gray-600 transition-colors shadow-sm"
     draggable
     onDragStart={(e) => {
       e.dataTransfer.setData("application/reactflow", type);
@@ -210,14 +201,5 @@ const DraggableNode = ({ type, label, icon }: DraggableNodeProps) => (
     <p className="text-sm mt-2 text-gray-200 group-hover:text-white transition-colors whitespace-nowrap">
       {label}
     </p>
-  </div>
-);
-
-// Template Item Component
-const TemplateItem = ({ label }: { label: string }) => (
-  <div className="flex items-center p-3 bg-gray-700 rounded-lg cursor-pointer hover:bg-gray-600 transition-colors group shadow-sm">
-    <span className="text-sm text-gray-200 group-hover:text-white transition-colors">
-      {label}
-    </span>
   </div>
 );

@@ -33,6 +33,7 @@ import {
   Keyboard,
   Heading1,
 } from "lucide-react";
+import { TriggerNode } from "../Node/TriggerNode";
 
 export const INTERACTION = [
   {
@@ -123,7 +124,7 @@ export const INTERACTION = [
 export const GENERAL = [
   {
     id: 0,
-    type: "customInput",
+    type: "customTriggerNode",
     label: "Trigger",
     icon: <Play size={16} />,
   },
