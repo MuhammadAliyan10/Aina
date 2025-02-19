@@ -1,5 +1,6 @@
 "use client";
 import { IconArrowNarrowRight } from "@tabler/icons-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useRef, useId, useEffect } from "react";
 

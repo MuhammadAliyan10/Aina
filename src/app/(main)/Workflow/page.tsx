@@ -23,6 +23,8 @@ import { Loader2, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { DialogOverlay } from "@radix-ui/react-dialog";
 import WorkFlowCard from "./components/WorkflowCard";
+import { GlareCardDemo } from "@/components/Global/GlareCardDemo";
+import { useQuery } from "@tanstack/react-query";
 
 interface WorkFlow {
   title: string;
@@ -46,35 +48,56 @@ export default function WorkFlow() {
     title: "",
     description: "",
   });
-  const [workFlow, setWorkFlow] = useState<UserWorkFlow[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const fetchData = async () => {
-    setWorkFlowLoading(true);
-    try {
-      const userWorkFlow = await fetchUserWorkFlow();
-      setWorkFlow(
-        userWorkFlow.map((flow) => ({
-          ...flow,
-          createdAt: flow.createdAt.toISOString(),
-        }))
-      );
-    } catch (error) {
-      console.error("Error fetching workflows:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch workflows",
-        variant: "destructive",
-      });
-    } finally {
-      setWorkFlowLoading(false);
-    }
-  };
+  // const fetchData = async () => {
+  //   setWorkFlowLoading(true);
+  //   try {
+  //     const userWorkFlow = await fetchUserWorkFlow();
+  //     setWorkFlow(
+  //       userWorkFlow.map((flow) => ({
+  //         ...flow,
+  //         createdAt: flow.createdAt.toISOString(),
+  //       }))
+  //     );
+  //   } catch (error) {
+  //     console.error("Error fetching workflows:", error);
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to fetch workflows",
+  //       variant: "destructive",
+  //     });
+  //   } finally {
+  //     setWorkFlowLoading(false);
+  //   }
+  // };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // useEffect(() => {
+  //   fetchData();
+  // }, []);
+
+  const {
+    data: workFlow,
+    refetch,
+    isLoading: loadingWorkFlow,
+  } = useQuery({
+    queryKey: ["automations"],
+    queryFn: async (): Promise<UserWorkFlow[]> => {
+      const result = await fetchUserWorkFlow();
+      if ("error" in result) {
+        if (typeof result.error === "string") {
+          throw new Error(result.error);
+        } else {
+          throw new Error("An unknown error occurred");
+        }
+      }
+      return result.map((flow) => ({
+        ...flow,
+        createdAt: flow.createdAt.toISOString(),
+      }));
+    },
+  });
 
   const handleSubmit = async () => {
     if (!newWorkFlow.title.trim() || !newWorkFlow.description.trim()) {
@@ -85,7 +108,6 @@ export default function WorkFlow() {
       });
       return;
     }
-
     setLoading(true);
     try {
       const res = await handleAddWorkFlow(newWorkFlow);
@@ -93,7 +115,7 @@ export default function WorkFlow() {
         toast({ title: "Success", description: "Workflow added successfully" });
         setIsDialogOpen(false);
         setNewWorkFlow({ title: "", description: "" });
-        fetchData(); // Refresh workflows after adding
+        refetch();
       }
     } catch (error) {
       console.error("Failed to add workflow:", error);
@@ -108,7 +130,7 @@ export default function WorkFlow() {
   };
   const removeWorkFlow = async (workFlowId: string) => {
     try {
-      setWorkFlowDeleteLoading(false);
+      setWorkFlowDeleteLoading(true);
       setRemovingWorkFlowId(workFlowId);
       const response = await handleRemoveWorkFlow(workFlowId);
 
@@ -125,7 +147,7 @@ export default function WorkFlow() {
         description: response.message,
       });
 
-      fetchData();
+      refetch();
     } catch (error) {
       console.error("Failed to remove workflow:", error);
       toast({
@@ -134,23 +156,23 @@ export default function WorkFlow() {
         variant: "destructive",
       });
     } finally {
-      setWorkFlowDeleteLoading(true);
+      setWorkFlowDeleteLoading(false);
       setRemovingWorkFlowId(null);
     }
   };
 
   return (
-    <div className="m-10 pt-5 md:pt-0">
+    <div className="w-full m-10 pt-5 md:pt-0">
       <div>
         <ShinyText
           text="Workflows"
-          className="text-4xl md:text-8xl font-bold mb-4"
+          className="text-4xl md:text-8xl font-bold mb-4 text-center"
           disabled={false}
           speed={3}
         />
 
         {/* Header with Add Task Button */}
-        <div className="p-4">
+        <div className="p-4 text-center">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button>Add New Workflow</Button>
@@ -197,13 +219,6 @@ export default function WorkFlow() {
           <Separator />
         </div>
 
-        <ShinyText
-          text="Your Workflows"
-          className="text-4xl md:text-3xl font-bold mb-4"
-          disabled={false}
-          speed={3}
-        />
-
         {workflowLoading ? (
           <div className="flex justify-center items-center gap-x-3">
             <Loader2 className="size-5 animate-spin" />
@@ -211,20 +226,31 @@ export default function WorkFlow() {
           </div>
         ) : (
           <>
-            {workFlow.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-4">
+            {workFlow && workFlow.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-4">
                 {workFlow.map((flow) => (
-                  <WorkFlowCard
+                  <GlareCardDemo
+                    key={flow.id}
                     id={flow.id}
                     title={flow.title}
+                    createdAt={flow.createdAt}
                     description={flow.description}
                     onDelete={() => removeWorkFlow(flow.id)}
                     loading={workflowDeleteLoading}
+                    href="/tasks"
                   />
+                  // <WorkFlowCard
+                  //   key={flow.id}
+                  //   id={flow.id}
+                  //   title={flow.title}
+                  //   description={flow.description}
+                  //   onDelete={() => removeWorkFlow(flow.id)}
+                  //   loading={workflowDeleteLoading}
+                  // />
                 ))}
               </div>
             ) : (
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground text-center">
                 No workflows found. Create one to get started.
               </p>
             )}

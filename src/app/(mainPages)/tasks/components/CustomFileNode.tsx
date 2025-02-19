@@ -8,7 +8,7 @@ interface CustomAssignmentNodeProps {
   };
 }
 
-export const CustomAssignmentNode: React.FC<CustomAssignmentNodeProps> = ({
+export const CustomFileNode: React.FC<CustomAssignmentNodeProps> = ({
   data,
 }) => {
   return (

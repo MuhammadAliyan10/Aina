@@ -5,12 +5,12 @@ import { Separator } from "../ui/separator";
 import Link from "next/link";
 
 interface EvervaultProps {
-  id: any;
+  id: String;
   title: String;
   description: String;
   status: String;
-  createdAt: any;
-  onDelete: (id: string) => void;
+  createdAt: Date | undefined;
+  onDelete: (id: String) => void;
 }
 export function EvervaultCardDemo({
   id,
@@ -18,7 +18,6 @@ export function EvervaultCardDemo({
   description,
   status,
   onDelete,
-  createdAt,
 }: EvervaultProps) {
   return (
     <div className="border border-black/[0.2] dark:border-white/[0.2] flex flex-col items-start max-w-sm mx-auto p-4 relative h-[30rem]">

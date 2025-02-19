@@ -22,6 +22,7 @@ model User {
   tasks         Task[]
   assignments   Assignment[]
   workflows     Workflow[]   // ✅ One user has multiple workflows
+  flows         Flow[]       // ✅ One user has multiple flows
 }
 
 model Session {
@@ -92,27 +93,13 @@ model APIToken {
 
   @@unique([userId, provider]) 
 }
-model Node {
-  id        String  @id @default(cuid()) // Unique identifier
-  label     String
-  data      Json    // Store additional data
-  positionX Float
-  positionY Float
-  edgesFrom Edge[] @relation("EdgeFrom")
-  edgesTo   Edge[] @relation("EdgeTo")
+model Flow {
+  id     String @id
+  userId String
+  nodes  Json
+  edges   Json
+  user   User   @relation(fields: [userId], references: [id])
 }
-
-model Edge {
-  id       String @id @default(cuid()) // Unique identifier
-  sourceId String
-  targetId String
-  type     String
-  label    String?
-
-  source Node @relation("EdgeFrom", fields: [sourceId], references: [id])
-  target Node @relation("EdgeTo", fields: [targetId], references: [id])
-}
-
 model Workflow {
   id          String   @id @default(uuid())
   title       String

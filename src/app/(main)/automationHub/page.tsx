@@ -15,6 +15,8 @@ import { addAutomation, deleteAutomation, fetchUserAutomation } from "./action";
 import { toast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { EvervaultCardDemo } from "@/components/Global/EvervaultCard";
+import { GlareCard } from "@/components/ui/glare-card";
+import { GlareCardDemo } from "@/components/Global/GlareCardDemo";
 
 interface UserAutomation {
   id?: string;
@@ -120,7 +122,7 @@ const Page = () => {
       <div className="flex flex-col justify-center items-center">
         <ShinyText
           text="Automation Hub"
-          className="text-4xl md:text-8xl font-bold mb-4 text-center"
+          className="text-4xl md:text-7xl font-bold mb-4 text-center"
           disabled={false}
           speed={3}
         />
@@ -130,7 +132,7 @@ const Page = () => {
               setIsDialogOpen(true);
             }}
           >
-            Add Automation
+            Add New Automations
           </Button>
         </div>
 
@@ -182,31 +184,38 @@ const Page = () => {
         </Dialog>
 
         <Separator className="w-full my-6" />
-        <div className="w-full">
+        <div className="w-full text-center">
           {loadingAutomation ? (
             <div className="flex justify-center items-center gap-x-2">
               <Loader2 className="size-10 animate-spin" />
               <span>Loading automations...</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-              {automations ? (
-                automations.map((automation: UserAutomation) => (
-                  <EvervaultCardDemo
-                    title={automation.title}
-                    description={automation.description}
-                    status={automation.status}
-                    id={automation?.id}
-                    createdAt={automation.updatedAt}
-                    onDelete={() =>
-                      automation?.id && handleDelete(automation.id)
-                    }
-                  />
-                ))
+            <>
+              {automations && automations.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                  {automations.map((automation: UserAutomation) => (
+                    <GlareCardDemo
+                      key={automation.id}
+                      title={automation?.title}
+                      type={automation.type}
+                      description={automation.description}
+                      status={automation.status}
+                      id={automation.id || ""}
+                      href="/automation"
+                      createdAt={automation.updatedAt}
+                      onDelete={() =>
+                        automation?.id && handleDelete(automation.id)
+                      }
+                    />
+                  ))}
+                </div>
               ) : (
-                <p className="text-muted-foreground">No automations found.</p>
+                <p className="text-muted-foreground">
+                  No automations found. Kindly create one.
+                </p>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>
