@@ -1,5 +1,5 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
-import { Play, Edit, Trash, Workflow } from "lucide-react";
+import { Play, Edit, Trash, Chrome, Link2, Link } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -11,9 +11,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const WorkflowNode = ({ id, data }: NodeProps) => {
+const HTTPRequestNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
+  const [URL, setURL] = useState(data.URL || "");
+  const [method, setMethod] = useState(data.method || "GET");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
 
@@ -36,6 +48,12 @@ const WorkflowNode = ({ id, data }: NodeProps) => {
     <div className="relative min-w-[12rem] text-white p-3 rounded-xl shadow-md border border-gray-600 group bg-gray-900 transition-all hover:shadow-lg">
       {/* Action buttons, visible on hover */}
       <div className="absolute -top-[44px] left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md p-2 flex justify-between items-center gap-x-3 opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
+        <Chrome
+          size={18}
+          className="cursor-pointer text-gray-400 hover:text-red-500 transition-colors"
+          onClick={handleDelete}
+        />
+        <span className="border border-r-white h-[15px]"></span>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Edit
@@ -47,9 +65,10 @@ const WorkflowNode = ({ id, data }: NodeProps) => {
           <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
             <DialogHeader>
               <DialogTitle className="text-lg font-semibold">
-                Edit Description
+                Edit Requests
               </DialogTitle>
             </DialogHeader>
+            <Label>Description</Label>
             <Input
               type="text"
               value={description}
@@ -57,6 +76,45 @@ const WorkflowNode = ({ id, data }: NodeProps) => {
               placeholder="Enter description"
               className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
             />
+            <Label>URL</Label>
+            <Input
+              type="text"
+              value={URL}
+              onChange={(e) => setURL(e.target.value)}
+              placeholder="Enter URL"
+              className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+            />
+            <Label>Method</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="bg-transparent border border-gray-200 text-white hover:bg-transparent">
+                  {method}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                <DropdownMenuLabel>HTTP/HTTPS Methods</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={method}
+                  onValueChange={setMethod}
+                >
+                  <DropdownMenuRadioItem value="GET">Get</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="POST">
+                    Post
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="PUT">PUT</DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="UPDATE">
+                    Update
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="DELETE">
+                    Delete
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="PATCH">
+                    Patch
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DialogFooter className="mt-4">
               <Button
                 onClick={() => handleSave(description)}
@@ -77,26 +135,37 @@ const WorkflowNode = ({ id, data }: NodeProps) => {
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           <span className="p-3 bg-black text-white rounded-lg shadow-md">
-            <Workflow size={20} />
+            <Chrome size={20} />
           </span>
-          <span className="text-sm font-semibold">Workflow</span>
+          <p className="text-sm font-semibold">HTTPS Request</p>
         </div>
+        {URL && (
+          <div className="text-sm text-muted-foreground underline flex justify-center items-center gap-x-2">
+            <Link size={15} />
+            <a href={URL}>{URL}</a>
+          </div>
+        )}
         {description && (
           <p className="text-xs text-gray-400 italic">{description}</p>
         )}
       </div>
       <Handle
-        type="target"
-        position={Position.Left}
-        style={{ backgroundColor: "white", width: "0.6rem", height: "0.6rem" }}
-      />
-      <Handle
         type="source"
         position={Position.Right}
         style={{ width: "0.6rem", height: "0.6rem" }}
       />
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ backgroundColor: "white", width: "0.6rem", height: "0.6rem" }}
+      />
+      {/* <Handle
+        type="target"
+        position={Position.Right}
+        style={{ width: "0.6rem", height: "0.6rem" }}
+      /> */}
     </div>
   );
 };
 
-export { WorkflowNode };
+export { HTTPRequestNode };

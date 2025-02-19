@@ -32,6 +32,7 @@ import {
   Upload,
   Keyboard,
   Heading1,
+  Bell,
 } from "lucide-react";
 import { TriggerNode } from "../Node/TriggerNode";
 
@@ -149,15 +150,15 @@ export const GENERAL = [
   {
     id: 4,
     type: "customRequest",
-    label: "HTTPS Requests",
+    label: "HTTP Requests",
     icon: <Globe size={16} />,
   },
-  {
-    id: 5,
-    type: "customGroups",
-    label: "Block Groups",
-    icon: <Boxes size={16} />,
-  },
+  // {
+  //   id: 5,
+  //   type: "customGroups",
+  //   label: "Block Groups",
+  //   icon: <Boxes size={16} />,
+  // },
   {
     id: 6,
     type: "customClipBoard",
@@ -166,7 +167,7 @@ export const GENERAL = [
   },
   {
     id: 7,
-    type: "customConnections",
+    type: "customWaitConnections",
     label: "Wait Connections",
     icon: <ClockAlert size={16} />,
   },
@@ -174,7 +175,7 @@ export const GENERAL = [
     id: 8,
     type: "customNotifications",
     label: "Notifications",
-    icon: <AlertCircle size={16} />,
+    icon: <Bell size={16} />,
   },
   {
     id: 9,
@@ -182,18 +183,18 @@ export const GENERAL = [
     label: "Notes",
     icon: <NotebookPen size={16} />,
   },
-  {
-    id: 10,
-    type: "customSettings",
-    label: "Workflow Setting",
-    icon: <Settings size={16} />,
-  },
-  {
-    id: 11,
-    type: "customParameters",
-    label: "Parameters",
-    icon: <Command size={16} />,
-  },
+  // {
+  //   id: 10,
+  //   type: "customSettings",
+  //   label: "Workflow Setting",
+  //   icon: <Settings size={16} />,
+  // },
+  // {
+  //   id: 11,
+  //   type: "customParameters",
+  //   label: "Parameters",
+  //   icon: <Command size={16} />,
+  // },
 ];
 export const BROWSER = [
   {

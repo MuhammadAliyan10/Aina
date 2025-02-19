@@ -1,5 +1,5 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
-import { Play, Edit, Trash, Workflow, Timer } from "lucide-react";
+import { Play, Edit, Trash, Workflow, Timer, Clock } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -13,9 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
-const DelayNode = ({ id, data }: NodeProps) => {
+const WaitConnectionNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [delay, setDelay] = useState(data.delay || 500);
+  const [wait, setWait] = useState(data.delay || 5000);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
 
@@ -79,13 +79,13 @@ const DelayNode = ({ id, data }: NodeProps) => {
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           <span className="p-3 bg-black text-white rounded-lg shadow-md">
-            <Timer size={20} />
+            <Clock size={20} />
           </span>
-          <span className="text-sm font-semibold">Delay</span>
+          <span className="text-sm font-semibold">Wait Connection</span>
         </div>
         <Input
-          value={delay}
-          onChange={(e) => setDelay(e.target.value)}
+          value={wait}
+          onChange={(e) => setWait(e.target.value)}
           className="border-white text-white"
         />
         {description && (
@@ -106,4 +106,4 @@ const DelayNode = ({ id, data }: NodeProps) => {
   );
 };
 
-export { DelayNode };
+export { WaitConnectionNode };

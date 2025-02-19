@@ -21,12 +21,22 @@ import { TriggerNode } from "../Node/TriggerNode";
 import { WorkflowNode } from "../Node/WorkflowNode";
 import { DelayNode } from "../Node/DelayNode";
 import { ExportDataNode } from "../Node/ExportDataNode";
+import { HTTPRequestNode } from "../Node/HTTPRequestNode";
+import { ClipBoardNode } from "../Node/ClipboardNode";
+import { WaitConnectionNode } from "../Node/WaitConnectionNode";
+import { NotificationNode } from "../Node/NotificationNode";
+import { NoteNode } from "../Node/NoteNode";
 
 const nodeTypes = {
   customTriggerNode: TriggerNode,
   customWorkFlow: WorkflowNode,
   customDelay: DelayNode,
   customExport: ExportDataNode,
+  customRequest: HTTPRequestNode,
+  customClipBoard: ClipBoardNode,
+  customWaitConnections: WaitConnectionNode,
+  customNotifications: NotificationNode,
+  customNotes: NoteNode,
 };
 
 export default function Page() {

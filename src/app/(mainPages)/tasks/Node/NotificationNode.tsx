@@ -1,5 +1,14 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
-import { Play, Edit, Trash, Workflow, Timer } from "lucide-react";
+import {
+  Play,
+  Edit,
+  Trash,
+  Chrome,
+  Link2,
+  Link,
+  AlertCircle,
+  Bell,
+} from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -11,11 +20,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const DelayNode = ({ id, data }: NodeProps) => {
+const NotificationNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [delay, setDelay] = useState(data.delay || 500);
+  const [URL, setURL] = useState(data.URL || "");
+  const [method, setMethod] = useState(data.method || "GET");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
 
@@ -35,23 +54,30 @@ const DelayNode = ({ id, data }: NodeProps) => {
   };
 
   return (
-    <div className="relative min-w-[12rem] text-white p-3 rounded-xl shadow-md border border-gray-600 group bg-gray-900 transition-all hover:shadow-lg focus:border focus:border-white">
+    <div className="relative min-w-[12rem] text-white p-3 rounded-xl shadow-md border border-gray-600 group bg-gray-900 transition-all hover:shadow-lg">
       {/* Action buttons, visible on hover */}
       <div className="absolute -top-[44px] left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md p-2 flex justify-between items-center gap-x-3 opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
+        <Chrome
+          size={18}
+          className="cursor-pointer text-gray-400 hover:text-red-500 transition-colors"
+          onClick={handleDelete}
+        />
+        <span className="border border-r-white h-[15px]"></span>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Edit
               size={18}
-              className="cursor-pointer text-gray-400 hover:text-blue-400 transition-colors border"
+              className="cursor-pointer text-gray-400 hover:text-blue-400 transition-colors"
               onClick={() => setIsDialogOpen(true)}
             />
           </DialogTrigger>
           <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
             <DialogHeader>
               <DialogTitle className="text-lg font-semibold">
-                Edit Description
+                Edit Requests
               </DialogTitle>
             </DialogHeader>
+            <Label>Description</Label>
             <Input
               type="text"
               value={description}
@@ -79,15 +105,11 @@ const DelayNode = ({ id, data }: NodeProps) => {
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           <span className="p-3 bg-black text-white rounded-lg shadow-md">
-            <Timer size={20} />
+            <Bell size={20} />
           </span>
-          <span className="text-sm font-semibold">Delay</span>
+          <p className="text-sm font-semibold">Notifications</p>
         </div>
-        <Input
-          value={delay}
-          onChange={(e) => setDelay(e.target.value)}
-          className="border-white text-white"
-        />
+
         {description && (
           <p className="text-xs text-gray-400 italic">{description}</p>
         )}
@@ -106,4 +128,4 @@ const DelayNode = ({ id, data }: NodeProps) => {
   );
 };
 
-export { DelayNode };
+export { NotificationNode };

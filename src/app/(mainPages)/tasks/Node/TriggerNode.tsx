@@ -92,7 +92,7 @@ const TriggerNode = ({ id, data }: NodeProps) => {
         )}
       </div>
       <Handle
-        type="target"
+        type="source"
         position={Position.Right}
         style={{ width: "0.6rem", height: "0.6rem" }}
       />

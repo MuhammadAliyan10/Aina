@@ -1,5 +1,5 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
-import { Play, Edit, Trash, Workflow, Timer } from "lucide-react";
+import { Play, Edit, Trash, Workflow, Download, Clipboard } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -11,11 +11,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 
-const DelayNode = ({ id, data }: NodeProps) => {
+const ClipBoardNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [delay, setDelay] = useState(data.delay || 500);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
 
@@ -35,14 +33,14 @@ const DelayNode = ({ id, data }: NodeProps) => {
   };
 
   return (
-    <div className="relative min-w-[12rem] text-white p-3 rounded-xl shadow-md border border-gray-600 group bg-gray-900 transition-all hover:shadow-lg focus:border focus:border-white">
+    <div className="relative min-w-[12rem] text-white p-3 rounded-xl shadow-md border border-gray-600 group bg-gray-900 transition-all hover:shadow-lg">
       {/* Action buttons, visible on hover */}
       <div className="absolute -top-[44px] left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md p-2 flex justify-between items-center gap-x-3 opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Edit
               size={18}
-              className="cursor-pointer text-gray-400 hover:text-blue-400 transition-colors border"
+              className="cursor-pointer text-gray-400 hover:text-blue-400 transition-colors"
               onClick={() => setIsDialogOpen(true)}
             />
           </DialogTrigger>
@@ -79,31 +77,26 @@ const DelayNode = ({ id, data }: NodeProps) => {
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           <span className="p-3 bg-black text-white rounded-lg shadow-md">
-            <Timer size={20} />
+            <Clipboard size={20} />
           </span>
-          <span className="text-sm font-semibold">Delay</span>
+          <span className="text-sm font-semibold">ClipBoard</span>
         </div>
-        <Input
-          value={delay}
-          onChange={(e) => setDelay(e.target.value)}
-          className="border-white text-white"
-        />
         {description && (
           <p className="text-xs text-gray-400 italic">{description}</p>
         )}
       </div>
       <Handle
-        type="source"
-        position={Position.Right}
-        style={{ width: "0.6rem", height: "0.6rem" }}
-      />
-      <Handle
         type="target"
         position={Position.Left}
         style={{ backgroundColor: "white", width: "0.6rem", height: "0.6rem" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        style={{ width: "0.6rem", height: "0.6rem" }}
       />
     </div>
   );
 };
 
-export { DelayNode };
+export { ClipBoardNode };
