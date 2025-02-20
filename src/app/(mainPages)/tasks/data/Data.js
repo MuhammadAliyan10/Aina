@@ -33,8 +33,14 @@ import {
   Keyboard,
   Heading1,
   Bell,
+  Repeat2,
+  Split,
+  LocateFixed,
+  Infinity,
+  RefreshCw,
+  RefreshCwOff,
 } from "lucide-react";
-import { TriggerNode } from "../Node/TriggerNode";
+import { TriggerNode } from "../Node/General/TriggerNode";
 
 export const INTERACTION = [
   {
@@ -280,5 +286,50 @@ export const BROWSER = [
     type: "getTabURL",
     label: "Get Tab URL",
     icon: <Link2 size={16} />,
+  },
+];
+
+export const CONTROL_FLOW = [
+  {
+    id: 0,
+    type: "repeatTask",
+    label: "Repeat Task",
+    icon: <Repeat2 size={16} />,
+  },
+  {
+    id: 1,
+    type: "conditions",
+    label: "Conditions",
+    icon: <Split size={16} />,
+  },
+  {
+    id: 2,
+    type: "elementExist",
+    label: "Element Exist",
+    icon: <LocateFixed size={16} />,
+  },
+  {
+    id: 3,
+    type: "whileLoop",
+    label: "While Loop",
+    icon: <Infinity size={16} />,
+  },
+  {
+    id: 4,
+    type: "loopData",
+    label: "Loop Data",
+    icon: <RefreshCw size={16} />,
+  },
+  {
+    id: 5,
+    type: "loopElement",
+    label: "Loop Element",
+    icon: <RotateCcw size={16} />,
+  },
+  {
+    id: 6,
+    type: "loopBreak",
+    label: "Loop Break",
+    icon: <RefreshCwOff size={16} />,
   },
 ];

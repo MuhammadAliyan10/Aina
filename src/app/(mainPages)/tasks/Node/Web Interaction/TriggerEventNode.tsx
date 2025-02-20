@@ -1,5 +1,19 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
-import { Play, Edit, Trash, Chrome, Link2, Link } from "lucide-react";
+import {
+  Play,
+  Edit,
+  Trash,
+  Chrome,
+  Link2,
+  Link,
+  Lightbulb,
+  Mouse,
+  LocateFixed,
+  CheckCheck,
+  Braces,
+  Pi,
+  Code,
+} from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -22,10 +36,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const NewTabNode = ({ id, data }: NodeProps) => {
+const TriggerEventNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [URL, setURL] = useState(data.URL || "");
-  const [method, setMethod] = useState(data.method || "GET");
+  const [selector, setSelector] = useState(data.selector || "CSS Selector");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
 
@@ -65,7 +78,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
           <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
             <DialogHeader>
               <DialogTitle className="text-lg font-semibold">
-                Edit Tabs
+                Click Event
               </DialogTitle>
             </DialogHeader>
             <Label>Description</Label>
@@ -76,14 +89,36 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               placeholder="Enter description"
               className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
             />
-            <Label>Tab URL</Label>
-            <Input
-              type="text"
-              value={URL}
-              onChange={(e) => setURL(e.target.value)}
-              placeholder="Enter URL"
-              className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="grid grid-cols-[80%_10%_10%] gap-x-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="bg-[#374151] border border-gray-200 text-white  hover:bg-[#374151]">
+                    {selector}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56">
+                  <DropdownMenuLabel>Selector Methods</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuRadioGroup
+                    value={selector}
+                    onValueChange={setSelector}
+                  >
+                    <DropdownMenuRadioItem value="CSS Selector">
+                      CSS Selector
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="XPath">
+                      XPath
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <div className="flex justify-center items-center rounded-sm bg-gray-600 text-white">
+                <LocateFixed size={18} />
+              </div>
+              <div className="flex justify-center items-center rounded-sm bg-gray-600 text-white">
+                <CheckCheck size={18} />
+              </div>
+            </div>
 
             <DialogFooter className="mt-4">
               <Button
@@ -104,17 +139,12 @@ const NewTabNode = ({ id, data }: NodeProps) => {
       </div>
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
-          <span className="p-3 bg-black text-white rounded-lg shadow-md">
-            <Chrome size={20} />
+          <span className="p-3 bg-[#87EFAC] text-white rounded-lg shadow-md">
+            <Lightbulb size={20} />
           </span>
-          <p className="text-sm font-semibold">New Tab</p>
+          <p className="text-sm font-semibold">Trigger Event</p>
         </div>
-        {URL && (
-          <div className="text-sm text-muted-foreground underline flex justify-center items-center gap-x-2">
-            <Link size={15} />
-            <a href={URL}>{URL}</a>
-          </div>
-        )}
+
         {description && (
           <p className="text-xs text-gray-400 italic">{description}</p>
         )}
@@ -129,8 +159,13 @@ const NewTabNode = ({ id, data }: NodeProps) => {
         position={Position.Left}
         style={{ backgroundColor: "white", width: "0.6rem", height: "0.6rem" }}
       />
+      {/* <Handle
+        type="target"
+        position={Position.Right}
+        style={{ width: "0.6rem", height: "0.6rem" }}
+      /> */}
     </div>
   );
 };
 
-export { NewTabNode };
+export { TriggerEventNode };

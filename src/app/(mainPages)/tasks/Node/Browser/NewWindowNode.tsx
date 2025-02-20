@@ -1,5 +1,5 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
-import { Play, Edit, Trash, CrossIcon, X } from "lucide-react";
+import { Play, Edit, Trash, Chrome, Link2, Link, Globe } from "lucide-react";
 import { useState } from "react";
 import {
   Dialog,
@@ -9,6 +9,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,14 +21,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 
-const CloseTabNode = ({ id, data }: NodeProps) => {
+const NewWindowNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [type, setType] = useState(data.type || "tab");
-
+  const [URL, setURL] = useState(data.URL || "");
+  const [type, setType] = useState(data.type || "normal");
+  const [windowState, setWindowState] = useState(data.windowState || "normal");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
 
@@ -48,7 +49,7 @@ const CloseTabNode = ({ id, data }: NodeProps) => {
     <div className="relative min-w-[12rem] text-white p-3 rounded-xl shadow-md border border-gray-600 group bg-gray-900 transition-all hover:shadow-lg">
       {/* Action buttons, visible on hover */}
       <div className="absolute -top-[44px] left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md p-2 flex justify-between items-center gap-x-3 opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
-        <Play
+        <Chrome
           size={18}
           className="cursor-pointer text-gray-400 hover:text-red-500 transition-colors"
           onClick={handleDelete}
@@ -65,9 +66,10 @@ const CloseTabNode = ({ id, data }: NodeProps) => {
           <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
             <DialogHeader>
               <DialogTitle className="text-lg font-semibold">
-                Edit Description
+                New Window
               </DialogTitle>
             </DialogHeader>
+            <Label>Description</Label>
             <Input
               type="text"
               value={description}
@@ -86,13 +88,58 @@ const CloseTabNode = ({ id, data }: NodeProps) => {
                 <DropdownMenuLabel>Window Type</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup value={type} onValueChange={setType}>
-                  <DropdownMenuRadioItem value="tab">Tab</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="window">
-                    Window
+                  <DropdownMenuRadioItem value="normal">
+                    Normal
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="popup">
+                    Popup
+                  </DropdownMenuRadioItem>
+
+                  <DropdownMenuRadioItem value="panel">
+                    Panel
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Label>URL (Optional)</Label>
+            <Input
+              type="text"
+              value={URL}
+              onChange={(e) => setURL(e.target.value)}
+              placeholder="Enter URL"
+              className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+            />
+
+            <Label>Widow State</Label>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="bg-transparent border border-gray-200 text-white hover:bg-transparent capitalize">
+                  {windowState}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                <DropdownMenuLabel>Window States</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={windowState}
+                  onValueChange={setWindowState}
+                >
+                  <DropdownMenuRadioItem value="normal">
+                    Normal
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="minimized">
+                    Minimized
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="maximized">
+                    Maximized
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="fullscreen">
+                    FullScreen
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <DialogFooter className="mt-4">
               <Button
                 onClick={() => handleSave(description)}
@@ -112,27 +159,38 @@ const CloseTabNode = ({ id, data }: NodeProps) => {
       </div>
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
-          <span className="p-3 bg-black text-white rounded-lg shadow-md">
-            <X size={20} />
+          <span className="p-3 bg-[#fde047] text-white rounded-lg shadow-md">
+            <Globe size={20} />
           </span>
-          <span className="text-sm font-semibold">Close Tab</span>
+          <p className="text-sm font-semibold">New Window</p>
         </div>
+        {URL && (
+          <div className="text-sm text-muted-foreground underline flex justify-center items-center gap-x-2">
+            <Link size={15} />
+            <a href={URL}>{URL}</a>
+          </div>
+        )}
         {description && (
           <p className="text-xs text-gray-400 italic">{description}</p>
         )}
       </div>
       <Handle
-        type="target"
-        position={Position.Left}
-        style={{ backgroundColor: "white", width: "0.6rem", height: "0.6rem" }}
-      />
-      <Handle
         type="source"
         position={Position.Right}
         style={{ width: "0.6rem", height: "0.6rem" }}
       />
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ backgroundColor: "white", width: "0.6rem", height: "0.6rem" }}
+      />
+      {/* <Handle
+        type="target"
+        position={Position.Right}
+        style={{ width: "0.6rem", height: "0.6rem" }}
+      /> */}
     </div>
   );
 };
 
-export { CloseTabNode };
+export { NewWindowNode };

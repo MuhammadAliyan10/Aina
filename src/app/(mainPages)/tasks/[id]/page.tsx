@@ -15,27 +15,61 @@ import ReactFlow, {
   MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Zap, FolderPlus, Globe, Chrome, Search } from "lucide-react";
-import { GENERAL, BROWSER, INTERACTION } from "../data/Data";
-import { TriggerNode } from "../Node/TriggerNode";
-import { WorkflowNode } from "../Node/WorkflowNode";
-import { DelayNode } from "../Node/DelayNode";
-import { ExportDataNode } from "../Node/ExportDataNode";
-import { HTTPRequestNode } from "../Node/HTTPRequestNode";
-import { ClipBoardNode } from "../Node/ClipBoardNode";
-import { WaitConnectionNode } from "../Node/WaitConnectionNode";
-import { NotificationNode } from "../Node/NotificationNode";
-import { NoteNode } from "../Node/NoteNode";
-import { ActiveTabNode } from "../Node/ActiveTabNode";
-import { NewTabNode } from "../Node/NewTabNode";
-import { SwitchTabsNode } from "../Node/SwitchTabsNode";
-import { NewWindowNode } from "../Node/NewWindowNode";
-import { ProxyNode } from "../Node/ProxyNode";
-import { CloseTabNode } from "../Node/CloseTabNode";
-import { GoBackNode } from "../Node/GoBackNode";
-import { GoForwardNode } from "../Node/GoForwardNode";
-import { ScreenShotNode } from "../Node/ScreenShotNode";
+import {
+  Zap,
+  FolderPlus,
+  Globe,
+  Chrome,
+  Search,
+  Plus,
+  Minus,
+  Circle,
+} from "lucide-react";
+import { GENERAL, BROWSER, INTERACTION, CONTROL_FLOW } from "../data/Data";
+import { TriggerNode } from "../Node/General/TriggerNode";
+import { WorkflowNode } from "../Node/General/WorkflowNode";
+import { DelayNode } from "../Node/General/DelayNode";
+import { ExportDataNode } from "../Node/General/ExportDataNode";
+import { HTTPRequestNode } from "../Node/General/HTTPRequestNode";
+import { ClipBoardNode } from "../Node/General/ClipBoardNode";
+import { WaitConnectionNode } from "../Node/General/WaitConnectionNode";
+import { NotificationNode } from "../Node/General/NotificationNode";
+import { NoteNode } from "../Node/General/NoteNode";
+import { ActiveTabNode } from "../Node/Browser/ActiveTabNode";
+import { NewTabNode } from "../Node/Browser/NewTabNode";
+import { SwitchTabsNode } from "../Node/Browser/SwitchTabsNode";
+import { NewWindowNode } from "../Node/Browser/NewWindowNode";
+import { ProxyNode } from "../Node/Browser/ProxyNode";
+import { CloseTabNode } from "../Node/Browser/CloseTabNode";
+import { GoBackNode } from "../Node/Browser/GoBackNode";
+import { GoForwardNode } from "../Node/Browser/GoForwardNode";
+import { ScreenShotNode } from "../Node/Browser/ScreenShotNode";
 import { Input } from "@/components/ui/input";
+import { BrowserEventNode } from "../Node/Browser/BrowserEventNode";
+import { HandleDownloadNode } from "../Node/Browser/HandleDownloadNode";
+import { ReloadTabNode } from "../Node/Browser/ReloadTabNode";
+import { GetURLNode } from "../Node/Browser/GetURLNode";
+import { ClickElementNode } from "../Node/Web Interaction/ClickElementNode";
+import { GetTextNode } from "../Node/Web Interaction/GetTextNode";
+import { ScrollEventNode } from "../Node/Web Interaction/ScrollEventNode";
+import { LinkEventNode } from "../Node/Web Interaction/LinkElementNode";
+import { AttributeVariableNode } from "../Node/Web Interaction/AttributeVariableNode";
+import { FormsNode } from "../Node/Web Interaction/FormsNode";
+import { JavaScriptCodeNode } from "../Node/Web Interaction/JavaScriptCodeNode";
+import { TriggerEventNode } from "../Node/Web Interaction/TriggerEventNode";
+import { SwitchFrameNode } from "../Node/Web Interaction/SwitchFrameNode";
+import { UploadFileNode } from "../Node/Web Interaction/UploadFileNode";
+import { HoverElementNode } from "../Node/Web Interaction/HoverElementNode";
+import { SaveAssetsNode } from "../Node/Web Interaction/SaveAssetsNode";
+import { PressKeyNode } from "../Node/Web Interaction/PressKeyNode";
+import { CreateElementNode } from "../Node/Web Interaction/CreateElementNode";
+import { RepeatTaskNode } from "../Node/Control Flow/RepeatTaskNode";
+import { ConditionsNode } from "../Node/Control Flow/ConditionsNode";
+import { ElementExistNode } from "../Node/Control Flow/ElementExistNode";
+import { WhileLoopNode } from "../Node/Control Flow/WhileLoppNode";
+import { LoopDataNode } from "../Node/Control Flow/LoopDataNode";
+import { LoopElementNode } from "../Node/Control Flow/LoopElementNode";
+import { LoopBreakNode } from "../Node/Control Flow/LoopBreakNode";
 
 const nodeTypes = {
   customTriggerNode: TriggerNode,
@@ -56,6 +90,31 @@ const nodeTypes = {
   goBack: GoBackNode,
   goForward: GoForwardNode,
   takeScreenShot: ScreenShotNode,
+  browserEvent: BrowserEventNode,
+  handleDownload: HandleDownloadNode,
+  reloadTab: ReloadTabNode,
+  getTabURL: GetURLNode,
+  customClickElement: ClickElementNode,
+  customGetText: GetTextNode,
+  customScrollElement: ScrollEventNode,
+  customLink: LinkEventNode,
+  customAttributeVariable: AttributeVariableNode,
+  customForms: FormsNode,
+  customJavaScript: JavaScriptCodeNode,
+  customTriggerEvent: TriggerEventNode,
+  customSwitchFrame: SwitchFrameNode,
+  customUploadFile: UploadFileNode,
+  customHoverElement: HoverElementNode,
+  customSaveAssets: SaveAssetsNode,
+  customPressKey: PressKeyNode,
+  customCreateElement: CreateElementNode,
+  repeatTask: RepeatTaskNode,
+  conditions: ConditionsNode,
+  elementExist: ElementExistNode,
+  whileLoop: WhileLoopNode,
+  loopData: LoopDataNode,
+  loopElement: LoopElementNode,
+  loopBreak: LoopBreakNode,
 };
 
 export default function Page() {
@@ -159,74 +218,152 @@ export default function Page() {
 // const [filteredComponents, setFilteredComponents] = useState([]);
 // const allData = [...GENERAL, ...BROWSER, INTERACTION];
 
-const NodesPanel = () => (
-  <div className="w-80 h-screen overflow-auto bg-[#27272A] p-4 border-r border-gray-800 flex flex-col gap-4">
-    <div className="flex items-center gap-2 mb-4">
-      <Zap size={20} className="text-blue-400" />
-      <h2 className="text-lg font-semibold">Workflow Components</h2>
+const NodesPanel = () => {
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    General: true,
+    Browser: true,
+    "Web Interactions": true,
+    CONTROL_FLOW: true,
+  });
+
+  const toggleSection = (section: string) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
+  return (
+    <div className="w-80 h-screen overflow-auto bg-[#27272A] p-4 border-r border-gray-800 flex flex-col gap-4">
+      <div className="flex items-center gap-2 mb-4">
+        <Zap size={20} className="text-blue-400" />
+        <h2 className="text-lg font-semibold">Workflow Components</h2>
+      </div>
+
+      <div className="group relative">
+        <Input
+          placeholder={"Search....."}
+          className="border border-white bg-[#313134] py-2 px-2"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <PanelSection
+          title="General"
+          isOpen={openSections["General"]}
+          toggle={() => toggleSection("General")}
+          icon={
+            <Circle size={16} className="bg-black text-black rounded-full" />
+          }
+        >
+          {GENERAL.map((item) => (
+            <DraggableNode
+              type={item.type}
+              icon={item.icon}
+              label={item.label}
+              key={item.id}
+            />
+          ))}
+        </PanelSection>
+
+        <PanelSection
+          title="Browser"
+          isOpen={openSections["Browser"]}
+          toggle={() => toggleSection("Browser")}
+          icon={
+            <Circle
+              size={13}
+              className="bg-[#fde047] rounded-full text-[#fde047]"
+            />
+          }
+        >
+          {BROWSER.map((item) => (
+            <DraggableNode
+              type={item.type}
+              icon={item.icon}
+              label={item.label}
+              key={item.id}
+            />
+          ))}
+        </PanelSection>
+
+        <PanelSection
+          title="Web Interactions"
+          isOpen={openSections["Web Interactions"]}
+          toggle={() => toggleSection("Web Interactions")}
+          icon={
+            <Circle
+              size={13}
+              className="bg-[#87EFAC] rounded-full text-[#87EFAC]"
+            />
+          }
+        >
+          {INTERACTION.map((item) => (
+            <DraggableNode
+              type={item.type}
+              icon={item.icon}
+              label={item.label}
+              key={item.id}
+            />
+          ))}
+        </PanelSection>
+
+        <PanelSection
+          title="Control Flow"
+          isOpen={openSections["CONTROL_FLOW"]}
+          toggle={() => toggleSection("CONTROL_FLOW")}
+          icon={
+            <Circle
+              size={13}
+              className="bg-[#92C5FD] rounded-full text-[#92C5FD]"
+            />
+          }
+        >
+          {CONTROL_FLOW.map((item) => (
+            <DraggableNode
+              type={item.type}
+              icon={item.icon}
+              label={item.label}
+              key={item.id}
+            />
+          ))}
+        </PanelSection>
+      </div>
     </div>
-
-    <div className="group relative">
-      <Input
-        // value={searchComponents}
-        // onChange={(e) => setSearchComponents(e.target.value)}
-        placeholder={"Search....."}
-        className="border border-white bg-[#313134] py-2 px-2"
-      />
-    </div>
-
-    <div className="space-y-2">
-      <PanelSection title="General" icon={<FolderPlus size={16} />}>
-        {GENERAL.map((item) => (
-          <DraggableNode
-            type={item.type}
-            icon={item.icon}
-            label={item.label}
-            key={item.id}
-          />
-        ))}
-      </PanelSection>
-
-      <PanelSection title="Browser" icon={<Globe size={16} />}>
-        {BROWSER.map((item) => (
-          <DraggableNode
-            type={item.type}
-            icon={item.icon}
-            label={item.label}
-            key={item.id}
-          />
-        ))}
-      </PanelSection>
-
-      <PanelSection title="Web Interactions" icon={<Chrome size={16} />}>
-        {INTERACTION.map((item) => (
-          <DraggableNode
-            type={item.type}
-            icon={item.icon}
-            label={item.label}
-            key={item.id}
-          />
-        ))}
-      </PanelSection>
-    </div>
-  </div>
-);
+  );
+};
 
 const PanelSection = ({
   title,
   icon,
+  isOpen,
+  toggle,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
+  isOpen: boolean;
+  toggle: () => void;
   children: React.ReactNode;
 }) => (
   <div className="bg-[#313134] rounded-lg p-2">
-    <div className="flex items-center gap-2 mb-2 px-2 py-1 text-sm font-medium text-gray-300">
-      {icon}
-      {title}
+    <div className="flex justify-between items-center">
+      <div
+        className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-300 cursor-pointer"
+        onClick={toggle}
+      >
+        {icon}
+        {title}
+      </div>
+      <div onClick={toggle} className="cursor-pointer">
+        {isOpen ? <Minus size={18} /> : <Plus size={18} />}
+      </div>
     </div>
-    <div className="gap-2 grid grid-cols-2">{children}</div>
+    {isOpen && (
+      <div className="gap-2 grid grid-cols-2 transition-all mt-2">
+        {children}
+      </div>
+    )}
   </div>
 );
 

@@ -8,21 +8,20 @@ generator client {
 }
 
 model User {
-  id            String       @id @default(uuid())
-  username      String       @unique
-  email         String       @unique
-  passwordHash  String
-  fullName      String
-  bio           String?
-  profilePic    String?
-  createdAt     DateTime     @default(now())
+  id           String       @id @default(uuid())
+  username     String       @unique
+  email        String       @unique
+  passwordHash String
+  fullName     String
+  bio          String?
+  profilePic   String?
+  createdAt    DateTime     @default(now())
   automations  Automation[]
-  sessions      Session[]
-  apiTokens     APIToken[]
-  tasks         Task[]
-  assignments   Assignment[]
-  workflows     Workflow[]   // ✅ One user has multiple workflows
-  flows         Flow[]       // ✅ One user has multiple flows
+  sessions     Session[]
+  apiTokens    APIToken[]
+  tasks        Task[]
+  assignments  Assignment[]
+  workflows    Workflow[]
 }
 
 model Session {
@@ -34,39 +33,79 @@ model Session {
   @@map("sessions")
 }
 
-
 model Automation {
-  id          String      @id @default(cuid())
-  title       String
-  description String
+  id            String   @id @default(cuid())
+  title         String
+  description   String
   automationUrl String
-  type        String
-  credentials Json
-  process     String
-  fileUrl     String? 
-  executeAt   DateTime
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  status      String      @default("PENDING") 
-  keywords String[]
+  type          String
+  credentials   Json
+  process       String
+  fileUrl       String?
+  executeAt     DateTime
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  status        String   @default("PENDING")
+  keywords      String[]
 }
-model Task {
+
+model Workflow {
   id          String   @id @default(uuid())
   title       String
   description String?
-  status      String   @default("pending") // pending, in_progress, completed
-  dueDate     DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodes       Node[]
+  Edge        Edge[]
 
-  workflowId  String  // ✅ Each Task belongs to a Workflow
-  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  @@map("workflows")
+}
+
+model Node {
+  id            String   @id @default(uuid())
+  name          String
+  type          String
+  positionX     Float
+  positionY     Float
+  workflowId    String
+  workflow      Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  tasks         Task[]
+  outgoingEdges Edge[]   @relation("NodeOutgoingEdges")
+  incomingEdges Edge[]   @relation("NodeIncomingEdges")
+
+  @@map("nodes")
+}
+
+model Edge {
+  id         String   @id @default(uuid())
+  sourceId   String
+  targetId   String
+  workflowId String
+  source     Node     @relation("NodeOutgoingEdges", fields: [sourceId], references: [id], onDelete: Cascade)
+  target     Node     @relation("NodeIncomingEdges", fields: [targetId], references: [id], onDelete: Cascade)
+  workflow   Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@map("edges")
+}
+
+model Task {
+  id            String      @id @default(uuid())
+  title         String
+  description   String?
+  status        String      @default("pending")
+  dueDate       DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodeId        String
+  node          Node        @relation(fields: [nodeId], references: [id], onDelete: Cascade)
   dependentOnId String?
-  assignment   Assignment?
+  assignment    Assignment?
 }
 
 model Assignment {
@@ -82,34 +121,14 @@ model Assignment {
 }
 
 model APIToken {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider    String   
-  accessToken String
-  refreshToken String?  
-  tokenExpiry DateTime?
-  createdAt   DateTime @default(now())
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String
+  accessToken  String
+  refreshToken String?
+  tokenExpiry  DateTime?
+  createdAt    DateTime  @default(now())
 
-  @@unique([userId, provider]) 
-}
-model Flow {
-  id     String @id
-  userId String
-  nodes  Json
-  edges   Json
-  user   User   @relation(fields: [userId], references: [id])
-}
-model Workflow {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  tasks       Task[] // ✅ One Workflow has multiple Tasks
-
-  @@map("workflows") // ✅ Table name in DB
+  @@unique([userId, provider])
 }

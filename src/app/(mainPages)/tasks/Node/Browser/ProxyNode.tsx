@@ -6,7 +6,8 @@ import {
   Chrome,
   Link2,
   Link,
-  ArrowLeftRight,
+  Globe,
+  ShieldPlus,
 } from "lucide-react";
 import { useState } from "react";
 import {
@@ -29,10 +30,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
 
-const SwitchTabsNode = ({ id, data }: NodeProps) => {
+const ProxyNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [URL, setURL] = useState(data.URL || "");
+  const [host, setHost] = useState(data.URL || "");
+  const [port, setPort] = useState(data.port || 433);
+  const [bypassList, setBypassList] = useState(data.bypassList || "");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { setNodes } = useReactFlow();
 
@@ -71,9 +75,7 @@ const SwitchTabsNode = ({ id, data }: NodeProps) => {
           </DialogTrigger>
           <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
             <DialogHeader>
-              <DialogTitle className="text-lg font-semibold">
-                Switch Tabs
-              </DialogTitle>
+              <DialogTitle className="text-lg font-semibold">Proxy</DialogTitle>
             </DialogHeader>
             <Label>Description</Label>
             <Input
@@ -83,12 +85,28 @@ const SwitchTabsNode = ({ id, data }: NodeProps) => {
               placeholder="Enter description"
               className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
             />
-            <Label>Match Pattern</Label>
+
+            <Label>Host</Label>
             <Input
               type="text"
-              value={URL}
-              onChange={(e) => setURL(e.target.value)}
-              placeholder="Enter URL"
+              value={host}
+              onChange={(e) => setHost(e.target.value)}
+              placeholder="socks5://1234:433"
+              className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+            />
+            <Label>Port</Label>
+            <Input
+              type="text"
+              value={port}
+              onChange={(e) => setPort(e.target.value)}
+              placeholder="Port"
+              className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+            />
+            <Label>BypassList</Label>
+            <Textarea
+              value={bypassList}
+              onChange={(e) => setBypassList(e.target.value)}
+              placeholder="example1.com, example2.com"
               className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
             />
 
@@ -111,17 +129,12 @@ const SwitchTabsNode = ({ id, data }: NodeProps) => {
       </div>
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
-          <span className="p-3 bg-black text-white rounded-lg shadow-md">
-            <ArrowLeftRight size={20} />
+          <span className="p-3 bg-[#fde047] text-white rounded-lg shadow-md">
+            <ShieldPlus size={20} />
           </span>
-          <p className="text-sm font-semibold">Switch Tabs</p>
+          <p className="text-sm font-semibold">Proxy</p>
         </div>
-        {URL && (
-          <div className="text-sm text-muted-foreground underline flex justify-center items-center gap-x-2">
-            <Link size={15} />
-            <a href={URL}>{URL}</a>
-          </div>
-        )}
+
         {description && (
           <p className="text-xs text-gray-400 italic">{description}</p>
         )}
@@ -136,8 +149,13 @@ const SwitchTabsNode = ({ id, data }: NodeProps) => {
         position={Position.Left}
         style={{ backgroundColor: "white", width: "0.6rem", height: "0.6rem" }}
       />
+      {/* <Handle
+        type="target"
+        position={Position.Right}
+        style={{ width: "0.6rem", height: "0.6rem" }}
+      /> */}
     </div>
   );
 };
 
-export { SwitchTabsNode };
+export { ProxyNode };
