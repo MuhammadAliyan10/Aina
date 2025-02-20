@@ -40,7 +40,6 @@ import {
   RefreshCw,
   RefreshCwOff,
 } from "lucide-react";
-import { TriggerNode } from "../Node/General/TriggerNode";
 
 export const INTERACTION = [
   {

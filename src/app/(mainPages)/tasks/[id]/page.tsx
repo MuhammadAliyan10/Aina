@@ -13,6 +13,9 @@ import ReactFlow, {
   Node,
   XYPosition,
   MarkerType,
+  MiniMap,
+  useReactFlow,
+  ReactFlowProvider,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import {
@@ -25,6 +28,12 @@ import {
   Minus,
   Circle,
   Undo2,
+  Save,
+  Play,
+  ZoomIn,
+  ZoomOut,
+  RefreshCw,
+  Crosshair,
 } from "lucide-react";
 import { GENERAL, BROWSER, INTERACTION, CONTROL_FLOW } from "../data/Data";
 import { TriggerNode } from "../Node/General/TriggerNode";
@@ -72,6 +81,7 @@ import { LoopDataNode } from "../Node/Control Flow/LoopDataNode";
 import { LoopElementNode } from "../Node/Control Flow/LoopElementNode";
 import { LoopBreakNode } from "../Node/Control Flow/LoopBreakNode";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 const nodeTypes = {
   customTriggerNode: TriggerNode,
@@ -119,7 +129,14 @@ const nodeTypes = {
   loopBreak: LoopBreakNode,
 };
 
-export default function Page() {
+const PageWithProvider = () => (
+  <ReactFlowProvider>
+    <Page />
+  </ReactFlowProvider>
+);
+export default PageWithProvider;
+
+function Page() {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<
@@ -185,11 +202,37 @@ export default function Page() {
     };
     setEdges((eds) => addEdge(edgeWithArrow, eds));
   }, []);
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+
+  function nodeColor(node: any) {
+    switch (node.parent) {
+      case "interaction":
+        return "#6ede87";
+      case "output":
+        return "#6865A5";
+      default:
+        return "#ff0072";
+    }
+  }
 
   return (
     <div className="h-screen w-full bg-gray-950 text-white flex">
       <NodesPanel />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col relative">
+        {/* Top-Right Buttons */}
+        <div className="absolute top-4 right-4 flex gap-2 z-10">
+          <Button variant="outline" className="text-white border-white">
+            <Save className="w-4 h-4 mr-2" /> Save
+          </Button>
+          <Button
+            variant="ghost"
+            className="text-white border border-white bg-transparent"
+          >
+            <Play className="w-4 h-4 mr-2" /> Run Automation
+          </Button>
+        </div>
+
+        {/* React Flow Canvas */}
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -206,9 +249,45 @@ export default function Page() {
           zoomOnDoubleClick
         >
           <Background />
-          <Controls
-            className="bg-gray-800 text-white"
-            position="bottom-right"
+
+          <div className="absolute bottom-4 left-4 flex z-10 gap-3 p-3 rounded-lg shadow-lg">
+            <Button
+              variant="ghost"
+              className="text-white border-white bg-[#27272A]"
+              onClick={() => zoomIn()}
+            >
+              <ZoomIn size={20} />
+            </Button>
+            <Button
+              variant="ghost"
+              className="text-white border-white bg-[#27272A]"
+              onClick={() => zoomOut()}
+            >
+              <ZoomOut size={20} />
+            </Button>
+            <Button
+              variant="ghost"
+              className="text-white border-white bg-[#27272A]"
+              onClick={() => fitView()}
+            >
+              <RefreshCw size={20} />
+            </Button>
+            <Button
+              variant="ghost"
+              className="text-white border-white bg-[#27272A]"
+              onClick={() => fitView({ duration: 800 })}
+            >
+              <Crosshair size={20} />
+            </Button>
+          </div>
+
+          {/* MiniMap for Navigation (Transparent Background) */}
+          <MiniMap
+            nodeStrokeWidth={3}
+            maskColor="rgba(0, 0, 0, 0.2)"
+            nodeColor={nodeColor}
+            className="absolute bottom-16 right-4 border border-white rounded-lg"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }} // Change the background color here
           />
         </ReactFlow>
       </div>
@@ -235,18 +314,6 @@ const NodesPanel = () => {
       [section]: !prev[section],
     }));
   };
-
-  const ALL_DATA = useMemo(
-    () => [...GENERAL, ...BROWSER, ...INTERACTION, ...CONTROL_FLOW],
-    []
-  );
-
-  const filteredData = useMemo(() => {
-    if (!searchKeyWords.trim()) return ALL_DATA;
-    return ALL_DATA.filter((item) =>
-      item.label.toLowerCase().includes(searchKeyWords.toLowerCase())
-    );
-  }, [searchKeyWords, ALL_DATA]);
 
   return (
     <div className="w-80 h-screen overflow-auto bg-[#27272A] p-4 border-r border-gray-800 flex flex-col gap-4">
