@@ -1,6 +1,6 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
 import {
-  Chrome,
+  Trash2,
   Edit,
   Trash,
   Power,
@@ -19,13 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
@@ -39,14 +33,16 @@ const log = {
   error: (message: string) => console.error(`[ERROR] ${message}`),
 };
 
-const NewTabNode = ({ id, data }: NodeProps) => {
+const ClearCookiesNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [url, setUrl] = useState(data.config?.url || ""); // URL to open in the new tab
-  const [focus, setFocus] = useState(data.config?.focus || "yes"); // Whether to focus the new tab
+  const [clearAll, setClearAll] = useState(data.config?.clearAll !== false); // Clear all cookies or specific ones
+  const [cookieNames, setCookieNames] = useState(
+    data.config?.cookieNames || ""
+  ); // Specific cookie names to clear (comma-separated)
   const [timeout, setTimeout] = useState(data.config?.timeout || 5000); // Timeout in milliseconds
   const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false); // Default to enabled
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "error">("idle"); // Execution status
   const { setNodes } = useReactFlow();
 
@@ -54,20 +50,24 @@ const NewTabNode = ({ id, data }: NodeProps) => {
   useEffect(() => {
     if (data.error) {
       setStatus("error");
-      setError(data.error);
-      log.error(`NewTabNode ${id}: ${data.error}`);
+      log.error(`ClearCookiesNode ${id}: ${data.error}`);
+      setErrorMessage(data.error);
     } else if (data.output) {
       setStatus("running");
-      log.info(`NewTabNode ${id}: Tab opened - ${JSON.stringify(data.output)}`);
+      log.info(
+        `ClearCookiesNode ${id}: Cookies cleared - ${JSON.stringify(
+          data.output
+        )}`
+      );
     } else {
       setStatus("idle");
-      setError(null);
+      setErrorMessage(null);
     }
   }, [data.error, data.output, id]);
 
   const handleDelete = () => {
     setNodes((nodes) => nodes.filter((node) => node.id !== id));
-    log.info(`NewTabNode ${id}: Deleted`);
+    log.info(`ClearCookiesNode ${id}: Deleted`);
   };
 
   const handleToggleEnable = () => {
@@ -86,34 +86,29 @@ const NewTabNode = ({ id, data }: NodeProps) => {
           : node
       )
     );
-    log.info(`NewTabNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`);
+    log.info(
+      `ClearCookiesNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`
+    );
   };
 
   const validateInputs = () => {
     if (!description.trim()) {
-      setError("Description is required");
+      setErrorMessage("Description is required");
       return false;
     }
-    if (url && !isValidUrl(url)) {
-      setError("Invalid URL format");
+    if (!clearAll && !cookieNames.trim()) {
+      setErrorMessage(
+        "Cookie names are required when not clearing all cookies"
+      );
       return false;
     }
     const timeoutNum = Number(timeout);
     if (isNaN(timeoutNum) || timeoutNum < 0) {
-      setError("Timeout must be a non-negative number");
+      setErrorMessage("Timeout must be a non-negative number");
       return false;
     }
-    setError(null);
+    setErrorMessage(null);
     return true;
-  };
-
-  const isValidUrl = (string: string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const handleSave = () => {
@@ -129,8 +124,8 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 description,
                 config: {
                   ...node.data.config,
-                  url,
-                  focus,
+                  clearAll,
+                  cookieNames: clearAll ? undefined : cookieNames,
                   timeout: Number(timeout),
                   isEnabled,
                 },
@@ -141,7 +136,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
     );
     setIsDialogOpen(false);
     log.info(
-      `NewTabNode ${id}: Configuration saved - ${description}, URL: ${url}, Focus: ${focus}, Timeout: ${timeout}`
+      `ClearCookiesNode ${id}: Configuration saved - ${description}, Clear All: ${clearAll}`
     );
   };
 
@@ -167,7 +162,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
                   <DialogHeader>
                     <DialogTitle className="text-lg font-semibold">
-                      Configure New Tab
+                      Configure Clear Cookies
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -180,40 +175,40 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                         type="text"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="e.g., Open new tab with login page"
+                        placeholder="e.g., Clear session cookies"
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="url" className="text-gray-300">
-                        URL (Optional)
-                      </Label>
-                      <Input
-                        id="url"
-                        type="text"
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        placeholder="e.g., https://example.com"
-                        className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="clearAll"
+                        checked={clearAll}
+                        onCheckedChange={(checked) =>
+                          setClearAll(checked as boolean)
+                        }
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="focus" className="text-gray-300">
-                        Focus New Tab
+                      <Label
+                        htmlFor="clearAll"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-300"
+                      >
+                        Clear All Cookies
                       </Label>
-                      <Select value={focus} onValueChange={setFocus}>
-                        <SelectTrigger
-                          id="focus"
-                          className="bg-gray-700 border-none text-white"
-                        >
-                          <SelectValue placeholder="Select focus option" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-gray-700 text-white">
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
-                        </SelectContent>
-                      </Select>
                     </div>
+                    {!clearAll && (
+                      <div>
+                        <Label htmlFor="cookieNames" className="text-gray-300">
+                          Cookie Names (comma-separated)
+                        </Label>
+                        <Input
+                          id="cookieNames"
+                          type="text"
+                          value={cookieNames}
+                          onChange={(e) => setCookieNames(e.target.value)}
+                          placeholder="e.g., sessionId, userToken"
+                          className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
                     <div>
                       <Label htmlFor="timeout" className="text-gray-300">
                         Timeout (ms)
@@ -228,10 +223,10 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                    {error && (
+                    {errorMessage && (
                       <div className="flex items-center gap-2 text-red-400">
                         <AlertCircle size={16} />
-                        <span className="text-sm">{error}</span>
+                        <span className="text-sm">{errorMessage}</span>
                       </div>
                     )}
                   </div>
@@ -254,7 +249,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               </Dialog>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Edit New Tab</p>
+              <p>Edit Clear Cookies</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -269,7 +264,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               />
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Delete New Tab</p>
+              <p>Delete Clear Cookies</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -280,14 +275,14 @@ const NewTabNode = ({ id, data }: NodeProps) => {
         <div className="flex items-center gap-2">
           {(isEnabled && (
             <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md">
-              <Chrome size={20} />
+              <Trash2 size={20} />
             </span>
           )) || (
             <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md opacity-50">
-              <Chrome size={20} />
+              <Trash2 size={20} />
             </span>
           )}
-          <span className="text-sm font-semibold">New Tab</span>
+          <span className="text-sm font-semibold">Clear Cookies</span>
           {/* Status Indicator */}
           <span
             className={`ml-2 w-2 h-2 rounded-full ${
@@ -316,7 +311,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="bg-gray-700 text-white">
-                <p>{isEnabled ? "Disable New Tab" : "Enable New Tab"}</p>
+                <p>{isEnabled ? "Disable Clear" : "Enable Clear"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -326,12 +321,11 @@ const NewTabNode = ({ id, data }: NodeProps) => {
             {description}
           </p>
         )}
-        {url && (
-          <div className="text-xs text-gray-300 flex items-center gap-1">
-            <Chrome size={12} />
-            <span className="truncate max-w-[9rem]">{url}</span>
-          </div>
-        )}
+        <p className="text-xs text-gray-300 capitalize">
+          {clearAll
+            ? "All Cookies"
+            : `Cookies: ${cookieNames || "None Specified"}`}
+        </p>
       </div>
 
       {/* Handles */}
@@ -349,4 +343,4 @@ const NewTabNode = ({ id, data }: NodeProps) => {
   );
 };
 
-export { NewTabNode };
+export { ClearCookiesNode };

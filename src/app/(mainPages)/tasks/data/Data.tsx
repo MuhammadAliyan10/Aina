@@ -47,6 +47,21 @@ import {
   FileText,
   User,
   Mail,
+  Search,
+  Trash2,
+  Edit2,
+  Plus,
+  Minus,
+  Eye,
+  EyeOff,
+  Terminal,
+  Variable,
+  Calendar,
+  Server,
+  Cloud,
+  Zap,
+  Cog,
+  CheckCheck,
 } from "lucide-react";
 
 // Define a type for node definitions
@@ -61,12 +76,13 @@ interface NodeDefinition {
   supportedOutputs?: string[]; // Data types this node can produce
 }
 
+// General Nodes: Workflow initiation, utilities, and basic operations
 export const GENERAL: NodeDefinition[] = [
   {
     id: 0,
     type: "customTriggerNode",
     label: "Trigger Workflow",
-    category: "Workflow",
+    category: "General",
     icon: <Play size={16} />,
     description:
       "Initiates the workflow execution based on a specified event or schedule.",
@@ -76,7 +92,7 @@ export const GENERAL: NodeDefinition[] = [
     id: 1,
     type: "customWorkFlow",
     label: "Execute Sub-Workflow",
-    category: "Workflow",
+    category: "General",
     icon: <Workflow size={16} />,
     description: "Runs a nested sub-workflow or reusable process.",
     supportedInputs: ["any"],
@@ -86,7 +102,7 @@ export const GENERAL: NodeDefinition[] = [
     id: 2,
     type: "customDelay",
     label: "Delay Execution",
-    category: "Timing",
+    category: "General",
     icon: <Timer size={16} />,
     description: "Pauses the workflow for a specified duration.",
     supportedInputs: ["number"],
@@ -95,7 +111,7 @@ export const GENERAL: NodeDefinition[] = [
     id: 3,
     type: "customExport",
     label: "Export Data",
-    category: "Data",
+    category: "General",
     icon: <Download size={16} />,
     description: "Exports data to a file or external system (e.g., CSV, JSON).",
     supportedInputs: ["object", "array"],
@@ -104,7 +120,7 @@ export const GENERAL: NodeDefinition[] = [
     id: 4,
     type: "customRequest",
     label: "HTTP Request",
-    category: "Network",
+    category: "General",
     icon: <Globe size={16} />,
     description:
       "Makes HTTP requests (GET, POST, etc.) to APIs or web services.",
@@ -115,7 +131,7 @@ export const GENERAL: NodeDefinition[] = [
     id: 5,
     type: "customClipBoard",
     label: "Clipboard Operations",
-    category: "Utilities",
+    category: "General",
     icon: <Clipboard size={16} />,
     description: "Reads from or writes to the system clipboard.",
     supportedInputs: ["string"],
@@ -125,7 +141,7 @@ export const GENERAL: NodeDefinition[] = [
     id: 6,
     type: "customWaitConnections",
     label: "Wait for Connection",
-    category: "Timing",
+    category: "General",
     icon: <ClockAlert size={16} />,
     description: "Pauses execution until a network connection is available.",
     supportedInputs: ["string"],
@@ -134,7 +150,7 @@ export const GENERAL: NodeDefinition[] = [
     id: 7,
     type: "customNotifications",
     label: "Send Notification",
-    category: "Communication",
+    category: "General",
     icon: <Bell size={16} />,
     description: "Sends notifications via email, SMS, or system alerts.",
     supportedInputs: ["string", "object"],
@@ -143,7 +159,7 @@ export const GENERAL: NodeDefinition[] = [
     id: 8,
     type: "customNotes",
     label: "Documentation Note",
-    category: "Documentation",
+    category: "General",
     icon: <NotebookPen size={16} />,
     description: "Adds documentation or comments to the workflow.",
     supportedInputs: ["string"],
@@ -152,7 +168,7 @@ export const GENERAL: NodeDefinition[] = [
     id: 9,
     type: "customErrorHandler",
     label: "Error Handler",
-    category: "Error Handling",
+    category: "General",
     icon: <AlertCircle size={16} />,
     description: "Catches and handles errors in the workflow.",
     supportedInputs: ["error"],
@@ -162,13 +178,34 @@ export const GENERAL: NodeDefinition[] = [
     id: 10,
     type: "customLogger",
     label: "Log Event",
-    category: "Utilities",
+    category: "General",
     icon: <FileText size={16} />,
     description: "Logs events or data to a file or console for debugging.",
     supportedInputs: ["any"],
   },
+  {
+    id: 11,
+    type: "customVariable",
+    label: "Set Variable",
+    category: "General",
+    icon: <Variable size={16} />,
+    description: "Sets or updates a variable value in the workflow.",
+    supportedInputs: ["any"],
+    supportedOutputs: ["any"],
+  },
+  {
+    id: 12,
+    type: "customTimer",
+    label: "Schedule Timer",
+    category: "General",
+    icon: <Calendar size={16} />,
+    description: "Schedules a task to run at a specific time or interval.",
+    supportedInputs: ["string", "number"],
+    supportedOutputs: ["timestamp"],
+  },
 ];
 
+// Browser Nodes: Browser-specific operations
 export const BROWSER: NodeDefinition[] = [
   {
     id: 0,
@@ -295,8 +332,26 @@ export const BROWSER: NodeDefinition[] = [
     description: "Manages browser authentication (e.g., login forms, OAuth).",
     supportedInputs: ["object"],
   },
+  {
+    id: 14,
+    type: "clearCookies",
+    label: "Clear Cookies",
+    category: "Browser",
+    icon: <Trash2 size={16} />,
+    description: "Clears cookies for the current browser session.",
+  },
+  {
+    id: 15,
+    type: "setUserAgent",
+    label: "Set User Agent",
+    category: "Browser",
+    icon: <User size={16} />,
+    description: "Sets a custom user agent string for the browser.",
+    supportedInputs: ["string"],
+  },
 ];
 
+// Web Interaction Nodes: Browser DOM interactions
 export const INTERACTION: NodeDefinition[] = [
   {
     id: 0,
@@ -428,8 +483,37 @@ export const INTERACTION: NodeDefinition[] = [
     description: "Creates a new DOM element on the page.",
     supportedInputs: ["object"],
   },
+  {
+    id: 14,
+    type: "customRemoveElement",
+    label: "Remove DOM Element",
+    category: "Web Interaction",
+    icon: <Trash2 size={16} />,
+    description: "Removes a specified DOM element from the page.",
+    supportedInputs: ["string"],
+  },
+  {
+    id: 15,
+    type: "customSetInput",
+    label: "Set Input Value",
+    category: "Web Interaction",
+    icon: <Edit2 size={16} />,
+    description: "Sets the value of an input field.",
+    supportedInputs: ["string"],
+  },
+  {
+    id: 16,
+    type: "customGetElements",
+    label: "Get Multiple Elements",
+    category: "Web Interaction",
+    icon: <Boxes size={16} />,
+    description: "Retrieves a collection of elements matching a selector.",
+    supportedInputs: ["string"],
+    supportedOutputs: ["array"],
+  },
 ];
 
+// Control Flow Nodes: Workflow control and looping
 export const CONTROL_FLOW: NodeDefinition[] = [
   {
     id: 0,
@@ -497,8 +581,12 @@ export const CONTROL_FLOW: NodeDefinition[] = [
     icon: <RefreshCwOff size={16} />,
     description: "Exits the current loop execution.",
   },
+];
+
+// Data Nodes: Data manipulation and storage
+export const DATA: NodeDefinition[] = [
   {
-    id: 7,
+    id: 0,
     type: "databaseQuery",
     label: "Database Query",
     category: "Data",
@@ -508,7 +596,7 @@ export const CONTROL_FLOW: NodeDefinition[] = [
     supportedOutputs: ["array", "object"],
   },
   {
-    id: 8,
+    id: 1,
     type: "fileInput",
     label: "Read File",
     category: "Data",
@@ -518,12 +606,146 @@ export const CONTROL_FLOW: NodeDefinition[] = [
     supportedOutputs: ["object", "array"],
   },
   {
-    id: 9,
+    id: 2,
     type: "fileOutput",
     label: "Write File",
     category: "Data",
     icon: <FileOutput size={16} />,
     description: "Writes data to a file.",
     supportedInputs: ["object", "array", "string"],
+  },
+  {
+    id: 3,
+    type: "dataTransform",
+    label: "Transform Data",
+    category: "Data",
+    icon: <Cog size={16} />,
+    description: "Transforms data using custom rules or mappings.",
+    supportedInputs: ["object", "array"],
+    supportedOutputs: ["object", "array"],
+  },
+  {
+    id: 4,
+    type: "dataFilter",
+    label: "Filter Data",
+    category: "Data",
+    icon: <Search size={16} />,
+    description: "Filters data based on specified conditions.",
+    supportedInputs: ["array"],
+    supportedOutputs: ["array"],
+  },
+  {
+    id: 5,
+    type: "dataAggregate",
+    label: "Aggregate Data",
+    category: "Data",
+    icon: <Plus size={16} />,
+    description: "Aggregates data (e.g., sum, average) from an array.",
+    supportedInputs: ["array"],
+    supportedOutputs: ["number", "object"],
+  },
+];
+
+// Advanced Nodes: Debugging, system interactions, and advanced features
+export const ADVANCED: NodeDefinition[] = [
+  {
+    id: 0,
+    type: "debug",
+    label: "Debug Breakpoint",
+    category: "Advanced",
+    icon: <Bug size={16} />,
+    description: "Pauses execution for debugging purposes.",
+    supportedInputs: ["any"],
+  },
+  {
+    id: 1,
+    type: "consoleCommand",
+    label: "Run Console Command",
+    category: "Advanced",
+    icon: <Terminal size={16} />,
+    description: "Executes a system command via the console.",
+    supportedInputs: ["string"],
+    supportedOutputs: ["string"],
+  },
+  {
+    id: 2,
+    type: "systemMonitor",
+    label: "Monitor System Resources",
+    category: "Advanced",
+    icon: <Server size={16} />,
+    description: "Monitors CPU, memory, or network usage.",
+    supportedOutputs: ["object"],
+  },
+  {
+    id: 3,
+    type: "cloudSync",
+    label: "Cloud Sync",
+    category: "Advanced",
+    icon: <Cloud size={16} />,
+    description:
+      "Synchronizes data with a cloud service (e.g., AWS, Google Drive).",
+    supportedInputs: ["object", "array"],
+    supportedOutputs: ["string"],
+  },
+  {
+    id: 4,
+    type: "customScript",
+    label: "Custom Script",
+    category: "Advanced",
+    icon: <Code size={16} />,
+    description:
+      "Runs a custom script (e.g., Python, Node.js) within the workflow.",
+    supportedInputs: ["string"],
+    supportedOutputs: ["any"],
+  },
+];
+
+// User Interaction Nodes: Handling user input and feedback
+export const USER_INTERACTION: NodeDefinition[] = [
+  {
+    id: 0,
+    type: "promptUser",
+    label: "Prompt User Input",
+    category: "User Interaction",
+    icon: <MessageCircle size={16} />,
+    description: "Prompts the user for input during execution.",
+    supportedOutputs: ["string"],
+  },
+  {
+    id: 1,
+    type: "confirmDialog",
+    label: "Confirm Dialog",
+    category: "User Interaction",
+    icon: <CheckCheck size={16} />,
+    description: "Displays a confirmation dialog and waits for user response.",
+    supportedOutputs: ["boolean"],
+  },
+  {
+    id: 2,
+    type: "alertUser",
+    label: "Alert User",
+    category: "User Interaction",
+    icon: <AlertCircle size={16} />,
+    description: "Displays an alert message to the user.",
+    supportedInputs: ["string"],
+  },
+  {
+    id: 3,
+    type: "userProfile",
+    label: "Get User Profile",
+    category: "User Interaction",
+    icon: <User size={16} />,
+    description:
+      "Retrieves user profile information (e.g., from browser or system).",
+    supportedOutputs: ["object"],
+  },
+  {
+    id: 4,
+    type: "sendEmail",
+    label: "Send Email",
+    category: "User Interaction",
+    icon: <Mail size={16} />,
+    description: "Sends an email to a specified recipient.",
+    supportedInputs: ["object"],
   },
 ];

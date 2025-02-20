@@ -1,12 +1,5 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
-import {
-  Chrome,
-  Edit,
-  Trash,
-  Power,
-  PowerOff,
-  AlertCircle,
-} from "lucide-react";
+import { Lock, Edit, Trash, Power, PowerOff, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -39,14 +32,25 @@ const log = {
   error: (message: string) => console.error(`[ERROR] ${message}`),
 };
 
-const NewTabNode = ({ id, data }: NodeProps) => {
+const BrowserAuthenticationNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [url, setUrl] = useState(data.config?.url || ""); // URL to open in the new tab
-  const [focus, setFocus] = useState(data.config?.focus || "yes"); // Whether to focus the new tab
+  const [authType, setAuthType] = useState(data.config?.authType || "form"); // Auth type: form, oauth
+  const [usernameSelector, setUsernameSelector] = useState(
+    data.config?.usernameSelector || ""
+  ); // Selector for username field
+  const [passwordSelector, setPasswordSelector] = useState(
+    data.config?.passwordSelector || ""
+  ); // Selector for password field
+  const [username, setUsername] = useState(data.config?.username || ""); // Username value
+  const [password, setPassword] = useState(data.config?.password || ""); // Password value
+  const [submitSelector, setSubmitSelector] = useState(
+    data.config?.submitSelector || ""
+  ); // Selector for submit button
+  const [oauthUrl, setOauthUrl] = useState(data.config?.oauthUrl || ""); // OAuth URL if applicable
   const [timeout, setTimeout] = useState(data.config?.timeout || 5000); // Timeout in milliseconds
   const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false); // Default to enabled
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "error">("idle"); // Execution status
   const { setNodes } = useReactFlow();
 
@@ -54,20 +58,24 @@ const NewTabNode = ({ id, data }: NodeProps) => {
   useEffect(() => {
     if (data.error) {
       setStatus("error");
-      setError(data.error);
-      log.error(`NewTabNode ${id}: ${data.error}`);
+      log.error(`BrowserAuthenticationNode ${id}: ${data.error}`);
+      setErrorMessage(data.error);
     } else if (data.output) {
       setStatus("running");
-      log.info(`NewTabNode ${id}: Tab opened - ${JSON.stringify(data.output)}`);
+      log.info(
+        `BrowserAuthenticationNode ${id}: Authentication completed - ${JSON.stringify(
+          data.output
+        )}`
+      );
     } else {
       setStatus("idle");
-      setError(null);
+      setErrorMessage(null);
     }
   }, [data.error, data.output, id]);
 
   const handleDelete = () => {
     setNodes((nodes) => nodes.filter((node) => node.id !== id));
-    log.info(`NewTabNode ${id}: Deleted`);
+    log.info(`BrowserAuthenticationNode ${id}: Deleted`);
   };
 
   const handleToggleEnable = () => {
@@ -86,34 +94,56 @@ const NewTabNode = ({ id, data }: NodeProps) => {
           : node
       )
     );
-    log.info(`NewTabNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`);
+    log.info(
+      `BrowserAuthenticationNode ${id}: ${
+        newEnabledState ? "Enabled" : "Disabled"
+      }`
+    );
   };
 
   const validateInputs = () => {
     if (!description.trim()) {
-      setError("Description is required");
+      setErrorMessage("Description is required");
       return false;
     }
-    if (url && !isValidUrl(url)) {
-      setError("Invalid URL format");
-      return false;
+    if (authType === "form") {
+      if (!usernameSelector.trim()) {
+        setErrorMessage(
+          "Username selector is required for form authentication"
+        );
+        return false;
+      }
+      if (!passwordSelector.trim()) {
+        setErrorMessage(
+          "Password selector is required for form authentication"
+        );
+        return false;
+      }
+      if (!username.trim()) {
+        setErrorMessage("Username is required for form authentication");
+        return false;
+      }
+      if (!password.trim()) {
+        setErrorMessage("Password is required for form authentication");
+        return false;
+      }
+      if (!submitSelector.trim()) {
+        setErrorMessage("Submit selector is required for form authentication");
+        return false;
+      }
+    } else if (authType === "oauth") {
+      if (!oauthUrl.trim()) {
+        setErrorMessage("OAuth URL is required for OAuth authentication");
+        return false;
+      }
     }
     const timeoutNum = Number(timeout);
     if (isNaN(timeoutNum) || timeoutNum < 0) {
-      setError("Timeout must be a non-negative number");
+      setErrorMessage("Timeout must be a non-negative number");
       return false;
     }
-    setError(null);
+    setErrorMessage(null);
     return true;
-  };
-
-  const isValidUrl = (string: string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const handleSave = () => {
@@ -129,8 +159,16 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 description,
                 config: {
                   ...node.data.config,
-                  url,
-                  focus,
+                  authType,
+                  usernameSelector:
+                    authType === "form" ? usernameSelector : undefined,
+                  passwordSelector:
+                    authType === "form" ? passwordSelector : undefined,
+                  username: authType === "form" ? username : undefined,
+                  password: authType === "form" ? password : undefined,
+                  submitSelector:
+                    authType === "form" ? submitSelector : undefined,
+                  oauthUrl: authType === "oauth" ? oauthUrl : undefined,
                   timeout: Number(timeout),
                   isEnabled,
                 },
@@ -141,7 +179,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
     );
     setIsDialogOpen(false);
     log.info(
-      `NewTabNode ${id}: Configuration saved - ${description}, URL: ${url}, Focus: ${focus}, Timeout: ${timeout}`
+      `BrowserAuthenticationNode ${id}: Configuration saved - ${description}, Type: ${authType}`
     );
   };
 
@@ -167,7 +205,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
                   <DialogHeader>
                     <DialogTitle className="text-lg font-semibold">
-                      Configure New Tab
+                      Configure Browser Authentication
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -180,40 +218,124 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                         type="text"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="e.g., Open new tab with login page"
+                        placeholder="e.g., Login to website"
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="url" className="text-gray-300">
-                        URL (Optional)
+                      <Label htmlFor="authType" className="text-gray-300">
+                        Authentication Type
                       </Label>
-                      <Input
-                        id="url"
-                        type="text"
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        placeholder="e.g., https://example.com"
-                        className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="focus" className="text-gray-300">
-                        Focus New Tab
-                      </Label>
-                      <Select value={focus} onValueChange={setFocus}>
+                      <Select value={authType} onValueChange={setAuthType}>
                         <SelectTrigger
-                          id="focus"
+                          id="authType"
                           className="bg-gray-700 border-none text-white"
                         >
-                          <SelectValue placeholder="Select focus option" />
+                          <SelectValue placeholder="Select auth type" />
                         </SelectTrigger>
                         <SelectContent className="bg-gray-700 text-white">
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
+                          <SelectItem value="form">Form Login</SelectItem>
+                          <SelectItem value="oauth">OAuth</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    {authType === "form" && (
+                      <>
+                        <div>
+                          <Label
+                            htmlFor="usernameSelector"
+                            className="text-gray-300"
+                          >
+                            Username Selector
+                          </Label>
+                          <Input
+                            id="usernameSelector"
+                            type="text"
+                            value={usernameSelector}
+                            onChange={(e) =>
+                              setUsernameSelector(e.target.value)
+                            }
+                            placeholder="e.g., #username"
+                            className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <Label
+                            htmlFor="passwordSelector"
+                            className="text-gray-300"
+                          >
+                            Password Selector
+                          </Label>
+                          <Input
+                            id="passwordSelector"
+                            type="text"
+                            value={passwordSelector}
+                            onChange={(e) =>
+                              setPasswordSelector(e.target.value)
+                            }
+                            placeholder="e.g., #password"
+                            className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="username" className="text-gray-300">
+                            Username
+                          </Label>
+                          <Input
+                            id="username"
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            placeholder="e.g., user@example.com"
+                            className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="password" className="text-gray-300">
+                            Password
+                          </Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="e.g., ********"
+                            className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <Label
+                            htmlFor="submitSelector"
+                            className="text-gray-300"
+                          >
+                            Submit Button Selector
+                          </Label>
+                          <Input
+                            id="submitSelector"
+                            type="text"
+                            value={submitSelector}
+                            onChange={(e) => setSubmitSelector(e.target.value)}
+                            placeholder="e.g., #login-button"
+                            className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </>
+                    )}
+                    {authType === "oauth" && (
+                      <div>
+                        <Label htmlFor="oauthUrl" className="text-gray-300">
+                          OAuth URL
+                        </Label>
+                        <Input
+                          id="oauthUrl"
+                          type="text"
+                          value={oauthUrl}
+                          onChange={(e) => setOauthUrl(e.target.value)}
+                          placeholder="e.g., https://auth.example.com/oauth"
+                          className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
                     <div>
                       <Label htmlFor="timeout" className="text-gray-300">
                         Timeout (ms)
@@ -228,10 +350,10 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                    {error && (
+                    {errorMessage && (
                       <div className="flex items-center gap-2 text-red-400">
                         <AlertCircle size={16} />
-                        <span className="text-sm">{error}</span>
+                        <span className="text-sm">{errorMessage}</span>
                       </div>
                     )}
                   </div>
@@ -254,7 +376,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               </Dialog>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Edit New Tab</p>
+              <p>Edit Browser Authentication</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -269,7 +391,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               />
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Delete New Tab</p>
+              <p>Delete Browser Authentication</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -280,14 +402,14 @@ const NewTabNode = ({ id, data }: NodeProps) => {
         <div className="flex items-center gap-2">
           {(isEnabled && (
             <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md">
-              <Chrome size={20} />
+              <Lock size={20} />
             </span>
           )) || (
             <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md opacity-50">
-              <Chrome size={20} />
+              <Lock size={20} />
             </span>
           )}
-          <span className="text-sm font-semibold">New Tab</span>
+          <span className="text-sm font-semibold">Browser Authentication</span>
           {/* Status Indicator */}
           <span
             className={`ml-2 w-2 h-2 rounded-full ${
@@ -316,7 +438,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="bg-gray-700 text-white">
-                <p>{isEnabled ? "Disable New Tab" : "Enable New Tab"}</p>
+                <p>{isEnabled ? "Disable Auth" : "Enable Auth"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -326,12 +448,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
             {description}
           </p>
         )}
-        {url && (
-          <div className="text-xs text-gray-300 flex items-center gap-1">
-            <Chrome size={12} />
-            <span className="truncate max-w-[9rem]">{url}</span>
-          </div>
-        )}
+        <p className="text-xs text-gray-300 capitalize">Type: {authType}</p>
       </div>
 
       {/* Handles */}
@@ -349,4 +466,4 @@ const NewTabNode = ({ id, data }: NodeProps) => {
   );
 };
 
-export { NewTabNode };
+export { BrowserAuthenticationNode };

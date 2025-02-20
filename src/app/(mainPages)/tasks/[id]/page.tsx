@@ -1,6 +1,7 @@
+// src/app/(mainPages)/tasks/[id]/page.tsx
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   ReactFlow,
   useEdgesState,
@@ -34,7 +35,15 @@ import {
   Minus,
   Plus,
 } from "lucide-react";
-import { GENERAL, BROWSER, INTERACTION, CONTROL_FLOW } from "../data/Data";
+import {
+  GENERAL,
+  BROWSER,
+  INTERACTION,
+  CONTROL_FLOW,
+  DATA,
+  ADVANCED,
+  USER_INTERACTION,
+} from "../data/Data";
 import { TriggerNode } from "../Node/General/TriggerNode";
 import { WorkflowNode } from "../Node/General/WorkflowNode";
 import { DelayNode } from "../Node/General/DelayNode";
@@ -81,6 +90,13 @@ import { LoopBreakNode } from "../Node/Control Flow/LoopBreakNode";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ErrorHandlerNode } from "../Node/General/ErrorHandlerNode";
+import { LogEventNode } from "../Node/General/LogEventNode";
+import { SetVariableNode } from "../Node/General/SetVariableNode";
+import { ScheduleTimerNode } from "../Node/General/ScheduleTimmerNode";
+import { BrowserAuthenticationNode } from "../Node/Browser/BrowserAuthenticationNode";
+import { ClearCookiesNode } from "../Node/Browser/ClearCookiesNode";
+import { SetUserAgentNode } from "../Node/Browser/SetUserAgentNode";
 
 // Define types
 interface NodeData {
@@ -138,102 +154,14 @@ const nodeTypes = {
   loopData: LoopDataNode,
   loopElement: LoopElementNode,
   loopBreak: LoopBreakNode,
+  customErrorHandler: ErrorHandlerNode,
+  customLogger: LogEventNode,
+  customVariable: SetVariableNode,
+  customTimer: ScheduleTimerNode,
+  authentication: BrowserAuthenticationNode,
+  clearCookies: ClearCookiesNode,
+  setUserAgent: SetUserAgentNode,
 };
-
-class AutomationExecutor {
-  private nodes: CustomNode[];
-  private edges: Edge[];
-  private nodeOutputs: Map<string, any>; // Store outputs by node ID
-
-  constructor(nodes: CustomNode[], edges: Edge[]) {
-    this.nodes = nodes;
-    this.edges = edges;
-    this.nodeOutputs = new Map();
-  }
-
-  async execute(): Promise<any> {
-    try {
-      const triggerNode = this.nodes.find(
-        (n) => n.type === "customTriggerNode"
-      );
-      if (!triggerNode) throw new Error("No trigger node found");
-
-      const result = await this.processNode(triggerNode);
-      return {
-        data: Object.fromEntries(this.nodeOutputs),
-        result,
-      };
-    } catch (error) {
-      return {
-        error: error instanceof Error ? error.message : "Unknown error",
-      };
-    }
-  }
-
-  private async processNode(node: CustomNode, inputData?: any): Promise<any> {
-    try {
-      // Get input from previous nodes
-      const incomingEdges = this.edges.filter((e) => e.target === node.id);
-      const inputs = incomingEdges
-        .map((edge) => this.nodeOutputs.get(edge.source))
-        .filter((output) => output !== undefined);
-
-      // Default to provided inputData if no incoming edges, otherwise use first input
-      const effectiveInput = inputs.length > 0 ? inputs[0] : inputData;
-
-      let outputData: any;
-      switch (node.type) {
-        case "customTriggerNode":
-          outputData = { started: true, timestamp: Date.now() };
-          break;
-        case "customDelay":
-          await new Promise((resolve) =>
-            setTimeout(resolve, node.data.config?.delay || 1000)
-          );
-          outputData = effectiveInput;
-          break;
-        case "newTab":
-          outputData = { url: node.data.config?.url || "https://example.com" }; // Example URL output
-          break;
-        case "getTabURL":
-          outputData = { url: effectiveInput?.url || "No URL provided" }; // Uses URL from previous node
-          break;
-        case "customRequest":
-          // Simulate an HTTP request using input URL if available
-          outputData = {
-            response: effectiveInput?.url
-              ? `Fetched data from ${effectiveInput.url}`
-              : "No URL provided",
-          };
-          break;
-        // Add more node-specific logic here as needed
-        default:
-          outputData = effectiveInput; // Pass through by default
-      }
-
-      // Store the output for this node
-      this.nodeOutputs.set(node.id, outputData);
-
-      // Process next nodes
-      const nextEdges = this.edges.filter((e) => e.source === node.id);
-      const results = await Promise.all(
-        nextEdges.map((edge) => {
-          const targetNode = this.nodes.find((n) => n.id === edge.target);
-          return targetNode ? this.processNode(targetNode) : null; // No inputData passed directly, relies on nodeOutputs
-        })
-      );
-
-      return { data: outputData, next: results.filter((r) => r !== null) };
-    } catch (error) {
-      this.nodeOutputs.set(node.id, {
-        error: error instanceof Error ? error.message : "Node execution failed",
-      });
-      return {
-        error: error instanceof Error ? error.message : "Node execution failed",
-      };
-    }
-  }
-}
 
 const PageWithProvider = () => (
   <ReactFlowProvider>
@@ -313,24 +241,41 @@ function Page() {
     setIsRunning(true);
     setExecutionResult(null);
 
-    const executor = new AutomationExecutor(nodes, edges);
-    const result = await executor.execute();
-
-    setExecutionResult(result);
-    setIsRunning(false);
-
-    setNodes((nds) =>
-      nds.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          output: result.data?.[node.id],
-          error:
-            result.data?.[node.id]?.error ||
-            (result.error && node.id === "1" ? result.error : undefined),
+    try {
+      const response = await fetch("/api/execute", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      }))
-    );
+        body: JSON.stringify({ nodes, edges }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setExecutionResult(result);
+
+      setNodes((nds) =>
+        nds.map((node) => ({
+          ...node,
+          data: {
+            ...node.data,
+            output: result.data?.[node.id],
+            error:
+              result.data?.[node.id]?.error ||
+              (result.error && node.id === "1" ? result.error : undefined),
+          },
+        }))
+      );
+    } catch (error) {
+      setExecutionResult({
+        error: error instanceof Error ? error.message : "Execution failed",
+      });
+    } finally {
+      setIsRunning(false);
+    }
   }, [nodes, edges, setNodes]);
 
   const nodeColor = (node: CustomNode): string => {
@@ -446,6 +391,7 @@ function Page() {
   );
 }
 
+// NodesPanel, PanelSection, and DraggableNode remain unchanged
 const NodesPanel = () => {
   const [searchKeyWords, setSearchKeyWords] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -453,6 +399,9 @@ const NodesPanel = () => {
     Browser: true,
     "Web Interactions": true,
     "Control Flow": true,
+    Data: true,
+    Advance: true,
+    "User Interaction": true,
   });
 
   const toggleSection = (section: string) => {
@@ -461,7 +410,6 @@ const NodesPanel = () => {
 
   return (
     <div className="w-80 h-screen overflow-auto bg-[#1E1E20] p-4 border-r border-[#2D2D30] flex flex-col gap-6 shadow-lg">
-      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
           <Zap size={20} className="text-[#92C5FD] drop-shadow-sm" />
@@ -474,7 +422,6 @@ const NodesPanel = () => {
         </Link>
       </div>
 
-      {/* Search Input */}
       <Input
         placeholder="Search components..."
         value={searchKeyWords}
@@ -482,13 +429,15 @@ const NodesPanel = () => {
         className="bg-[#2A2A2C] border-[#3A3A3C] text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-[#92C5FD] focus:border-transparent rounded-lg py-2 px-3 transition-all"
       />
 
-      {/* Sections */}
       <div className="space-y-4">
         {Object.entries({
           General: GENERAL,
           Browser: BROWSER,
           "Web Interactions": INTERACTION,
           "Control Flow": CONTROL_FLOW,
+          Data: DATA,
+          Advance: ADVANCED,
+          "User Interaction": USER_INTERACTION,
         }).map(([title, items]) => {
           const filteredItems = items.filter((item) =>
             item.label.toLowerCase().includes(searchKeyWords.toLowerCase())
@@ -580,7 +529,7 @@ interface DraggableNodeProps {
 
 const DraggableNode = ({ type, label, icon }: DraggableNodeProps) => (
   <div
-    className="p-3 bg-[#2A2A2C] rounded-lg cursor-move hover:bg-[#353538] transition-all duration-150 shadow-sm hover:shadow-md  overflow-hidden border border-[#3A3A3C]"
+    className="p-3 bg-[#2A2A2C] rounded-lg cursor-move hover:bg-[#353538] transition-all duration-150 shadow-sm hover:shadow-md overflow-hidden border border-[#3A3A3C]"
     draggable
     onDragStart={(e) => {
       e.dataTransfer.setData("application/reactflow", type);
@@ -588,7 +537,7 @@ const DraggableNode = ({ type, label, icon }: DraggableNodeProps) => (
     }}
   >
     <span className="text-gray-300 drop-shadow-sm">{icon}</span>
-    <p className="text-sm mt-2 text-gray-200 font-medium tracking-tight whitespace-nowrap ">
+    <p className="text-sm mt-2 text-gray-200 font-medium tracking-tight whitespace-nowrap">
       {label}
     </p>
   </div>

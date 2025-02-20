@@ -1,6 +1,6 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
 import {
-  Chrome,
+  FileText,
   Edit,
   Trash,
   Power,
@@ -39,14 +39,16 @@ const log = {
   error: (message: string) => console.error(`[ERROR] ${message}`),
 };
 
-const NewTabNode = ({ id, data }: NodeProps) => {
+const LogEventNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [url, setUrl] = useState(data.config?.url || ""); // URL to open in the new tab
-  const [focus, setFocus] = useState(data.config?.focus || "yes"); // Whether to focus the new tab
-  const [timeout, setTimeout] = useState(data.config?.timeout || 5000); // Timeout in milliseconds
+  const [logLevel, setLogLevel] = useState(data.config?.logLevel || "info"); // Log level: info, warn, error
+  const [logDestination, setLogDestination] = useState(
+    data.config?.logDestination || "console"
+  ); // Destination: console, file
+  const [filePath, setFilePath] = useState(data.config?.filePath || ""); // File path if destination is file
   const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false); // Default to enabled
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "error">("idle"); // Execution status
   const { setNodes } = useReactFlow();
 
@@ -54,20 +56,22 @@ const NewTabNode = ({ id, data }: NodeProps) => {
   useEffect(() => {
     if (data.error) {
       setStatus("error");
-      setError(data.error);
-      log.error(`NewTabNode ${id}: ${data.error}`);
+      log.error(`LogEventNode ${id}: ${data.error}`);
+      setErrorMessage(data.error);
     } else if (data.output) {
       setStatus("running");
-      log.info(`NewTabNode ${id}: Tab opened - ${JSON.stringify(data.output)}`);
+      log.info(
+        `LogEventNode ${id}: Event logged - ${JSON.stringify(data.output)}`
+      );
     } else {
       setStatus("idle");
-      setError(null);
+      setErrorMessage(null);
     }
   }, [data.error, data.output, id]);
 
   const handleDelete = () => {
     setNodes((nodes) => nodes.filter((node) => node.id !== id));
-    log.info(`NewTabNode ${id}: Deleted`);
+    log.info(`LogEventNode ${id}: Deleted`);
   };
 
   const handleToggleEnable = () => {
@@ -86,34 +90,20 @@ const NewTabNode = ({ id, data }: NodeProps) => {
           : node
       )
     );
-    log.info(`NewTabNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`);
+    log.info(`LogEventNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`);
   };
 
   const validateInputs = () => {
     if (!description.trim()) {
-      setError("Description is required");
+      setErrorMessage("Description is required");
       return false;
     }
-    if (url && !isValidUrl(url)) {
-      setError("Invalid URL format");
+    if (logDestination === "file" && !filePath.trim()) {
+      setErrorMessage("File path is required when destination is file");
       return false;
     }
-    const timeoutNum = Number(timeout);
-    if (isNaN(timeoutNum) || timeoutNum < 0) {
-      setError("Timeout must be a non-negative number");
-      return false;
-    }
-    setError(null);
+    setErrorMessage(null);
     return true;
-  };
-
-  const isValidUrl = (string: string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const handleSave = () => {
@@ -129,9 +119,9 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 description,
                 config: {
                   ...node.data.config,
-                  url,
-                  focus,
-                  timeout: Number(timeout),
+                  logLevel,
+                  logDestination,
+                  filePath: logDestination === "file" ? filePath : undefined,
                   isEnabled,
                 },
               },
@@ -141,7 +131,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
     );
     setIsDialogOpen(false);
     log.info(
-      `NewTabNode ${id}: Configuration saved - ${description}, URL: ${url}, Focus: ${focus}, Timeout: ${timeout}`
+      `LogEventNode ${id}: Configuration saved - ${description}, Level: ${logLevel}, Destination: ${logDestination}`
     );
   };
 
@@ -167,7 +157,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
                   <DialogHeader>
                     <DialogTitle className="text-lg font-semibold">
-                      Configure New Tab
+                      Configure Log Event
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -180,58 +170,67 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                         type="text"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="e.g., Open new tab with login page"
+                        placeholder="e.g., Log page load time"
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="url" className="text-gray-300">
-                        URL (Optional)
+                      <Label htmlFor="logLevel" className="text-gray-300">
+                        Log Level
                       </Label>
-                      <Input
-                        id="url"
-                        type="text"
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        placeholder="e.g., https://example.com"
-                        className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="focus" className="text-gray-300">
-                        Focus New Tab
-                      </Label>
-                      <Select value={focus} onValueChange={setFocus}>
+                      <Select value={logLevel} onValueChange={setLogLevel}>
                         <SelectTrigger
-                          id="focus"
+                          id="logLevel"
                           className="bg-gray-700 border-none text-white"
                         >
-                          <SelectValue placeholder="Select focus option" />
+                          <SelectValue placeholder="Select log level" />
                         </SelectTrigger>
                         <SelectContent className="bg-gray-700 text-white">
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
+                          <SelectItem value="info">Info</SelectItem>
+                          <SelectItem value="warn">Warn</SelectItem>
+                          <SelectItem value="error">Error</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor="timeout" className="text-gray-300">
-                        Timeout (ms)
+                      <Label htmlFor="logDestination" className="text-gray-300">
+                        Log Destination
                       </Label>
-                      <Input
-                        id="timeout"
-                        type="number"
-                        value={timeout}
-                        onChange={(e) => setTimeout(e.target.value)}
-                        placeholder="e.g., 5000"
-                        min="0"
-                        className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
+                      <Select
+                        value={logDestination}
+                        onValueChange={setLogDestination}
+                      >
+                        <SelectTrigger
+                          id="logDestination"
+                          className="bg-gray-700 border-none text-white"
+                        >
+                          <SelectValue placeholder="Select log destination" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-700 text-white">
+                          <SelectItem value="console">Console</SelectItem>
+                          <SelectItem value="file">File</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    {error && (
+                    {logDestination === "file" && (
+                      <div>
+                        <Label htmlFor="filePath" className="text-gray-300">
+                          File Path
+                        </Label>
+                        <Input
+                          id="filePath"
+                          type="text"
+                          value={filePath}
+                          onChange={(e) => setFilePath(e.target.value)}
+                          placeholder="e.g., /logs/event.log"
+                          className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
+                    {errorMessage && (
                       <div className="flex items-center gap-2 text-red-400">
                         <AlertCircle size={16} />
-                        <span className="text-sm">{error}</span>
+                        <span className="text-sm">{errorMessage}</span>
                       </div>
                     )}
                   </div>
@@ -254,7 +253,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               </Dialog>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Edit New Tab</p>
+              <p>Edit Log Event</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -269,7 +268,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               />
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Delete New Tab</p>
+              <p>Delete Log Event</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -279,15 +278,15 @@ const NewTabNode = ({ id, data }: NodeProps) => {
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           {(isEnabled && (
-            <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md">
-              <Chrome size={20} />
+            <span className="p-3 bg-[#FF9F1C] text-black rounded-lg shadow-md">
+              <FileText size={20} />
             </span>
           )) || (
-            <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md opacity-50">
-              <Chrome size={20} />
+            <span className="p-3 bg-[#FF9F1C] text-black rounded-lg shadow-md opacity-50">
+              <FileText size={20} />
             </span>
           )}
-          <span className="text-sm font-semibold">New Tab</span>
+          <span className="text-sm font-semibold">Log Event</span>
           {/* Status Indicator */}
           <span
             className={`ml-2 w-2 h-2 rounded-full ${
@@ -316,7 +315,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="bg-gray-700 text-white">
-                <p>{isEnabled ? "Disable New Tab" : "Enable New Tab"}</p>
+                <p>{isEnabled ? "Disable Logger" : "Enable Logger"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -326,27 +325,24 @@ const NewTabNode = ({ id, data }: NodeProps) => {
             {description}
           </p>
         )}
-        {url && (
-          <div className="text-xs text-gray-300 flex items-center gap-1">
-            <Chrome size={12} />
-            <span className="truncate max-w-[9rem]">{url}</span>
-          </div>
-        )}
+        <p className="text-xs text-gray-300 capitalize">
+          Level: {logLevel}, Dest: {logDestination}
+        </p>
       </div>
 
       {/* Handles */}
       <Handle
         type="target"
         position={Position.Left}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#FDE047" }} // Matches Browser category color
+        style={{ width: "0.6rem", height: "0.6rem", background: "#FF9F1C" }} // Matches icon color
       />
       <Handle
         type="source"
         position={Position.Right}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#FDE047" }}
+        style={{ width: "0.6rem", height: "0.6rem", background: "#FF9F1C" }}
       />
     </div>
   );
 };
 
-export { NewTabNode };
+export { LogEventNode };

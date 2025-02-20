@@ -1,6 +1,6 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
 import {
-  Chrome,
+  Calendar,
   Edit,
   Trash,
   Power,
@@ -39,14 +39,18 @@ const log = {
   error: (message: string) => console.error(`[ERROR] ${message}`),
 };
 
-const NewTabNode = ({ id, data }: NodeProps) => {
+const ScheduleTimerNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [url, setUrl] = useState(data.config?.url || ""); // URL to open in the new tab
-  const [focus, setFocus] = useState(data.config?.focus || "yes"); // Whether to focus the new tab
-  const [timeout, setTimeout] = useState(data.config?.timeout || 5000); // Timeout in milliseconds
+  const [scheduleType, setScheduleType] = useState(
+    data.config?.scheduleType || "interval"
+  ); // Schedule type: interval, specific
+  const [interval, setInterval] = useState(data.config?.interval || ""); // Interval in ms if type is interval
+  const [specificTime, setSpecificTime] = useState(
+    data.config?.specificTime || ""
+  ); // ISO date string if type is specific
   const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false); // Default to enabled
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "error">("idle"); // Execution status
   const { setNodes } = useReactFlow();
 
@@ -54,20 +58,24 @@ const NewTabNode = ({ id, data }: NodeProps) => {
   useEffect(() => {
     if (data.error) {
       setStatus("error");
-      setError(data.error);
-      log.error(`NewTabNode ${id}: ${data.error}`);
+      log.error(`ScheduleTimerNode ${id}: ${data.error}`);
+      setErrorMessage(data.error);
     } else if (data.output) {
       setStatus("running");
-      log.info(`NewTabNode ${id}: Tab opened - ${JSON.stringify(data.output)}`);
+      log.info(
+        `ScheduleTimerNode ${id}: Timer scheduled - ${JSON.stringify(
+          data.output
+        )}`
+      );
     } else {
       setStatus("idle");
-      setError(null);
+      setErrorMessage(null);
     }
   }, [data.error, data.output, id]);
 
   const handleDelete = () => {
     setNodes((nodes) => nodes.filter((node) => node.id !== id));
-    log.info(`NewTabNode ${id}: Deleted`);
+    log.info(`ScheduleTimerNode ${id}: Deleted`);
   };
 
   const handleToggleEnable = () => {
@@ -86,34 +94,38 @@ const NewTabNode = ({ id, data }: NodeProps) => {
           : node
       )
     );
-    log.info(`NewTabNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`);
+    log.info(
+      `ScheduleTimerNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`
+    );
   };
 
   const validateInputs = () => {
     if (!description.trim()) {
-      setError("Description is required");
+      setErrorMessage("Description is required");
       return false;
     }
-    if (url && !isValidUrl(url)) {
-      setError("Invalid URL format");
-      return false;
+    if (scheduleType === "interval") {
+      const intervalNum = Number(interval);
+      if (isNaN(intervalNum) || intervalNum <= 0) {
+        setErrorMessage("Interval must be a positive number");
+        return false;
+      }
+    } else if (scheduleType === "specific") {
+      if (!specificTime.trim()) {
+        setErrorMessage("Specific time is required for specific type");
+        return false;
+      }
+      try {
+        new Date(specificTime).toISOString(); // Validate ISO date string
+      } catch (e) {
+        setErrorMessage(
+          "Specific time must be a valid date (e.g., 2023-10-25T14:30:00Z)"
+        );
+        return false;
+      }
     }
-    const timeoutNum = Number(timeout);
-    if (isNaN(timeoutNum) || timeoutNum < 0) {
-      setError("Timeout must be a non-negative number");
-      return false;
-    }
-    setError(null);
+    setErrorMessage(null);
     return true;
-  };
-
-  const isValidUrl = (string: string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const handleSave = () => {
@@ -129,9 +141,11 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 description,
                 config: {
                   ...node.data.config,
-                  url,
-                  focus,
-                  timeout: Number(timeout),
+                  scheduleType,
+                  interval:
+                    scheduleType === "interval" ? Number(interval) : undefined,
+                  specificTime:
+                    scheduleType === "specific" ? specificTime : undefined,
                   isEnabled,
                 },
               },
@@ -141,7 +155,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
     );
     setIsDialogOpen(false);
     log.info(
-      `NewTabNode ${id}: Configuration saved - ${description}, URL: ${url}, Focus: ${focus}, Timeout: ${timeout}`
+      `ScheduleTimerNode ${id}: Configuration saved - ${description}, Type: ${scheduleType}`
     );
   };
 
@@ -167,7 +181,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
                   <DialogHeader>
                     <DialogTitle className="text-lg font-semibold">
-                      Configure New Tab
+                      Configure Schedule Timer
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -180,58 +194,67 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                         type="text"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="e.g., Open new tab with login page"
+                        placeholder="e.g., Schedule daily check"
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="url" className="text-gray-300">
-                        URL (Optional)
+                      <Label htmlFor="scheduleType" className="text-gray-300">
+                        Schedule Type
                       </Label>
-                      <Input
-                        id="url"
-                        type="text"
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        placeholder="e.g., https://example.com"
-                        className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="focus" className="text-gray-300">
-                        Focus New Tab
-                      </Label>
-                      <Select value={focus} onValueChange={setFocus}>
+                      <Select
+                        value={scheduleType}
+                        onValueChange={setScheduleType}
+                      >
                         <SelectTrigger
-                          id="focus"
+                          id="scheduleType"
                           className="bg-gray-700 border-none text-white"
                         >
-                          <SelectValue placeholder="Select focus option" />
+                          <SelectValue placeholder="Select schedule type" />
                         </SelectTrigger>
                         <SelectContent className="bg-gray-700 text-white">
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
+                          <SelectItem value="interval">Interval</SelectItem>
+                          <SelectItem value="specific">
+                            Specific Time
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label htmlFor="timeout" className="text-gray-300">
-                        Timeout (ms)
-                      </Label>
-                      <Input
-                        id="timeout"
-                        type="number"
-                        value={timeout}
-                        onChange={(e) => setTimeout(e.target.value)}
-                        placeholder="e.g., 5000"
-                        min="0"
-                        className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    {error && (
+                    {scheduleType === "interval" && (
+                      <div>
+                        <Label htmlFor="interval" className="text-gray-300">
+                          Interval (ms)
+                        </Label>
+                        <Input
+                          id="interval"
+                          type="number"
+                          value={interval}
+                          onChange={(e) => setInterval(e.target.value)}
+                          placeholder="e.g., 60000 (1 minute)"
+                          min="1"
+                          className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
+                    {scheduleType === "specific" && (
+                      <div>
+                        <Label htmlFor="specificTime" className="text-gray-300">
+                          Specific Time (ISO)
+                        </Label>
+                        <Input
+                          id="specificTime"
+                          type="text"
+                          value={specificTime}
+                          onChange={(e) => setSpecificTime(e.target.value)}
+                          placeholder="e.g., 2023-10-25T14:30:00Z"
+                          className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
+                    {errorMessage && (
                       <div className="flex items-center gap-2 text-red-400">
                         <AlertCircle size={16} />
-                        <span className="text-sm">{error}</span>
+                        <span className="text-sm">{errorMessage}</span>
                       </div>
                     )}
                   </div>
@@ -254,7 +277,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               </Dialog>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Edit New Tab</p>
+              <p>Edit Schedule Timer</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -269,7 +292,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               />
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Delete New Tab</p>
+              <p>Delete Schedule Timer</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -279,15 +302,15 @@ const NewTabNode = ({ id, data }: NodeProps) => {
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           {(isEnabled && (
-            <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md">
-              <Chrome size={20} />
+            <span className="p-3 bg-[#000000] text-white rounded-lg shadow-md">
+              <Calendar size={20} />
             </span>
           )) || (
-            <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md opacity-50">
-              <Chrome size={20} />
+            <span className="p-3 bg-[#000000] text-white rounded-lg shadow-md opacity-50">
+              <Calendar size={20} />
             </span>
           )}
-          <span className="text-sm font-semibold">New Tab</span>
+          <span className="text-sm font-semibold">Schedule Timer</span>
           {/* Status Indicator */}
           <span
             className={`ml-2 w-2 h-2 rounded-full ${
@@ -316,7 +339,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="bg-gray-700 text-white">
-                <p>{isEnabled ? "Disable New Tab" : "Enable New Tab"}</p>
+                <p>{isEnabled ? "Disable Timer" : "Enable Timer"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -326,27 +349,26 @@ const NewTabNode = ({ id, data }: NodeProps) => {
             {description}
           </p>
         )}
-        {url && (
-          <div className="text-xs text-gray-300 flex items-center gap-1">
-            <Chrome size={12} />
-            <span className="truncate max-w-[9rem]">{url}</span>
-          </div>
-        )}
+        <p className="text-xs text-gray-300 capitalize">
+          {scheduleType === "interval"
+            ? `Every ${interval}ms`
+            : specificTime || "Not Set"}
+        </p>
       </div>
 
       {/* Handles */}
       <Handle
         type="target"
         position={Position.Left}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#FDE047" }} // Matches Browser category color
+        style={{ width: "0.6rem", height: "0.6rem", background: "#000000" }} // Matches icon color
       />
       <Handle
         type="source"
         position={Position.Right}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#FDE047" }}
+        style={{ width: "0.6rem", height: "0.6rem", background: "#000000" }}
       />
     </div>
   );
 };
 
-export { NewTabNode };
+export { ScheduleTimerNode };

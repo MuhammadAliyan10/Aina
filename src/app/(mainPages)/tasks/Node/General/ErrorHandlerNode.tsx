@@ -1,12 +1,5 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
-import {
-  Chrome,
-  Edit,
-  Trash,
-  Power,
-  PowerOff,
-  AlertCircle,
-} from "lucide-react";
+import { AlertCircle, Edit, Trash, Power, PowerOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -19,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -39,14 +33,17 @@ const log = {
   error: (message: string) => console.error(`[ERROR] ${message}`),
 };
 
-const NewTabNode = ({ id, data }: NodeProps) => {
+const ErrorHandlerNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [url, setUrl] = useState(data.config?.url || ""); // URL to open in the new tab
-  const [focus, setFocus] = useState(data.config?.focus || "yes"); // Whether to focus the new tab
-  const [timeout, setTimeout] = useState(data.config?.timeout || 5000); // Timeout in milliseconds
+  const [errorAction, setErrorAction] = useState(
+    data.config?.errorAction || "log"
+  ); // Action on error: log, retry, redirect
+  const [maxRetries, setMaxRetries] = useState(data.config?.maxRetries || 3); // Max retry attempts
+  const [retryDelay, setRetryDelay] = useState(data.config?.retryDelay || 1000); // Delay between retries in ms
+  const [timeout, setTimeout] = useState(data.config?.timeout || 5000); // Timeout for error handling in ms
   const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false); // Default to enabled
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "error">("idle"); // Execution status
   const { setNodes } = useReactFlow();
 
@@ -54,20 +51,22 @@ const NewTabNode = ({ id, data }: NodeProps) => {
   useEffect(() => {
     if (data.error) {
       setStatus("error");
-      setError(data.error);
-      log.error(`NewTabNode ${id}: ${data.error}`);
+      log.error(`ErrorHandlerNode ${id}: ${data.error}`);
+      setErrorMessage(data.error);
     } else if (data.output) {
       setStatus("running");
-      log.info(`NewTabNode ${id}: Tab opened - ${JSON.stringify(data.output)}`);
+      log.info(
+        `ErrorHandlerNode ${id}: Handled error - ${JSON.stringify(data.output)}`
+      );
     } else {
       setStatus("idle");
-      setError(null);
+      setErrorMessage(null);
     }
   }, [data.error, data.output, id]);
 
   const handleDelete = () => {
     setNodes((nodes) => nodes.filter((node) => node.id !== id));
-    log.info(`NewTabNode ${id}: Deleted`);
+    log.info(`ErrorHandlerNode ${id}: Deleted`);
   };
 
   const handleToggleEnable = () => {
@@ -86,34 +85,33 @@ const NewTabNode = ({ id, data }: NodeProps) => {
           : node
       )
     );
-    log.info(`NewTabNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`);
+    log.info(
+      `ErrorHandlerNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`
+    );
   };
 
   const validateInputs = () => {
     if (!description.trim()) {
-      setError("Description is required");
+      setErrorMessage("Description is required");
       return false;
     }
-    if (url && !isValidUrl(url)) {
-      setError("Invalid URL format");
+    const maxRetriesNum = Number(maxRetries);
+    if (isNaN(maxRetriesNum) || maxRetriesNum < 0) {
+      setErrorMessage("Max retries must be a non-negative number");
+      return false;
+    }
+    const retryDelayNum = Number(retryDelay);
+    if (isNaN(retryDelayNum) || retryDelayNum < 0) {
+      setErrorMessage("Retry delay must be a non-negative number");
       return false;
     }
     const timeoutNum = Number(timeout);
     if (isNaN(timeoutNum) || timeoutNum < 0) {
-      setError("Timeout must be a non-negative number");
+      setErrorMessage("Timeout must be a non-negative number");
       return false;
     }
-    setError(null);
+    setErrorMessage(null);
     return true;
-  };
-
-  const isValidUrl = (string: string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const handleSave = () => {
@@ -129,8 +127,9 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 description,
                 config: {
                   ...node.data.config,
-                  url,
-                  focus,
+                  errorAction,
+                  maxRetries: Number(maxRetries),
+                  retryDelay: Number(retryDelay),
                   timeout: Number(timeout),
                   isEnabled,
                 },
@@ -141,7 +140,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
     );
     setIsDialogOpen(false);
     log.info(
-      `NewTabNode ${id}: Configuration saved - ${description}, URL: ${url}, Focus: ${focus}, Timeout: ${timeout}`
+      `ErrorHandlerNode ${id}: Configuration saved - ${description}, Action: ${errorAction}, Max Retries: ${maxRetries}`
     );
   };
 
@@ -167,7 +166,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
                   <DialogHeader>
                     <DialogTitle className="text-lg font-semibold">
-                      Configure New Tab
+                      Configure Error Handler
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -180,40 +179,65 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                         type="text"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="e.g., Open new tab with login page"
+                        placeholder="e.g., Handle page load errors"
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="url" className="text-gray-300">
-                        URL (Optional)
+                      <Label htmlFor="errorAction" className="text-gray-300">
+                        Error Action
                       </Label>
-                      <Input
-                        id="url"
-                        type="text"
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        placeholder="e.g., https://example.com"
-                        className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="focus" className="text-gray-300">
-                        Focus New Tab
-                      </Label>
-                      <Select value={focus} onValueChange={setFocus}>
+                      <Select
+                        value={errorAction}
+                        onValueChange={setErrorAction}
+                      >
                         <SelectTrigger
-                          id="focus"
+                          id="errorAction"
                           className="bg-gray-700 border-none text-white"
                         >
-                          <SelectValue placeholder="Select focus option" />
+                          <SelectValue placeholder="Select error action" />
                         </SelectTrigger>
                         <SelectContent className="bg-gray-700 text-white">
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
+                          <SelectItem value="log">Log Error</SelectItem>
+                          <SelectItem value="retry">Retry Operation</SelectItem>
+                          <SelectItem value="redirect">
+                            Redirect Flow
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
+                    {errorAction === "retry" && (
+                      <>
+                        <div>
+                          <Label htmlFor="maxRetries" className="text-gray-300">
+                            Max Retries
+                          </Label>
+                          <Input
+                            id="maxRetries"
+                            type="number"
+                            value={maxRetries}
+                            onChange={(e) => setMaxRetries(e.target.value)}
+                            placeholder="e.g., 3"
+                            min="0"
+                            className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="retryDelay" className="text-gray-300">
+                            Retry Delay (ms)
+                          </Label>
+                          <Input
+                            id="retryDelay"
+                            type="number"
+                            value={retryDelay}
+                            onChange={(e) => setRetryDelay(e.target.value)}
+                            placeholder="e.g., 1000"
+                            min="0"
+                            className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </>
+                    )}
                     <div>
                       <Label htmlFor="timeout" className="text-gray-300">
                         Timeout (ms)
@@ -228,10 +252,10 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                    {error && (
+                    {errorMessage && (
                       <div className="flex items-center gap-2 text-red-400">
                         <AlertCircle size={16} />
-                        <span className="text-sm">{error}</span>
+                        <span className="text-sm">{errorMessage}</span>
                       </div>
                     )}
                   </div>
@@ -254,7 +278,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               </Dialog>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Edit New Tab</p>
+              <p>Edit Error Handler</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -269,7 +293,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               />
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Delete New Tab</p>
+              <p>Delete Error Handler</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -279,15 +303,15 @@ const NewTabNode = ({ id, data }: NodeProps) => {
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           {(isEnabled && (
-            <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md">
-              <Chrome size={20} />
+            <span className="p-3 bg-[#000000] text-white rounded-lg shadow-md">
+              <AlertCircle size={20} />
             </span>
           )) || (
-            <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md opacity-50">
-              <Chrome size={20} />
+            <span className="p-3 bg-[#000000] text-white rounded-lg shadow-md opacity-50">
+              <AlertCircle size={20} />
             </span>
           )}
-          <span className="text-sm font-semibold">New Tab</span>
+          <span className="text-sm font-semibold">Error Handler</span>
           {/* Status Indicator */}
           <span
             className={`ml-2 w-2 h-2 rounded-full ${
@@ -316,7 +340,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="bg-gray-700 text-white">
-                <p>{isEnabled ? "Disable New Tab" : "Enable New Tab"}</p>
+                <p>{isEnabled ? "Disable Handler" : "Enable Handler"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -326,27 +350,42 @@ const NewTabNode = ({ id, data }: NodeProps) => {
             {description}
           </p>
         )}
-        {url && (
-          <div className="text-xs text-gray-300 flex items-center gap-1">
-            <Chrome size={12} />
-            <span className="truncate max-w-[9rem]">{url}</span>
-          </div>
-        )}
+        <p className="text-xs text-gray-300 capitalize">
+          Action: {errorAction}
+          {errorAction === "retry" ? `, Retries: ${maxRetries}` : ""}
+        </p>
       </div>
 
       {/* Handles */}
       <Handle
         type="target"
         position={Position.Left}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#FDE047" }} // Matches Browser category color
+        style={{ width: "0.6rem", height: "0.6rem", background: "#FF6B6B" }} // Matches icon color
       />
       <Handle
         type="source"
         position={Position.Right}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#FDE047" }}
+        id="success"
+        style={{
+          top: "30%",
+          width: "0.6rem",
+          height: "0.6rem",
+          background: "#000000",
+        }} // Success path
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="failure"
+        style={{
+          top: "70%",
+          width: "0.6rem",
+          height: "0.6rem",
+          background: "#000000",
+        }} // Failure path
       />
     </div>
   );
 };
 
-export { NewTabNode };
+export { ErrorHandlerNode };

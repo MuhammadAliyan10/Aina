@@ -1,6 +1,6 @@
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
 import {
-  Chrome,
+  Variable,
   Edit,
   Trash,
   Power,
@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -39,14 +40,21 @@ const log = {
   error: (message: string) => console.error(`[ERROR] ${message}`),
 };
 
-const NewTabNode = ({ id, data }: NodeProps) => {
+const SetVariableNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
-  const [url, setUrl] = useState(data.config?.url || ""); // URL to open in the new tab
-  const [focus, setFocus] = useState(data.config?.focus || "yes"); // Whether to focus the new tab
-  const [timeout, setTimeout] = useState(data.config?.timeout || 5000); // Timeout in milliseconds
+  const [variableName, setVariableName] = useState(
+    data.config?.variableName || ""
+  ); // Variable name to set
+  const [valueType, setValueType] = useState(
+    data.config?.valueType || "static"
+  ); // Value type: static, input, json
+  const [staticValue, setStaticValue] = useState(
+    data.config?.staticValue || ""
+  ); // Static value if type is static
+  const [jsonValue, setJsonValue] = useState(data.config?.jsonValue || ""); // JSON value if type is json
   const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false); // Default to enabled
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "running" | "error">("idle"); // Execution status
   const { setNodes } = useReactFlow();
 
@@ -54,20 +62,22 @@ const NewTabNode = ({ id, data }: NodeProps) => {
   useEffect(() => {
     if (data.error) {
       setStatus("error");
-      setError(data.error);
-      log.error(`NewTabNode ${id}: ${data.error}`);
+      log.error(`SetVariableNode ${id}: ${data.error}`);
+      setErrorMessage(data.error);
     } else if (data.output) {
       setStatus("running");
-      log.info(`NewTabNode ${id}: Tab opened - ${JSON.stringify(data.output)}`);
+      log.info(
+        `SetVariableNode ${id}: Variable set - ${JSON.stringify(data.output)}`
+      );
     } else {
       setStatus("idle");
-      setError(null);
+      setErrorMessage(null);
     }
   }, [data.error, data.output, id]);
 
   const handleDelete = () => {
     setNodes((nodes) => nodes.filter((node) => node.id !== id));
-    log.info(`NewTabNode ${id}: Deleted`);
+    log.info(`SetVariableNode ${id}: Deleted`);
   };
 
   const handleToggleEnable = () => {
@@ -86,34 +96,38 @@ const NewTabNode = ({ id, data }: NodeProps) => {
           : node
       )
     );
-    log.info(`NewTabNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`);
+    log.info(
+      `SetVariableNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`
+    );
   };
 
   const validateInputs = () => {
     if (!description.trim()) {
-      setError("Description is required");
+      setErrorMessage("Description is required");
       return false;
     }
-    if (url && !isValidUrl(url)) {
-      setError("Invalid URL format");
+    if (!variableName.trim()) {
+      setErrorMessage("Variable name is required");
       return false;
     }
-    const timeoutNum = Number(timeout);
-    if (isNaN(timeoutNum) || timeoutNum < 0) {
-      setError("Timeout must be a non-negative number");
+    if (valueType === "static" && !staticValue.trim()) {
+      setErrorMessage("Static value is required for static type");
       return false;
     }
-    setError(null);
+    if (valueType === "json") {
+      if (!jsonValue.trim()) {
+        setErrorMessage("JSON value is required for JSON type");
+        return false;
+      }
+      try {
+        JSON.parse(jsonValue);
+      } catch (e) {
+        setErrorMessage("JSON value must be valid JSON");
+        return false;
+      }
+    }
+    setErrorMessage(null);
     return true;
-  };
-
-  const isValidUrl = (string: string) => {
-    try {
-      new URL(string);
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const handleSave = () => {
@@ -129,9 +143,10 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 description,
                 config: {
                   ...node.data.config,
-                  url,
-                  focus,
-                  timeout: Number(timeout),
+                  variableName,
+                  valueType,
+                  staticValue: valueType === "static" ? staticValue : undefined,
+                  jsonValue: valueType === "json" ? jsonValue : undefined,
                   isEnabled,
                 },
               },
@@ -141,7 +156,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
     );
     setIsDialogOpen(false);
     log.info(
-      `NewTabNode ${id}: Configuration saved - ${description}, URL: ${url}, Focus: ${focus}, Timeout: ${timeout}`
+      `SetVariableNode ${id}: Configuration saved - ${description}, Variable: ${variableName}, Type: ${valueType}`
     );
   };
 
@@ -167,7 +182,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
                   <DialogHeader>
                     <DialogTitle className="text-lg font-semibold">
-                      Configure New Tab
+                      Configure Set Variable
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -180,58 +195,76 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                         type="text"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        placeholder="e.g., Open new tab with login page"
+                        placeholder="e.g., Set user ID variable"
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="url" className="text-gray-300">
-                        URL (Optional)
+                      <Label htmlFor="variableName" className="text-gray-300">
+                        Variable Name
                       </Label>
                       <Input
-                        id="url"
+                        id="variableName"
                         type="text"
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        placeholder="e.g., https://example.com"
+                        value={variableName}
+                        onChange={(e) => setVariableName(e.target.value)}
+                        placeholder="e.g., userId"
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="focus" className="text-gray-300">
-                        Focus New Tab
+                      <Label htmlFor="valueType" className="text-gray-300">
+                        Value Type
                       </Label>
-                      <Select value={focus} onValueChange={setFocus}>
+                      <Select value={valueType} onValueChange={setValueType}>
                         <SelectTrigger
-                          id="focus"
+                          id="valueType"
                           className="bg-gray-700 border-none text-white"
                         >
-                          <SelectValue placeholder="Select focus option" />
+                          <SelectValue placeholder="Select value type" />
                         </SelectTrigger>
                         <SelectContent className="bg-gray-700 text-white">
-                          <SelectItem value="yes">Yes</SelectItem>
-                          <SelectItem value="no">No</SelectItem>
+                          <SelectItem value="static">Static Value</SelectItem>
+                          <SelectItem value="input">
+                            Input from Previous Node
+                          </SelectItem>
+                          <SelectItem value="json">JSON Value</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
-                      <Label htmlFor="timeout" className="text-gray-300">
-                        Timeout (ms)
-                      </Label>
-                      <Input
-                        id="timeout"
-                        type="number"
-                        value={timeout}
-                        onChange={(e) => setTimeout(e.target.value)}
-                        placeholder="e.g., 5000"
-                        min="0"
-                        className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    {error && (
+                    {valueType === "static" && (
+                      <div>
+                        <Label htmlFor="staticValue" className="text-gray-300">
+                          Static Value
+                        </Label>
+                        <Input
+                          id="staticValue"
+                          type="text"
+                          value={staticValue}
+                          onChange={(e) => setStaticValue(e.target.value)}
+                          placeholder="e.g., 12345"
+                          className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    )}
+                    {valueType === "json" && (
+                      <div>
+                        <Label htmlFor="jsonValue" className="text-gray-300">
+                          JSON Value
+                        </Label>
+                        <Textarea
+                          id="jsonValue"
+                          value={jsonValue}
+                          onChange={(e) => setJsonValue(e.target.value)}
+                          placeholder='e.g., {"id": 123, "name": "User"}'
+                          className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500 h-20 font-mono"
+                        />
+                      </div>
+                    )}
+                    {errorMessage && (
                       <div className="flex items-center gap-2 text-red-400">
                         <AlertCircle size={16} />
-                        <span className="text-sm">{error}</span>
+                        <span className="text-sm">{errorMessage}</span>
                       </div>
                     )}
                   </div>
@@ -254,7 +287,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               </Dialog>
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Edit New Tab</p>
+              <p>Edit Set Variable</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -269,7 +302,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
               />
             </TooltipTrigger>
             <TooltipContent className="bg-gray-700 text-white">
-              <p>Delete New Tab</p>
+              <p>Delete Set Variable</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -279,15 +312,15 @@ const NewTabNode = ({ id, data }: NodeProps) => {
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           {(isEnabled && (
-            <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md">
-              <Chrome size={20} />
+            <span className="p-3 bg-[#000000] text-white rounded-lg shadow-md">
+              <Variable size={20} />
             </span>
           )) || (
-            <span className="p-3 bg-[#FDE047] text-black rounded-lg shadow-md opacity-50">
-              <Chrome size={20} />
+            <span className="p-3 bg-[#000000] text-white rounded-lg shadow-md opacity-50">
+              <Variable size={20} />
             </span>
           )}
-          <span className="text-sm font-semibold">New Tab</span>
+          <span className="text-sm font-semibold">Set Variable</span>
           {/* Status Indicator */}
           <span
             className={`ml-2 w-2 h-2 rounded-full ${
@@ -316,7 +349,7 @@ const NewTabNode = ({ id, data }: NodeProps) => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="bg-gray-700 text-white">
-                <p>{isEnabled ? "Disable New Tab" : "Enable New Tab"}</p>
+                <p>{isEnabled ? "Disable Variable" : "Enable Variable"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -326,27 +359,24 @@ const NewTabNode = ({ id, data }: NodeProps) => {
             {description}
           </p>
         )}
-        {url && (
-          <div className="text-xs text-gray-300 flex items-center gap-1">
-            <Chrome size={12} />
-            <span className="truncate max-w-[9rem]">{url}</span>
-          </div>
-        )}
+        <p className="text-xs text-gray-300 capitalize">
+          {variableName || "Unnamed"} = {valueType}
+        </p>
       </div>
 
       {/* Handles */}
       <Handle
         type="target"
         position={Position.Left}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#FDE047" }} // Matches Browser category color
+        style={{ width: "0.6rem", height: "0.6rem", background: "#000000" }} // Matches icon color
       />
       <Handle
         type="source"
         position={Position.Right}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#FDE047" }}
+        style={{ width: "0.6rem", height: "0.6rem", background: "#000000" }}
       />
     </div>
   );
 };
 
-export { NewTabNode };
+export { SetVariableNode };
