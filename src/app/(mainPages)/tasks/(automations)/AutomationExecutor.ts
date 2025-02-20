@@ -726,17 +726,31 @@ export default class AutomationExecutor {
             outputData = { triggered: false, reason: "No page found" };
             break;
           }
-          const eventSelector = node.data.config?.selector;
-          if (!eventSelector)
-            throw new Error("Selector required for trigger event");
+          const eventSelector = node.data.config?.selectorValue; // Changed from selector to selectorValue
+          log.info(
+            `TriggerEventNode ${node.id}: Selector provided - ${eventSelector}`
+          ); // Debug log
+          if (!eventSelector || eventSelector.trim() === "") {
+            log.warn(
+              `TriggerEventNode ${node.id}: No valid selector value provided`
+            );
+            outputData = {
+              triggered: false,
+              reason: "Selector value required for trigger event",
+            };
+            break;
+          }
+          const triggerEventType = node.data.config?.eventType || "click";
+          const eventProperties = node.data.config?.eventProperties || {};
           await pageEventTrigger.dispatchEvent(
             eventSelector,
-            node.data.config?.eventType || "click"
+            triggerEventType,
+            eventProperties
           );
-          outputData = {
-            triggered: true,
-            eventType: node.data.config?.eventType,
-          };
+          log.info(
+            `TriggerEventNode ${node.id}: Triggered ${eventSelector} with ${triggerEventType}`
+          );
+          outputData = { triggered: true, eventType: triggerEventType };
           break;
 
         case "customSwitchFrame":

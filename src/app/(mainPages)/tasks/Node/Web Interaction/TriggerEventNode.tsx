@@ -1,3 +1,4 @@
+// src/Node/Web Interaction/TriggerEventNode.ts
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
 import {
   Lightbulb,
@@ -35,7 +36,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-// Placeholder for logging (integrate with your production logging system)
+// Placeholder for logging
 const log = {
   info: (message: string) => console.log(`[INFO] ${message}`),
   error: (message: string) => console.error(`[ERROR] ${message}`),
@@ -45,25 +46,26 @@ const TriggerEventNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
   const [selectorType, setSelectorType] = useState(
     data.config?.selectorType || "css"
-  ); // css or xpath
+  );
   const [selectorValue, setSelectorValue] = useState(
     data.config?.selectorValue || ""
-  ); // Element selector
-  const [eventType, setEventType] = useState(data.config?.eventType || "click"); // DOM event type
+  );
+  const [eventType, setEventType] = useState(data.config?.eventType || "click");
   const [eventProperties, setEventProperties] = useState(
-    data.config?.eventProperties || ""
-  ); // Optional JSON event properties
-  const [timeout, setTimeout] = useState(data.config?.timeout || 5000); // Timeout in milliseconds
+    data.config?.eventProperties
+      ? JSON.stringify(data.config.eventProperties)
+      : ""
+  );
+  const [timeout, setTimeout] = useState(data.config?.timeout || 5000);
   const [retryOnFail, setRetryOnFail] = useState(
     data.config?.retryOnFail || false
-  ); // Retry if triggering fails
-  const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false); // Default to enabled
+  );
+  const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "running" | "error">("idle"); // Execution status
+  const [status, setStatus] = useState<"idle" | "running" | "error">("idle");
   const { setNodes } = useReactFlow();
 
-  // Sync status with data from AutomationExecutor (log output/error instead of displaying)
   useEffect(() => {
     if (data.error) {
       setStatus("error");
@@ -150,7 +152,7 @@ const TriggerEventNode = ({ id, data }: NodeProps) => {
                 config: {
                   ...node.data.config,
                   selectorType,
-                  selectorValue,
+                  selectorValue, // Store as selectorValue
                   eventType,
                   eventProperties: eventProperties
                     ? JSON.parse(eventProperties)
@@ -305,7 +307,7 @@ const TriggerEventNode = ({ id, data }: NodeProps) => {
                       />
                       <Label
                         htmlFor="retryOnFail"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-gray-300"
                       >
                         Retry on Failure
                       </Label>
@@ -418,7 +420,7 @@ const TriggerEventNode = ({ id, data }: NodeProps) => {
       <Handle
         type="target"
         position={Position.Left}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#87EFAC" }} // Matches icon color
+        style={{ width: "0.6rem", height: "0.6rem", background: "#87EFAC" }}
       />
       <Handle
         type="source"
