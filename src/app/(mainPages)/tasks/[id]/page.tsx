@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import ReactFlow, {
   useEdgesState,
   useNodesState,
@@ -24,6 +24,7 @@ import {
   Plus,
   Minus,
   Circle,
+  Undo2,
 } from "lucide-react";
 import { GENERAL, BROWSER, INTERACTION, CONTROL_FLOW } from "../data/Data";
 import { TriggerNode } from "../Node/General/TriggerNode";
@@ -70,6 +71,7 @@ import { WhileLoopNode } from "../Node/Control Flow/WhileLoppNode";
 import { LoopDataNode } from "../Node/Control Flow/LoopDataNode";
 import { LoopElementNode } from "../Node/Control Flow/LoopElementNode";
 import { LoopBreakNode } from "../Node/Control Flow/LoopBreakNode";
+import Link from "next/link";
 
 const nodeTypes = {
   customTriggerNode: TriggerNode,
@@ -219,6 +221,7 @@ export default function Page() {
 // const allData = [...GENERAL, ...BROWSER, INTERACTION];
 
 const NodesPanel = () => {
+  const [searchKeyWords, setSearchKeyWords] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     General: true,
     Browser: true,
@@ -233,18 +236,86 @@ const NodesPanel = () => {
     }));
   };
 
+  const ALL_DATA = useMemo(
+    () => [...GENERAL, ...BROWSER, ...INTERACTION, ...CONTROL_FLOW],
+    []
+  );
+
+  const filteredData = useMemo(() => {
+    if (!searchKeyWords.trim()) return ALL_DATA;
+    return ALL_DATA.filter((item) =>
+      item.label.toLowerCase().includes(searchKeyWords.toLowerCase())
+    );
+  }, [searchKeyWords, ALL_DATA]);
+
   return (
     <div className="w-80 h-screen overflow-auto bg-[#27272A] p-4 border-r border-gray-800 flex flex-col gap-4">
-      <div className="flex items-center gap-2 mb-4">
-        <Zap size={20} className="text-blue-400" />
-        <h2 className="text-lg font-semibold">Workflow Components</h2>
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+          <Zap size={20} className="text-blue-400" />
+          <h2 className="text-lg font-semibold">Workflow Components</h2>
+        </div>
+        <div>
+          <Link href={"/Workflow"}>
+            <Undo2 className="cursor-pointer" />
+          </Link>
+        </div>
       </div>
 
       <div className="group relative">
         <Input
-          placeholder={"Search....."}
+          placeholder="Search components..."
+          value={searchKeyWords}
+          onChange={(e) => setSearchKeyWords(e.target.value)}
           className="border border-white bg-[#313134] py-2 px-2"
         />
+      </div>
+      <div className="space-y-2">
+        {Object.entries({
+          General: GENERAL,
+          Browser: BROWSER,
+          "Web Interactions": INTERACTION,
+          "Control Flow": CONTROL_FLOW,
+        }).map(([title, items]) => {
+          const filteredItems = items.filter((item) =>
+            item.label.toLowerCase().includes(searchKeyWords.toLowerCase())
+          );
+
+          return (
+            filteredItems.length > 0 &&
+            searchKeyWords && (
+              <PanelSection
+                key={title}
+                title={title}
+                isOpen={openSections[title]}
+                toggle={() => toggleSection(title)}
+                icon={
+                  <Circle
+                    size={13}
+                    className={`${
+                      title === "General"
+                        ? "bg-black text-black"
+                        : title === "Browser"
+                        ? "bg-[#fde047] text-[#fde047]"
+                        : title === "Web Interactions"
+                        ? "bg-[#87EFAC] text-[#87EFAC]"
+                        : "bg-[#92C5FD] text-[#92C5FD]"
+                    } rounded-full`}
+                  />
+                }
+              >
+                {filteredItems.map((item) => (
+                  <DraggableNode
+                    key={item.id}
+                    type={item.type}
+                    icon={item.icon}
+                    label={item.label}
+                  />
+                ))}
+              </PanelSection>
+            )
+          );
+        })}
       </div>
 
       <div className="space-y-2">
@@ -310,8 +381,8 @@ const NodesPanel = () => {
 
         <PanelSection
           title="Control Flow"
-          isOpen={openSections["CONTROL_FLOW"]}
-          toggle={() => toggleSection("CONTROL_FLOW")}
+          isOpen={openSections["Control Flow"]}
+          toggle={() => toggleSection("Control Flow")}
           icon={
             <Circle
               size={13}
