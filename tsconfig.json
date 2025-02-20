@@ -27,7 +27,7 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    "src/app/(mainPages)/tasks/data/Data.js"
+    "src/app/(mainPages)/tasks/data/Data.ts"
   ],
   "exclude": ["node_modules"]
 }

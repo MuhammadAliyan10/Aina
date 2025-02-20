@@ -1,31 +1,27 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo } from "react";
-import ReactFlow, {
+import { useState, useCallback } from "react";
+import {
+  ReactFlow,
   useEdgesState,
   useNodesState,
   Connection,
   Edge,
   Background,
-  Controls,
-  addEdge,
-  ReactFlowInstance,
-  Node,
-  XYPosition,
-  MarkerType,
   MiniMap,
   useReactFlow,
   ReactFlowProvider,
+  ReactFlowInstance,
+  Node,
+  MarkerType,
+  addEdge,
+  OnConnect,
+  OnNodesChange,
+  OnEdgesChange,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import {
   Zap,
-  FolderPlus,
-  Globe,
-  Chrome,
-  Search,
-  Plus,
-  Minus,
   Circle,
   Undo2,
   Save,
@@ -34,6 +30,9 @@ import {
   ZoomOut,
   RefreshCw,
   Crosshair,
+  Loader2,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { GENERAL, BROWSER, INTERACTION, CONTROL_FLOW } from "../data/Data";
 import { TriggerNode } from "../Node/General/TriggerNode";
@@ -54,17 +53,16 @@ import { CloseTabNode } from "../Node/Browser/CloseTabNode";
 import { GoBackNode } from "../Node/Browser/GoBackNode";
 import { GoForwardNode } from "../Node/Browser/GoForwardNode";
 import { ScreenShotNode } from "../Node/Browser/ScreenShotNode";
-import { Input } from "@/components/ui/input";
 import { BrowserEventNode } from "../Node/Browser/BrowserEventNode";
 import { HandleDownloadNode } from "../Node/Browser/HandleDownloadNode";
 import { ReloadTabNode } from "../Node/Browser/ReloadTabNode";
 import { GetURLNode } from "../Node/Browser/GetURLNode";
 import { ClickElementNode } from "../Node/Web Interaction/ClickElementNode";
 import { GetTextNode } from "../Node/Web Interaction/GetTextNode";
-import { ScrollEventNode } from "../Node/Web Interaction/ScrollEventNode";
+import { ScrollElementNode } from "../Node/Web Interaction/ScrollEventNode";
 import { LinkEventNode } from "../Node/Web Interaction/LinkElementNode";
-import { AttributeVariableNode } from "../Node/Web Interaction/AttributeVariableNode";
-import { FormsNode } from "../Node/Web Interaction/FormsNode";
+import { GetAttributeNode } from "../Node/Web Interaction/AttributeVariableNode";
+import { FillFormNode } from "../Node/Web Interaction/FormsNode";
 import { JavaScriptCodeNode } from "../Node/Web Interaction/JavaScriptCodeNode";
 import { TriggerEventNode } from "../Node/Web Interaction/TriggerEventNode";
 import { SwitchFrameNode } from "../Node/Web Interaction/SwitchFrameNode";
@@ -82,6 +80,19 @@ import { LoopElementNode } from "../Node/Control Flow/LoopElementNode";
 import { LoopBreakNode } from "../Node/Control Flow/LoopBreakNode";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+// Define types
+interface NodeData {
+  label: string;
+  output?: any;
+  error?: string;
+  config?: Record<string, any>;
+}
+
+interface CustomNode extends Node<NodeData> {
+  data: NodeData;
+}
 
 const nodeTypes = {
   customTriggerNode: TriggerNode,
@@ -108,10 +119,10 @@ const nodeTypes = {
   getTabURL: GetURLNode,
   customClickElement: ClickElementNode,
   customGetText: GetTextNode,
-  customScrollElement: ScrollEventNode,
+  customScrollElement: ScrollElementNode,
   customLink: LinkEventNode,
-  customAttributeVariable: AttributeVariableNode,
-  customForms: FormsNode,
+  customAttributeVariable: GetAttributeNode,
+  customForms: FillFormNode,
   customJavaScript: JavaScriptCodeNode,
   customTriggerEvent: TriggerEventNode,
   customSwitchFrame: SwitchFrameNode,
@@ -129,19 +140,113 @@ const nodeTypes = {
   loopBreak: LoopBreakNode,
 };
 
+class AutomationExecutor {
+  private nodes: CustomNode[];
+  private edges: Edge[];
+  private nodeOutputs: Map<string, any>; // Store outputs by node ID
+
+  constructor(nodes: CustomNode[], edges: Edge[]) {
+    this.nodes = nodes;
+    this.edges = edges;
+    this.nodeOutputs = new Map();
+  }
+
+  async execute(): Promise<any> {
+    try {
+      const triggerNode = this.nodes.find(
+        (n) => n.type === "customTriggerNode"
+      );
+      if (!triggerNode) throw new Error("No trigger node found");
+
+      const result = await this.processNode(triggerNode);
+      return {
+        data: Object.fromEntries(this.nodeOutputs),
+        result,
+      };
+    } catch (error) {
+      return {
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
+  }
+
+  private async processNode(node: CustomNode, inputData?: any): Promise<any> {
+    try {
+      // Get input from previous nodes
+      const incomingEdges = this.edges.filter((e) => e.target === node.id);
+      const inputs = incomingEdges
+        .map((edge) => this.nodeOutputs.get(edge.source))
+        .filter((output) => output !== undefined);
+
+      // Default to provided inputData if no incoming edges, otherwise use first input
+      const effectiveInput = inputs.length > 0 ? inputs[0] : inputData;
+
+      let outputData: any;
+      switch (node.type) {
+        case "customTriggerNode":
+          outputData = { started: true, timestamp: Date.now() };
+          break;
+        case "customDelay":
+          await new Promise((resolve) =>
+            setTimeout(resolve, node.data.config?.delay || 1000)
+          );
+          outputData = effectiveInput;
+          break;
+        case "newTab":
+          outputData = { url: node.data.config?.url || "https://example.com" }; // Example URL output
+          break;
+        case "getTabURL":
+          outputData = { url: effectiveInput?.url || "No URL provided" }; // Uses URL from previous node
+          break;
+        case "customRequest":
+          // Simulate an HTTP request using input URL if available
+          outputData = {
+            response: effectiveInput?.url
+              ? `Fetched data from ${effectiveInput.url}`
+              : "No URL provided",
+          };
+          break;
+        // Add more node-specific logic here as needed
+        default:
+          outputData = effectiveInput; // Pass through by default
+      }
+
+      // Store the output for this node
+      this.nodeOutputs.set(node.id, outputData);
+
+      // Process next nodes
+      const nextEdges = this.edges.filter((e) => e.source === node.id);
+      const results = await Promise.all(
+        nextEdges.map((edge) => {
+          const targetNode = this.nodes.find((n) => n.id === edge.target);
+          return targetNode ? this.processNode(targetNode) : null; // No inputData passed directly, relies on nodeOutputs
+        })
+      );
+
+      return { data: outputData, next: results.filter((r) => r !== null) };
+    } catch (error) {
+      this.nodeOutputs.set(node.id, {
+        error: error instanceof Error ? error.message : "Node execution failed",
+      });
+      return {
+        error: error instanceof Error ? error.message : "Node execution failed",
+      };
+    }
+  }
+}
+
 const PageWithProvider = () => (
   <ReactFlowProvider>
     <Page />
   </ReactFlowProvider>
 );
+
 export default PageWithProvider;
 
 function Page() {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<
-    Node<{ label: string }>[]
-  >([
+  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode[]>([
     {
       id: "1",
       type: "customTriggerNode",
@@ -150,27 +255,25 @@ function Page() {
     },
   ]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
+  const [executionResult, setExecutionResult] = useState<any>(null);
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
 
-  // UUID generator
-  const uuidv4 = () => {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-      /[xy]/g,
-      function (c) {
-        const r = (Math.random() * 16) | 0;
-        const v = c == "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      }
-    );
+  const uuidv4 = (): string => {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
   };
 
-  // Dragging handlers
-  const onDragOver = useCallback((event: React.DragEvent) => {
+  const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
   }, []);
 
   const onDrop = useCallback(
-    (event: React.DragEvent) => {
+    (event: React.DragEvent<HTMLDivElement>) => {
       event.preventDefault();
       if (!reactFlowInstance) return;
 
@@ -180,76 +283,106 @@ function Page() {
         y: event.clientY,
       });
 
-      const newNode: Node = {
+      const newNode: CustomNode = {
         id: uuidv4(),
-        type: type,
+        type,
         position,
         data: { label: `${type}` },
       };
 
       setNodes((nds) => [...nds, newNode]);
     },
-    [reactFlowInstance]
+    [reactFlowInstance, setNodes]
   );
 
-  // Handle connections
-  const onConnect = useCallback((connection: Connection) => {
-    const edgeWithArrow = {
-      ...connection,
-      id: `edge-${connection.source}-${connection.target}`,
-      arrowHeadType: MarkerType.Arrow,
-      style: { strokeWidth: 3, stroke: "#3b82f6" },
-    };
-    setEdges((eds) => addEdge(edgeWithArrow, eds));
-  }, []);
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const onConnect = useCallback<OnConnect>(
+    (connection) => {
+      const edge: Edge = {
+        id: `edge-${connection.source}-${connection.target}`,
+        source: connection.source!,
+        target: connection.target!,
+        type: "smoothstep",
+        markerEnd: { type: MarkerType.Arrow },
+      };
+      setEdges((eds) => addEdge(edge, eds));
+    },
+    [setEdges]
+  );
 
-  function nodeColor(node: any) {
-    switch (node.parent) {
-      case "interaction":
+  const runAutomation = useCallback(async () => {
+    setIsRunning(true);
+    setExecutionResult(null);
+
+    const executor = new AutomationExecutor(nodes, edges);
+    const result = await executor.execute();
+
+    setExecutionResult(result);
+    setIsRunning(false);
+
+    setNodes((nds) =>
+      nds.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          output: result.data?.[node.id],
+          error:
+            result.data?.[node.id]?.error ||
+            (result.error && node.id === "1" ? result.error : undefined),
+        },
+      }))
+    );
+  }, [nodes, edges, setNodes]);
+
+  const nodeColor = (node: CustomNode): string => {
+    switch (node.type) {
+      case "customTriggerNode":
         return "#6ede87";
-      case "output":
+      case "customDelay":
         return "#6865A5";
       default:
         return "#ff0072";
     }
-  }
+  };
+
+  const handleNodesChange: OnNodesChange = onNodesChange;
+  const handleEdgesChange: OnEdgesChange = onEdgesChange;
 
   return (
     <div className="h-screen w-full bg-gray-950 text-white flex">
       <NodesPanel />
       <div className="flex-1 flex flex-col relative">
-        {/* Top-Right Buttons */}
         <div className="absolute top-4 right-4 flex gap-2 z-10">
           <Button variant="outline" className="text-white border-white">
             <Save className="w-4 h-4 mr-2" /> Save
           </Button>
           <Button
             variant="ghost"
-            className="text-white border border-white bg-transparent"
+            className="text-white border border-white bg-transparent disabled:opacity-50"
+            onClick={runAutomation}
+            disabled={isRunning}
           >
-            <Play className="w-4 h-4 mr-2" /> Run Automation
+            {isRunning ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Play className="w-4 h-4 mr-2" />
+            )}
+            {isRunning ? "Running..." : "Run Automation"}
           </Button>
         </div>
 
-        {/* React Flow Canvas */}
         <ReactFlow
           nodes={nodes}
           edges={edges}
           onInit={setReactFlowInstance}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
           onDragOver={onDragOver}
           onDrop={onDrop}
           fitView
           nodeTypes={nodeTypes}
-          panOnDrag
-          zoomOnScroll
-          zoomOnDoubleClick
         >
           <Background />
-
           <div className="absolute bottom-4 left-4 flex z-10 gap-3 p-3 rounded-lg shadow-lg">
             <Button
               variant="ghost"
@@ -280,24 +413,38 @@ function Page() {
               <Crosshair size={20} />
             </Button>
           </div>
-
-          {/* MiniMap for Navigation (Transparent Background) */}
           <MiniMap
             nodeStrokeWidth={3}
-            maskColor="rgba(0, 0, 0, 0.2)"
             nodeColor={nodeColor}
             className="absolute bottom-16 right-4 border border-white rounded-lg"
-            style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }} // Change the background color here
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
           />
+          {executionResult && (
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-1/2 bg-gray-800 p-4 rounded-lg shadow-lg z-20">
+              <h3 className="text-lg font-semibold mb-2">Execution Result</h3>
+              {executionResult.error ? (
+                <div className="text-red-400">
+                  Error: {executionResult.error}
+                </div>
+              ) : (
+                <pre className="text-sm overflow-auto max-h-40">
+                  {JSON.stringify(executionResult, null, 2)}
+                </pre>
+              )}
+              <Button
+                variant="ghost"
+                className="mt-2"
+                onClick={() => setExecutionResult(null)}
+              >
+                Close
+              </Button>
+            </div>
+          )}
         </ReactFlow>
       </div>
     </div>
   );
 }
-
-// const [searchComponents, setSearchComponents] = useState("");
-// const [filteredComponents, setFilteredComponents] = useState([]);
-// const allData = [...GENERAL, ...BROWSER, INTERACTION];
 
 const NodesPanel = () => {
   const [searchKeyWords, setSearchKeyWords] = useState("");
@@ -305,39 +452,38 @@ const NodesPanel = () => {
     General: true,
     Browser: true,
     "Web Interactions": true,
-    CONTROL_FLOW: true,
+    "Control Flow": true,
   });
 
   const toggleSection = (section: string) => {
-    setOpenSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }));
+    setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
   return (
-    <div className="w-80 h-screen overflow-auto bg-[#27272A] p-4 border-r border-gray-800 flex flex-col gap-4">
+    <div className="w-80 h-screen overflow-auto bg-[#1E1E20] p-4 border-r border-[#2D2D30] flex flex-col gap-6 shadow-lg">
+      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
-          <Zap size={20} className="text-blue-400" />
-          <h2 className="text-lg font-semibold">Workflow Components</h2>
+          <Zap size={20} className="text-[#92C5FD] drop-shadow-sm" />
+          <h2 className="text-lg font-semibold text-gray-100 tracking-wide">
+            Workflow Components
+          </h2>
         </div>
-        <div>
-          <Link href={"/Workflow"}>
-            <Undo2 className="cursor-pointer" />
-          </Link>
-        </div>
+        <Link href="/Workflow">
+          <Undo2 className="cursor-pointer text-gray-400 hover:text-[#92C5FD] transition-colors" />
+        </Link>
       </div>
 
-      <div className="group relative">
-        <Input
-          placeholder="Search components..."
-          value={searchKeyWords}
-          onChange={(e) => setSearchKeyWords(e.target.value)}
-          className="border border-white bg-[#313134] py-2 px-2"
-        />
-      </div>
-      <div className="space-y-2">
+      {/* Search Input */}
+      <Input
+        placeholder="Search components..."
+        value={searchKeyWords}
+        onChange={(e) => setSearchKeyWords(e.target.value)}
+        className="bg-[#2A2A2C] border-[#3A3A3C] text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-[#92C5FD] focus:border-transparent rounded-lg py-2 px-3 transition-all"
+      />
+
+      {/* Sections */}
+      <div className="space-y-4">
         {Object.entries({
           General: GENERAL,
           Browser: BROWSER,
@@ -349,8 +495,7 @@ const NodesPanel = () => {
           );
 
           return (
-            filteredItems.length > 0 &&
-            searchKeyWords && (
+            (filteredItems.length > 0 || !searchKeyWords) && (
               <PanelSection
                 key={title}
                 title={title}
@@ -361,17 +506,17 @@ const NodesPanel = () => {
                     size={13}
                     className={`${
                       title === "General"
-                        ? "bg-black text-black"
+                        ? "fill-[#000000] stroke-[#000000]"
                         : title === "Browser"
-                        ? "bg-[#fde047] text-[#fde047]"
+                        ? "fill-[#FDE047] stroke-[#FDE047]"
                         : title === "Web Interactions"
-                        ? "bg-[#87EFAC] text-[#87EFAC]"
-                        : "bg-[#92C5FD] text-[#92C5FD]"
-                    } rounded-full`}
+                        ? "fill-[#87EFAC] stroke-[#87EFAC]"
+                        : "fill-[#92C5FD] stroke-[#92C5FD]"
+                    } drop-shadow-sm`}
                   />
                 }
               >
-                {filteredItems.map((item) => (
+                {(searchKeyWords ? filteredItems : items).map((item) => (
                   <DraggableNode
                     key={item.id}
                     type={item.type}
@@ -384,92 +529,17 @@ const NodesPanel = () => {
           );
         })}
       </div>
-
-      <div className="space-y-2">
-        <PanelSection
-          title="General"
-          isOpen={openSections["General"]}
-          toggle={() => toggleSection("General")}
-          icon={
-            <Circle size={16} className="bg-black text-black rounded-full" />
-          }
-        >
-          {GENERAL.map((item) => (
-            <DraggableNode
-              type={item.type}
-              icon={item.icon}
-              label={item.label}
-              key={item.id}
-            />
-          ))}
-        </PanelSection>
-
-        <PanelSection
-          title="Browser"
-          isOpen={openSections["Browser"]}
-          toggle={() => toggleSection("Browser")}
-          icon={
-            <Circle
-              size={13}
-              className="bg-[#fde047] rounded-full text-[#fde047]"
-            />
-          }
-        >
-          {BROWSER.map((item) => (
-            <DraggableNode
-              type={item.type}
-              icon={item.icon}
-              label={item.label}
-              key={item.id}
-            />
-          ))}
-        </PanelSection>
-
-        <PanelSection
-          title="Web Interactions"
-          isOpen={openSections["Web Interactions"]}
-          toggle={() => toggleSection("Web Interactions")}
-          icon={
-            <Circle
-              size={13}
-              className="bg-[#87EFAC] rounded-full text-[#87EFAC]"
-            />
-          }
-        >
-          {INTERACTION.map((item) => (
-            <DraggableNode
-              type={item.type}
-              icon={item.icon}
-              label={item.label}
-              key={item.id}
-            />
-          ))}
-        </PanelSection>
-
-        <PanelSection
-          title="Control Flow"
-          isOpen={openSections["Control Flow"]}
-          toggle={() => toggleSection("Control Flow")}
-          icon={
-            <Circle
-              size={13}
-              className="bg-[#92C5FD] rounded-full text-[#92C5FD]"
-            />
-          }
-        >
-          {CONTROL_FLOW.map((item) => (
-            <DraggableNode
-              type={item.type}
-              icon={item.icon}
-              label={item.label}
-              key={item.id}
-            />
-          ))}
-        </PanelSection>
-      </div>
     </div>
   );
 };
+
+interface PanelSectionProps {
+  title: string;
+  icon: React.ReactNode;
+  isOpen: boolean;
+  toggle: () => void;
+  children: React.ReactNode;
+}
 
 const PanelSection = ({
   title,
@@ -477,55 +547,48 @@ const PanelSection = ({
   isOpen,
   toggle,
   children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  isOpen: boolean;
-  toggle: () => void;
-  children: React.ReactNode;
-}) => (
-  <div className="bg-[#313134] rounded-lg p-2">
+}: PanelSectionProps) => (
+  <div className="bg-[#252527] rounded-xl p-3 shadow-md transition-all duration-200 hover:shadow-lg">
     <div className="flex justify-between items-center">
       <div
-        className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-300 cursor-pointer"
+        className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-300 cursor-pointer hover:text-gray-100 transition-colors"
         onClick={toggle}
       >
         {icon}
-        {title}
+        <span className="tracking-tight">{title}</span>
       </div>
-      <div onClick={toggle} className="cursor-pointer">
-        {isOpen ? <Minus size={18} /> : <Plus size={18} />}
+      <div
+        onClick={toggle}
+        className="cursor-pointer text-gray-400 hover:text-[#92C5FD] w-5 h-5 flex items-center justify-center rounded-full bg-[#313134] transition-colors"
+      >
+        {isOpen ? <Minus /> : <Plus />}
       </div>
     </div>
     {isOpen && (
-      <div className="gap-2 grid grid-cols-2 transition-all mt-2">
+      <div className="grid grid-cols-2 gap-2 mt-3 transition-all duration-200">
         {children}
       </div>
     )}
   </div>
 );
 
-const DraggableNode = ({
-  type,
-  label,
-  icon,
-}: {
+interface DraggableNodeProps {
   type: string;
   label: string;
   icon: React.ReactNode;
-}) => (
+}
+
+const DraggableNode = ({ type, label, icon }: DraggableNodeProps) => (
   <div
-    className="p-3 bg-[#27272A] rounded-lg cursor-move hover:bg-gray-600 transition-colors shadow-sm"
+    className="p-3 bg-[#2A2A2C] rounded-lg cursor-move hover:bg-[#353538] transition-all duration-150 shadow-sm hover:shadow-md  overflow-hidden border border-[#3A3A3C]"
     draggable
     onDragStart={(e) => {
       e.dataTransfer.setData("application/reactflow", type);
       e.dataTransfer.effectAllowed = "move";
     }}
   >
-    <span className="text-gray-300 group-hover:text-white transition-colors">
-      {icon}
-    </span>
-    <p className="text-sm mt-2 text-gray-200 group-hover:text-white transition-colors whitespace-nowrap">
+    <span className="text-gray-300 drop-shadow-sm">{icon}</span>
+    <p className="text-sm mt-2 text-gray-200 font-medium tracking-tight whitespace-nowrap ">
       {label}
     </p>
   </div>
