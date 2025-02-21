@@ -1,6 +1,7 @@
 // src/app/api/calendar/events/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/auth";
+import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const { user } = await validateRequest();
@@ -11,27 +12,39 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock data (replace with real DB query)
-  const data = [
-    {
-      id: "1",
-      title: "Team Meeting",
-      start: "2023-10-05T10:00:00Z",
-      end: "2023-10-05T11:00:00Z",
-      description: "Weekly sync-up",
-      type: "event",
-    },
-    {
-      id: "2",
-      title: "Project Review",
-      start: "2023-10-06T14:00:00Z",
-      end: "2023-10-06T15:30:00Z",
-      description: "Review project milestones",
-      type: "event",
-    },
-  ];
+  try {
+    const events = await prisma.event.findMany({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        start: true,
+        end: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-  return NextResponse.json(data, { status: 200 });
+    const data = events.map((event) => ({
+      id: event.id,
+      title: event.title,
+      start: event.start.toISOString(),
+      end: event.end?.toISOString() || null,
+      description: event.description || "",
+      type: "event",
+      createdAt: event.createdAt.toISOString(),
+      updatedAt: event.updatedAt.toISOString(),
+    }));
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    console.error("Error fetching events:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch events" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -43,17 +56,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock response (replace with real DB logic)
-  const newEvent = {
-    id: Date.now().toString(),
-    title,
-    description,
-    start,
-    end,
-    type: "event",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  if (!title || !start) {
+    return NextResponse.json(
+      { error: "Title and start are required" },
+      { status: 400 }
+    );
+  }
 
-  return NextResponse.json(newEvent, { status: 201 });
+  try {
+    const event = await prisma.event.create({
+      data: {
+        userId: user.id,
+        title,
+        description,
+        start: new Date(start),
+        end: end ? new Date(end) : null,
+      },
+    });
+
+    const newEvent = {
+      id: event.id,
+      title: event.title,
+      description: event.description || "",
+      start: event.start.toISOString(),
+      end: event.end?.toISOString() || null,
+      type: "event",
+      createdAt: event.createdAt.toISOString(),
+      updatedAt: event.updatedAt.toISOString(),
+    };
+
+    return NextResponse.json(newEvent, { status: 201 });
+  } catch (error) {
+    console.error("Error creating event:", error);
+    return NextResponse.json(
+      { error: "Failed to create event" },
+      { status: 500 }
+    );
+  }
 }

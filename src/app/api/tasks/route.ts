@@ -1,6 +1,7 @@
 // src/app/api/tasks/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/auth";
+import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const { user } = await validateRequest();
@@ -11,59 +12,85 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock data (replace with real DB query)
-  const data = [
-    {
-      id: "1",
-      title: "Prepare Presentation",
-      description: "Slides for Monday meeting",
-      status: "in_progress",
-      dueDate: "2023-10-10",
-      createdAt: "2023-10-01T10:00:00Z",
-      updatedAt: "2023-10-02T14:00:00Z",
-    },
-    {
-      id: "2",
-      title: "Review Code",
-      description: "Check pull request #123",
-      status: "pending",
-      dueDate: "2023-10-15",
-      createdAt: "2023-10-01T12:00:00Z",
-      updatedAt: "2023-10-01T12:00:00Z",
-    },
-    {
-      id: "3",
-      title: "Send Report",
-      description: "Monthly sales report",
-      status: "completed",
-      dueDate: "2023-09-30",
-      createdAt: "2023-09-25T09:00:00Z",
-      updatedAt: "2023-09-30T15:00:00Z",
-    },
-  ];
+  try {
+    const tasks = await prisma.task.findMany({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        status: true,
+        dueDate: true,
+        createdAt: true,
+        updatedAt: true,
+        nodeId: true,
+      },
+    });
 
-  return NextResponse.json(data, { status: 200 });
+    const data = tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      description: task.description || "",
+      status: task.status,
+      dueDate: task.dueDate?.toISOString() || null,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
+    }));
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch tasks" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
   const { user } = await validateRequest();
   const body = await request.json();
-  const { userId, title, description, dueDate, status } = body;
+  const { userId, title, description, dueDate, status, nodeId } = body;
 
   if (!user || user.id !== userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock response (replace with real DB logic)
-  const newTask = {
-    id: Date.now().toString(),
-    title: title || "Untitled Task",
-    description,
-    status,
-    dueDate,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  if (!title || !nodeId) {
+    return NextResponse.json(
+      { error: "Title and nodeId are required" },
+      { status: 400 }
+    );
+  }
 
-  return NextResponse.json(newTask, { status: 201 });
+  try {
+    const task = await prisma.task.create({
+      data: {
+        userId: user.id,
+        title,
+        description,
+        status: status || "pending",
+        dueDate: dueDate ? new Date(dueDate) : null,
+        nodeId,
+      },
+    });
+
+    const newTask = {
+      id: task.id,
+      title: task.title,
+      description: task.description || "",
+      status: task.status,
+      dueDate: task.dueDate?.toISOString() || null,
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: task.updatedAt.toISOString(),
+    };
+
+    return NextResponse.json(newTask, { status: 201 });
+  } catch (error) {
+    console.error("Error creating task:", error);
+    return NextResponse.json(
+      { error: "Failed to create task" },
+      { status: 500 }
+    );
+  }
 }

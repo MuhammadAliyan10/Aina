@@ -1,4 +1,3 @@
-// src/app/(mainPages)/workflows/page.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -28,13 +27,27 @@ interface Workflow {
   id: string;
   title: string;
   description?: string | null;
-  createdAt: string;
+  createdAt: Date;
 }
 
 interface NewWorkflow {
   title: string;
   description: string;
 }
+
+// Simulated update function (since not provided in action.ts)
+const handleUpdateWorkFlow = async (
+  id: string,
+  data: { title: string; description: string }
+) => {
+  const response = await fetch(`/api/workflows/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error("Failed to update workflow");
+  return response.json();
+};
 
 export default function WorkflowPage() {
   const queryClient = useQueryClient();
@@ -49,19 +62,24 @@ export default function WorkflowPage() {
   const {
     data: workflows,
     isLoading: loadingWorkflows,
+    error, // Extract error state
     refetch,
   } = useQuery<Workflow[]>({
     queryKey: ["workflows"],
     queryFn: fetchUserWorkFlow,
-    onError: (error) => {
+  });
+
+  // Handle error state
+  React.useEffect(() => {
+    if (error) {
       toast({
         title: "Error",
         description:
           error instanceof Error ? error.message : "Failed to fetch workflows",
         variant: "destructive",
       });
-    },
-  });
+    }
+  }, [error]);
 
   // Mutation to create a workflow
   const createWorkflow = useMutation({
@@ -90,7 +108,7 @@ export default function WorkflowPage() {
     },
   });
 
-  // Mutation to update a workflow (not provided in action.ts, so we'll simulate it)
+  // Mutation to update a workflow
   const updateWorkflow = useMutation({
     mutationFn: async (workflow: Workflow) =>
       handleUpdateWorkFlow(workflow.id, {
@@ -170,13 +188,12 @@ export default function WorkflowPage() {
       return;
     }
     if (editingWorkflow) {
-      // Since action.ts doesn't have an update function, we'll simulate it locally
       updateWorkflow.mutate(editingWorkflow);
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen  text-neutral-200 p-6">
+    <div className="flex flex-col min-h-screen text-neutral-200 p-6">
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold flex items-center gap-2">
           <Zap className="h-8 w-8 text-blue-400" />
@@ -238,13 +255,18 @@ export default function WorkflowPage() {
           <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
           <p>Loading your workflows...</p>
         </div>
-      ) : workflows && workflows.length > 0 ? (
+      ) : Array.isArray(workflows) && workflows.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {workflows.map((flow) => (
             <WorkflowCard
               key={flow.id}
-              workflow={flow}
-              onEdit={(workflow) => setEditingWorkflow(workflow)}
+              workflow={{ ...flow, createdAt: flow.createdAt.toISOString() }}
+              onEdit={(workflow) =>
+                setEditingWorkflow({
+                  ...workflow,
+                  createdAt: new Date(workflow.createdAt),
+                })
+              }
               onDelete={(id) => deleteWorkflow.mutate(id)}
               isDeleting={
                 deleteWorkflow.isPending && deleteWorkflow.variables === flow.id

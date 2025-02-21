@@ -1,6 +1,7 @@
 // src/app/api/documents/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/auth";
+import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const { user } = await validateRequest();
@@ -11,25 +12,34 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock data (replace with real DB query)
-  const data = [
-    {
-      id: "1",
-      title: "Meeting Notes",
-      content: "Notes from the team meeting on 2023-10-01.",
-      createdAt: "2023-10-01T10:00:00Z",
-      updatedAt: "2023-10-01T10:00:00Z",
-    },
-    {
-      id: "2",
-      title: "Project Plan",
-      content: "Detailed plan for Project X.",
-      createdAt: "2023-09-15T14:30:00Z",
-      updatedAt: "2023-10-02T09:15:00Z",
-    },
-  ];
+  try {
+    const documents = await prisma.document.findMany({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-  return NextResponse.json(data, { status: 200 });
+    const data = documents.map((doc) => ({
+      id: doc.id,
+      title: doc.title,
+      content: doc.content,
+      createdAt: doc.createdAt.toISOString(),
+      updatedAt: doc.updatedAt.toISOString(),
+    }));
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    console.error("Error fetching documents:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch documents" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -41,14 +51,36 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock response (replace with real DB logic)
-  const newDoc = {
-    id: Date.now().toString(),
-    title: title || "Untitled Document",
-    content,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
+  if (!title || !content) {
+    return NextResponse.json(
+      { error: "Title and content are required" },
+      { status: 400 }
+    );
+  }
 
-  return NextResponse.json(newDoc, { status: 201 });
+  try {
+    const document = await prisma.document.create({
+      data: {
+        userId: user.id,
+        title,
+        content,
+      },
+    });
+
+    const newDoc = {
+      id: document.id,
+      title: document.title,
+      content: document.content,
+      createdAt: document.createdAt.toISOString(),
+      updatedAt: document.updatedAt.toISOString(),
+    };
+
+    return NextResponse.json(newDoc, { status: 201 });
+  } catch (error) {
+    console.error("Error creating document:", error);
+    return NextResponse.json(
+      { error: "Failed to create document" },
+      { status: 500 }
+    );
+  }
 }

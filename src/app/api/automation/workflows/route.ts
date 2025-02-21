@@ -1,6 +1,7 @@
 // src/app/api/automation/workflows/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/auth";
+import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const { user } = await validateRequest();
@@ -11,60 +12,37 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock data (replace with real DB query)
-  const data = [
-    {
-      id: "1",
-      name: "Email Automation",
-      description: "Send emails based on triggers",
-      steps: [
-        {
-          id: "s1",
-          type: "trigger",
-          name: "New Subscriber",
-          config: {},
-          order: 0,
-        },
-        {
-          id: "s2",
-          type: "action",
-          name: "Send Welcome Email",
-          config: {},
-          order: 1,
-        },
-      ],
-      createdAt: "2023-10-01T10:00:00Z",
-      updatedAt: "2023-10-01T10:00:00Z",
-      status: "active",
-    },
-    {
-      id: "2",
-      name: "Daily Report",
-      description: "Generate daily sales report",
-      steps: [
-        {
-          id: "s3",
-          type: "trigger",
-          name: "Daily Schedule",
-          config: {},
-          order: 0,
-        },
-        {
-          id: "s4",
-          type: "action",
-          name: "Generate Report",
-          config: {},
-          order: 1,
-        },
-        { id: "s5", type: "action", name: "Email Team", config: {}, order: 2 },
-      ],
-      createdAt: "2023-09-15T14:00:00Z",
-      updatedAt: "2023-10-02T09:00:00Z",
-      status: "inactive",
-    },
-  ];
+  try {
+    const automations = await prisma.automation.findMany({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        createdAt: true,
+        updatedAt: true,
+        status: true,
+      },
+    });
 
-  return NextResponse.json(data, { status: 200 });
+    const data = automations.map((automation) => ({
+      id: automation.id,
+      name: automation.title,
+      description: automation.description,
+      steps: [], // No direct steps in Automation; extend if needed
+      createdAt: automation.createdAt.toISOString(),
+      updatedAt: automation.updatedAt.toISOString(),
+      status: automation.status,
+    }));
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    console.error("Error fetching automations:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch automations" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -76,16 +54,40 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock response (replace with real DB logic)
-  const newWorkflow = {
-    id: Date.now().toString(),
-    name,
-    description,
-    steps,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    status,
-  };
+  if (!name) {
+    return NextResponse.json({ error: "Name is required" }, { status: 400 });
+  }
 
-  return NextResponse.json(newWorkflow, { status: 201 });
+  try {
+    const automation = await prisma.automation.create({
+      data: {
+        userId: user.id,
+        title: name,
+        description,
+        automationUrl: "default-url", // Placeholder; adjust based on requirements
+        type: "custom", // Placeholder; specify type as needed
+        process: "Automated process",
+        executeAt: new Date(),
+        status: status || "PENDING",
+      },
+    });
+
+    const newWorkflow = {
+      id: automation.id,
+      name: automation.title,
+      description: automation.description,
+      steps: [], // No steps in Automation model; extend if needed
+      createdAt: automation.createdAt.toISOString(),
+      updatedAt: automation.updatedAt.toISOString(),
+      status: automation.status,
+    };
+
+    return NextResponse.json(newWorkflow, { status: 201 });
+  } catch (error) {
+    console.error("Error creating automation:", error);
+    return NextResponse.json(
+      { error: "Failed to create automation" },
+      { status: 500 }
+    );
+  }
 }

@@ -1,8 +1,7 @@
-// src/app/(mainPages)/calendar/page.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
-import FullCalendar from "@fullcalendar/react";
+import React, { useState, useEffect, useRef } from "react"; // Add useRef
+import FullCalendar from "@fullcalendar/react"; // Import CalendarApi type
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -48,6 +47,7 @@ const CalendarPage = () => {
     end: "",
   });
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const calendarRef = useRef<FullCalendar>(null); // Add ref for FullCalendar
 
   // Fetch events and tasks
   const { data: events, isLoading: eventsLoading } = useQuery<CalendarEvent[]>({
@@ -208,9 +208,12 @@ const CalendarPage = () => {
     }
   };
 
-  function handleSave(): void {
-    throw new Error("Function not implemented.");
-  }
+  // Handle save (placeholder implementation)
+  const handleSave = () => {
+    if (editingEvent) {
+      updateEvent.mutate(editingEvent);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen text-neutral-200 p-6">
@@ -273,6 +276,7 @@ const CalendarPage = () => {
             </CardHeader>
             <CardContent>
               <FullCalendar
+                ref={calendarRef} // Attach ref to FullCalendar
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 initialView={view}
                 events={events?.map((event) => ({
@@ -307,8 +311,7 @@ const CalendarPage = () => {
                   today: {
                     text: "Today",
                     click: () => {
-                      const calendarApi =
-                        document.querySelector(".fc")?.["calendar"];
+                      const calendarApi = calendarRef.current?.getApi(); // Use ref to get API
                       if (calendarApi) calendarApi.today();
                     },
                   },

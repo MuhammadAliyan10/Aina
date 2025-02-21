@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/auth";
 
+// Define the params type
+type RouteParams = {
+  id: string;
+};
+
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<RouteParams> } // Wrap params in Promise
 ) {
+  const resolvedParams = await params; // Await the Promise
   const { user } = await validateRequest();
   const body = await request.json();
   const { userId, role } = body;
@@ -19,8 +25,9 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<RouteParams> } // Wrap params in Promise
 ) {
+  const resolvedParams = await params; // Await the Promise
   const { user } = await validateRequest();
   const body = await request.json();
   const { userId } = body;

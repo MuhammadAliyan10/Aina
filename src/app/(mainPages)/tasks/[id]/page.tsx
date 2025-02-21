@@ -1,4 +1,3 @@
-// src/app/(mainPages)/tasks/[id]/page.tsx
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
@@ -114,6 +113,7 @@ interface NodeData {
   config?: Record<string, any>;
 }
 
+// Correct CustomNode to extend Node with NodeData
 interface CustomNode extends Node<NodeData> {
   data: NodeData;
 }
@@ -187,7 +187,7 @@ export default PageWithProvider;
 function Page() {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]); // Correct typing
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -231,7 +231,7 @@ function Page() {
         data: { label: `${type}` },
       };
 
-      setNodes((nds) => [...nds, newNode]);
+      setNodes((nds) => [...nds, newNode]); // Type matches now
       setIsDirty(true);
     },
     [reactFlowInstance, setNodes]
@@ -426,7 +426,7 @@ function Page() {
           markerEnd: { type: MarkerType.Arrow },
         }))
       );
-      setWorkflowTitle(workflow.title || "New Workflow"); // Ensure title updates
+      setWorkflowTitle(workflow.title || "New Workflow");
       setIsDirty(false);
     }
   }, [workflowData, isLoading, setNodes, setEdges]);
@@ -620,7 +620,7 @@ const NodesPanel = () => {
             Workflow Components
           </h2>
         </div>
-        <Link href="/Workflow">
+        <Link href="/workflows">
           <Undo2 className="cursor-pointer text-gray-400 hover:text-[#92C5FD] transition-colors" />
         </Link>
       </div>

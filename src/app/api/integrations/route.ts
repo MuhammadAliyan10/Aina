@@ -1,6 +1,7 @@
 // src/app/api/integrations/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/auth";
+import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const { user } = await validateRequest();
@@ -11,49 +12,33 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock data (replace with real DB query or integration service)
-  const data = [
-    {
-      id: "1",
-      name: "Salesforce",
-      description: "Sync customer data with your CRM.",
-      icon: "https://www.salesforce.com/favicon.ico",
-      category: "CRM",
-      isConnected: true,
-    },
-    {
-      id: "2",
-      name: "Slack",
-      description: "Send notifications to your team channels.",
-      icon: "https://slack.com/favicon.ico",
-      category: "Messaging",
-      isConnected: false,
-    },
-    {
-      id: "3",
-      name: "Google Drive",
-      description: "Store and share files seamlessly.",
-      icon: "https://drive.google.com/favicon.ico",
-      category: "Storage",
-      isConnected: false,
-    },
-    {
-      id: "4",
-      name: "Stripe",
-      description: "Process payments and invoices.",
-      icon: "https://stripe.com/favicon.ico",
-      category: "Payment",
-      isConnected: true,
-    },
-    {
-      id: "5",
-      name: "Whatsapp",
-      description: "Send or receive text and data.",
-      icon: "https://whatsapp.com/favicon.ico",
-      category: "Chat",
-      isConnected: true,
-    },
-  ];
+  try {
+    const integrations = await prisma.integration.findMany({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        connectedAt: true,
+        status: true,
+      },
+    });
 
-  return NextResponse.json(data, { status: 200 });
+    const data = integrations.map((integration) => ({
+      id: integration.id,
+      name: integration.name,
+      description: integration.description || "",
+      icon: "", // Placeholder; fetch from external service or static map if needed
+      category: "", // Derive category from name or add to schema if needed
+      isConnected: integration.status === "CONNECTED",
+    }));
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (error) {
+    console.error("Error fetching integrations:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch integrations" },
+      { status: 500 }
+    );
+  }
 }

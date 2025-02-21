@@ -431,7 +431,7 @@ const SettingsPage = () => {
                   Mute During Focus Mode
                 </label>
                 <Input
-                  label="Notification Delay (seconds)"
+                  placeholder="Notification Delay (seconds)"
                   type="number"
                   value={notificationDelay}
                   onChange={(e) => setNotificationDelay(e.target.value)}

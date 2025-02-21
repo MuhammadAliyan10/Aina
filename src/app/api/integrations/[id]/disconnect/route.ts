@@ -1,11 +1,17 @@
-// src/app/api/integrations/[id]/disconnect/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/auth";
+import prisma from "@/lib/prisma";
+
+// Define the params type
+type RouteParams = {
+  id: string;
+};
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<RouteParams> } // Wrap params in Promise
 ) {
+  const resolvedParams = await params; // Await the Promise
   const { user } = await validateRequest();
   const body = await request.json();
   const { userId } = body;
@@ -14,6 +20,21 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock success (replace with real disconnection logic)
-  return NextResponse.json({ success: true }, { status: 200 });
+  if (!resolvedParams.id) {
+    return NextResponse.json({ error: "ID is required" }, { status: 400 });
+  }
+
+  try {
+    await prisma.integration.update({
+      where: { id: resolvedParams.id, userId: user.id },
+      data: { status: "DISCONNECTED" },
+    });
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error("Error disconnecting integration:", error);
+    return NextResponse.json(
+      { error: "Failed to disconnect integration" },
+      { status: 500 }
+    );
+  }
 }

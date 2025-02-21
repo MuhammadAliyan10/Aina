@@ -190,7 +190,7 @@ export default class AutomationExecutor {
           }
           const logLevel = node.data.config?.logLevel || "info";
           const logMessage = effectiveInput || "No data to log";
-          log[logLevel](
+          log[logLevel as keyof typeof log](
             `LogEventNode ${node.id}: ${JSON.stringify(logMessage)}`
           );
           outputData = { logged: true, message: logMessage };
@@ -203,7 +203,7 @@ export default class AutomationExecutor {
           }
           const variableName = node.data.config?.variableName;
           const valueType = node.data.config?.valueType || "static";
-          let value =
+          const value =
             valueType === "static"
               ? node.data.config?.staticValue
               : valueType === "json"
@@ -1076,7 +1076,7 @@ export default class AutomationExecutor {
   }
 
   getPage(nodeId: string): Page | undefined {
-    return pageMap.get(nodeId) || this.currentPage;
+    return pageMap.get(nodeId) || undefined;
   }
 
   async cleanup() {

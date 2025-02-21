@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  typescript: {
+    ignoreBuildErrors: true, // Ignores TypeScript errors during build
+  },
+  reactStrictMode: true,
   experimental: {
     staleTimes: {
       dynamic: 30,

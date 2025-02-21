@@ -1,6 +1,6 @@
-// src/app/api/billing/payment-methods/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/auth";
+import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const { user } = await validateRequest();
@@ -11,13 +11,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock data (replace with real DB query)
-  const data = [
-    { id: "1", type: "credit_card", lastFour: "1234", expiry: "12/25" },
-    { id: "2", type: "paypal", lastFour: "N/A", expiry: "N/A" },
-  ];
+  try {
+    const paymentMethods = await prisma.paymentMethod.findMany({
+      where: { billing: { userId: user.id } },
+      select: { id: true, type: true, lastFour: true, expiry: true },
+    });
 
-  return NextResponse.json(data, { status: 200 });
+    return NextResponse.json(paymentMethods, { status: 200 });
+  } catch (error) {
+    console.error("Error fetching payment methods:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch payment methods" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -29,29 +36,66 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock response (replace with real DB logic)
-  const newMethod = {
-    id: Date.now().toString(), // Simple ID generation for demo
-    type: "credit_card",
-    lastFour: cardNumber.slice(-4),
-    expiry,
-  };
+  if (!cardNumber || !expiry) {
+    return NextResponse.json(
+      { error: "Card number and expiry are required" },
+      { status: 400 }
+    );
+  }
 
-  return NextResponse.json(newMethod, { status: 201 });
+  try {
+    const billing = await prisma.billing.findFirst({
+      where: { userId: user.id },
+    });
+    if (!billing) {
+      return NextResponse.json(
+        { error: "No billing record found" },
+        { status: 404 }
+      );
+    }
+
+    const paymentMethod = await prisma.paymentMethod.create({
+      data: {
+        billingId: billing.id,
+        type: "credit_card",
+        lastFour: cardNumber.slice(-4),
+        expiry,
+      },
+    });
+
+    return NextResponse.json(paymentMethod, { status: 201 });
+  } catch (error) {
+    console.error("Error adding payment method:", error);
+    return NextResponse.json(
+      { error: "Failed to add payment method" },
+      { status: 500 }
+    );
+  }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest) {
   const { user } = await validateRequest();
   const body = await request.json();
-  const { userId } = body;
+  const { userId, id } = body; // Move id from params to body
 
   if (!user || user.id !== userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Mock success (replace with real DB deletion)
-  return NextResponse.json({ success: true }, { status: 200 });
+  if (!id) {
+    return NextResponse.json({ error: "ID is required" }, { status: 400 });
+  }
+
+  try {
+    await prisma.paymentMethod.delete({
+      where: { id, billing: { userId: user.id } },
+    });
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error("Error deleting payment method:", error);
+    return NextResponse.json(
+      { error: "Failed to delete payment method" },
+      { status: 500 }
+    );
+  }
 }
