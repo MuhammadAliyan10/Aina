@@ -10,6 +10,7 @@ interface Links {
   href: string;
   icon: React.JSX.Element | React.ReactNode;
   action?: () => void;
+  onClick?: () => void;
 }
 
 interface SidebarContextProps {

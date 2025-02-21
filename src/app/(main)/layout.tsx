@@ -1,11 +1,12 @@
 import { validateRequest } from "@/auth";
-import { AppSidebar } from "@/components/AppSidebar";
+
 import { ModeToggle } from "@/components/ModeToggle";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { redirect } from "next/navigation";
 import SessionProvider from "./SessionProvider";
 import { AuthProvider } from "./AuthContext";
 import QueryProvider from "./QueryProvider";
+import { AppSidebar } from "@/components/AppSidebar";
 
 export default async function Layout({
   children,
@@ -22,11 +23,11 @@ export default async function Layout({
     <SessionProvider value={{ user: user ?? null, session }}>
       <SidebarProvider>
         <main className="w-full">
-          <AppSidebar>
-            <AuthProvider>
-              <QueryProvider>{children}</QueryProvider>
-            </AuthProvider>
-          </AppSidebar>
+          <QueryProvider>
+            <AppSidebar>
+              <AuthProvider>{children}</AuthProvider>
+            </AppSidebar>
+          </QueryProvider>
 
           <div className="absolute top-11 md:top-2 right-2 ">
             <ModeToggle />
