@@ -9,14 +9,14 @@ export function CarouselDemo() {
       button: "Explore Automation",
       description:
         "You can do your office work or school work with automation.",
-      href: "/automationHub",
+      href: "/automation-studio",
       src: "https://images.unsplash.com/photo-1494806812796-244fe51b774d?q=80&w=3534&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
     {
       title: "Graph Workflow",
       button: "Explore Workflow",
       description: "You can handle you work with simple lines.",
-      href: "/Workflow",
+      href: "/workflows",
       src: "https://images.unsplash.com/photo-1494806812796-244fe51b774d?q=80&w=3534&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
     },
     {
