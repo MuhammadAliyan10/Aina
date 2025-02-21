@@ -1,3 +1,4 @@
+// src/Node/Web Interaction/FormsNode.ts
 import { Handle, Position, NodeProps, useReactFlow } from "reactflow";
 import { Pi, Edit, Trash, Power, PowerOff, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -27,7 +28,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-// Placeholder for logging (integrate with your production logging system)
+// Placeholder for logging
 const log = {
   info: (message: string) => console.log(`[INFO] ${message}`),
   error: (message: string) => console.error(`[ERROR] ${message}`),
@@ -37,24 +38,23 @@ const FillFormNode = ({ id, data }: NodeProps) => {
   const [description, setDescription] = useState(data.description || "");
   const [selectorType, setSelectorType] = useState(
     data.config?.selectorType || "css"
-  ); // css or xpath
+  );
   const [selectorValue, setSelectorValue] = useState(
     data.config?.selectorValue || ""
-  ); // Form selector
+  );
   const [formFields, setFormFields] = useState<
     { name: string; value: string }[]
-  >(data.config?.formFields || [{ name: "", value: "" }]); // Array of input name-value pairs
-  const [timeout, setTimeout] = useState(data.config?.timeout || 5000); // Timeout in milliseconds
+  >(data.config?.formFields || [{ name: "", value: "" }]);
+  const [timeout, setTimeout] = useState(data.config?.timeout || 5000);
   const [retryOnFail, setRetryOnFail] = useState(
     data.config?.retryOnFail || false
-  ); // Retry if filling fails
-  const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false); // Default to enabled
+  );
+  const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "running" | "error">("idle"); // Execution status
+  const [status, setStatus] = useState<"idle" | "running" | "error">("idle");
   const { setNodes } = useReactFlow();
 
-  // Sync status with data from AutomationExecutor (log output/error instead of displaying)
   useEffect(() => {
     if (data.error) {
       setStatus("error");
@@ -139,6 +139,14 @@ const FillFormNode = ({ id, data }: NodeProps) => {
   const handleSave = () => {
     if (!validateInputs()) return;
 
+    // Convert formFields array to a key-value object for formData
+    const formData = formFields
+      .filter((field) => field.name.trim() && field.value.trim())
+      .reduce((acc, field) => {
+        acc[field.name] = field.value;
+        return acc;
+      }, {} as Record<string, string>);
+
     setNodes((nodes) =>
       nodes.map((node) =>
         node.id === id
@@ -151,9 +159,8 @@ const FillFormNode = ({ id, data }: NodeProps) => {
                   ...node.data.config,
                   selectorType,
                   selectorValue,
-                  formFields: formFields.filter(
-                    (field) => field.name.trim() && field.value.trim()
-                  ),
+                  formFields: formFields, // Keep formFields for UI consistency
+                  formData, // Add formData for executor
                   timeout: Number(timeout),
                   retryOnFail,
                   isEnabled,
@@ -165,7 +172,9 @@ const FillFormNode = ({ id, data }: NodeProps) => {
     );
     setIsDialogOpen(false);
     log.info(
-      `FillFormNode ${id}: Configuration saved - ${description}, Selector: ${selectorValue}, Fields: ${formFields.length}`
+      `FillFormNode ${id}: Configuration saved - ${description}, Selector: ${selectorValue}, Fields: ${
+        Object.keys(formData).length
+      }`
     );
   };
 
@@ -424,7 +433,7 @@ const FillFormNode = ({ id, data }: NodeProps) => {
       <Handle
         type="target"
         position={Position.Left}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#87EFAC" }} // Matches icon color
+        style={{ width: "0.6rem", height: "0.6rem", background: "#87EFAC" }}
       />
       <Handle
         type="source"

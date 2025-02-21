@@ -71,6 +71,7 @@ model Node {
   type          String
   positionX     Float
   positionY     Float
+  config        Json  
   workflowId    String
   workflow      Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   tasks         Task[]

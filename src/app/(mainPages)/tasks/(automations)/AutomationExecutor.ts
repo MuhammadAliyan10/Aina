@@ -22,6 +22,7 @@ export default class AutomationExecutor {
   private nodes: NodeProps[];
   private edges: any[];
   private nodeOutputs: Map<string, any>;
+  private currentPage: Page | null = null; // Track the current page across nodes
 
   constructor(nodes: NodeProps[], edges: any[]) {
     this.nodes = nodes;
@@ -45,6 +46,8 @@ export default class AutomationExecutor {
       return {
         error: error instanceof Error ? error.message : "Unknown error",
       };
+    } finally {
+      await this.cleanup();
     }
   }
 
@@ -57,6 +60,17 @@ export default class AutomationExecutor {
       const effectiveInput = inputs.length > 0 ? inputs[0] : inputData;
 
       let outputData: any;
+      let pageToUse: Page | null = this.currentPage; // Default to the current page
+
+      // Check if the previous node provided a page
+      const prevNodeId = incomingEdges[0]?.source;
+      if (prevNodeId) {
+        const prevPage = pageMap.get(prevNodeId);
+        if (prevPage) {
+          pageToUse = prevPage; // Use the previous node's page if available
+        }
+      }
+
       switch (node.type) {
         // General Nodes
         case "customTriggerNode":
@@ -227,6 +241,7 @@ export default class AutomationExecutor {
             title: await activePage.title(),
           };
           pageMap.set(node.id, activePage);
+          this.currentPage = activePage; // Update current page
           break;
 
         case "newTab":
@@ -261,6 +276,7 @@ export default class AutomationExecutor {
           );
           outputData = { opened: true, url, pageUrl: page.url() };
           pageMap.set(node.id, page);
+          this.currentPage = page; // Update current page
           break;
 
         case "switchTabs":
@@ -278,6 +294,7 @@ export default class AutomationExecutor {
           await switchPage.bringToFront();
           outputData = { switched: true, url: switchPage.url() };
           pageMap.set(node.id, switchPage);
+          this.currentPage = switchPage; // Update current page
           break;
 
         case "newWindow":
@@ -295,6 +312,7 @@ export default class AutomationExecutor {
           });
           outputData = { opened: true, url: newWindowPage.url() };
           pageMap.set(node.id, newWindowPage);
+          this.currentPage = newWindowPage; // Update current page
           break;
 
         case "proxy":
@@ -313,6 +331,7 @@ export default class AutomationExecutor {
           const proxyPage = await proxyContext.newPage();
           outputData = { proxySet: true, server: proxyServer };
           pageMap.set(node.id, proxyPage);
+          this.currentPage = proxyPage; // Update current page
           break;
 
         case "closeTabs":
@@ -320,15 +339,14 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdClose = incomingEdges[0]?.source;
-          const pageToClose = pageMap.get(prevNodeIdClose);
-          if (!pageToClose) {
+          if (!pageToUse) {
             log.warn(`CloseTabNode ${node.id}: No page found to close`);
             outputData = { closed: false, reason: "No page found" };
             break;
           }
-          await pageToClose.close();
-          pageMap.delete(prevNodeIdClose);
+          await pageToUse.close();
+          pageMap.delete(node.id);
+          this.currentPage = null; // Reset current page
           outputData = { closed: true };
           break;
 
@@ -337,18 +355,18 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdBack = incomingEdges[0]?.source;
-          const pageBack = pageMap.get(prevNodeIdBack);
-          if (!pageBack) {
+          if (!pageToUse) {
             log.warn(`GoBackNode ${node.id}: No page found to navigate back`);
             outputData = { navigatedBack: false, reason: "No page found" };
             break;
           }
-          await pageBack.goBack({ timeout: node.data.config?.timeout || 5000 });
+          await pageToUse.goBack({
+            timeout: node.data.config?.timeout || 5000,
+          });
           log.info(
-            `GoBackNode ${node.id}: Navigated back to ${pageBack.url()}`
+            `GoBackNode ${node.id}: Navigated back to ${pageToUse.url()}`
           );
-          outputData = { navigatedBack: true, currentUrl: pageBack.url() };
+          outputData = { navigatedBack: true, currentUrl: pageToUse.url() };
           break;
 
         case "goForward":
@@ -356,27 +374,20 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdForward = incomingEdges[0]?.source;
-          const pageForward = pageMap.get(prevNodeIdForward);
-          if (!pageForward) {
+          if (!pageToUse) {
             log.warn(
               `GoForwardNode ${node.id}: No page found to navigate forward`
             );
             outputData = { navigatedForward: false, reason: "No page found" };
             break;
           }
-          await pageForward.goForward({
+          await pageToUse.goForward({
             timeout: node.data.config?.timeout || 5000,
           });
           log.info(
-            `GoForwardNode ${
-              node.id
-            }: Navigated forward to ${pageForward.url()}`
+            `GoForwardNode ${node.id}: Navigated forward to ${pageToUse.url()}`
           );
-          outputData = {
-            navigatedForward: true,
-            currentUrl: pageForward.url(),
-          };
+          outputData = { navigatedForward: true, currentUrl: pageToUse.url() };
           break;
 
         case "takeScreenShot":
@@ -384,22 +395,18 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdScreenshot = incomingEdges[0]?.source;
-          const pageScreenshot = pageMap.get(prevNodeIdScreenshot);
-          if (!pageScreenshot) {
+          if (!pageToUse) {
             log.warn(
               `ScreenShotNode ${node.id}: No page found to take screenshot`
             );
             outputData = { screenshotTaken: false, reason: "No page found" };
             break;
           }
-          const screenshotBuffer = await pageScreenshot.screenshot({
+          const screenshotBuffer = await pageToUse.screenshot({
             timeout: node.data.config?.timeout || 5000,
           });
           log.info(
-            `ScreenShotNode ${
-              node.id
-            }: Took screenshot of ${pageScreenshot.url()}`
+            `ScreenShotNode ${node.id}: Took screenshot of ${pageToUse.url()}`
           );
           outputData = {
             screenshotTaken: true,
@@ -413,16 +420,14 @@ export default class AutomationExecutor {
             break;
           }
           const eventType = node.data.config?.eventType || "load";
-          const prevNodeIdEvent = incomingEdges[0]?.source;
-          const pageEvent = pageMap.get(prevNodeIdEvent);
-          if (!pageEvent) {
+          if (!pageToUse) {
             log.warn(
               `BrowserEventNode ${node.id}: No page found to monitor event`
             );
             outputData = { eventTriggered: false, reason: "No page found" };
             break;
           }
-          await pageEvent.waitForEvent(eventType, {
+          await pageToUse.waitForEvent(eventType, {
             timeout: node.data.config?.timeout || 5000,
           });
           outputData = { eventTriggered: true, type: eventType };
@@ -433,16 +438,14 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdDownload = incomingEdges[0]?.source;
-          const pageDownload = pageMap.get(prevNodeIdDownload);
-          if (!pageDownload) {
+          if (!pageToUse) {
             log.warn(
               `HandleDownloadNode ${node.id}: No page found to handle download`
             );
             outputData = { downloaded: false, reason: "No page found" };
             break;
           }
-          const download = await pageDownload.waitForEvent("download", {
+          const download = await pageToUse.waitForEvent("download", {
             timeout: node.data.config?.timeout || 5000,
           });
           const downloadPath = await download.path();
@@ -454,28 +457,24 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdReload = incomingEdges[0]?.source;
-          const pageReload = pageMap.get(prevNodeIdReload);
-          if (!pageReload) {
+          if (!pageToUse) {
             log.warn(`ReloadTabNode ${node.id}: No page found to reload`);
             outputData = { reloaded: false, reason: "No page found" };
             break;
           }
-          await pageReload.reload({
+          await pageToUse.reload({
             timeout: node.data.config?.timeout || 5000,
           });
           log.info(
-            `ReloadTabNode ${node.id}: Reloaded tab at ${pageReload.url()}`
+            `ReloadTabNode ${node.id}: Reloaded tab at ${pageToUse.url()}`
           );
-          outputData = { reloaded: true, currentUrl: pageReload.url() };
+          outputData = { reloaded: true, currentUrl: pageToUse.url() };
           break;
 
         case "getTabURL":
-          const prevNodeIdUrl = incomingEdges[0]?.source;
-          const pageUrl = pageMap.get(prevNodeIdUrl);
           outputData = {
-            url: pageUrl
-              ? pageUrl.url()
+            url: pageToUse
+              ? pageToUse.url()
               : effectiveInput?.url || "No URL provided",
           };
           break;
@@ -486,9 +485,7 @@ export default class AutomationExecutor {
             break;
           }
           const authType = node.data.config?.authType || "form";
-          const prevNodeIdAuth = incomingEdges[0]?.source;
-          const pageAuth = pageMap.get(prevNodeIdAuth);
-          if (!pageAuth) {
+          if (!pageToUse) {
             log.warn(
               `BrowserAuthenticationNode ${node.id}: No page found for authentication`
             );
@@ -496,24 +493,24 @@ export default class AutomationExecutor {
             break;
           }
           if (authType === "form") {
-            await pageAuth.fill(
+            await pageToUse.fill(
               node.data.config?.usernameSelector || "#username",
               node.data.config?.username || ""
             );
-            await pageAuth.fill(
+            await pageToUse.fill(
               node.data.config?.passwordSelector || "#password",
               node.data.config?.password || ""
             );
-            await pageAuth.click(
+            await pageToUse.click(
               node.data.config?.submitSelector || "#login-button",
               { timeout: node.data.config?.timeout || 5000 }
             );
-            await pageAuth.waitForNavigation({
+            await pageToUse.waitForNavigation({
               timeout: node.data.config?.timeout || 5000,
             });
             outputData = { authenticated: true, method: "form" };
           } else {
-            await pageAuth.goto(node.data.config?.oauthUrl || "", {
+            await pageToUse.goto(node.data.config?.oauthUrl || "", {
               timeout: node.data.config?.timeout || 5000,
             });
             outputData = { authenticated: true, method: "oauth" };
@@ -525,16 +522,14 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdCookies = incomingEdges[0]?.source;
-          const pageCookies = pageMap.get(prevNodeIdCookies);
-          if (!pageCookies) {
+          if (!pageToUse) {
             log.warn(
               `ClearCookiesNode ${node.id}: No page found to clear cookies`
             );
             outputData = { cleared: false, reason: "No page found" };
             break;
           }
-          await pageCookies.context().clearCookies();
+          await pageToUse.context().clearCookies();
           outputData = { cleared: true };
           break;
 
@@ -550,10 +545,10 @@ export default class AutomationExecutor {
               : node.data.config?.presetUserAgent === "chrome"
               ? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
               : "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1";
-          const prevNodeIdUA = incomingEdges[0]?.source;
-          const pageUA = pageMap.get(prevNodeIdUA);
-          if (pageUA) {
-            await pageUA.setExtraHTTPHeaders({ "User-Agent": userAgentString });
+          if (pageToUse) {
+            await pageToUse.setExtraHTTPHeaders({
+              "User-Agent": userAgentString,
+            });
             outputData = { set: true, userAgent: userAgentString };
           } else {
             outputData = { set: true, userAgent: userAgentString }; // For future pages
@@ -566,10 +561,7 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdClick = incomingEdges[0]?.source;
-          const pageClick = pageMap.get(prevNodeIdClick);
-
-          if (!pageClick) {
+          if (!pageToUse) {
             log.warn(
               `ClickElementNode ${node.id}: No page found to click element`
             );
@@ -578,7 +570,7 @@ export default class AutomationExecutor {
           }
           const clickSelector = node.data.config?.selector;
           if (!clickSelector) throw new Error("Selector required for click");
-          await pageClick.click(clickSelector, {
+          await pageToUse.click(clickSelector, {
             timeout: node.data.config?.timeout || 5000,
           });
           outputData = { clicked: true, selector: clickSelector };
@@ -589,16 +581,14 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdText = incomingEdges[0]?.source;
-          const pageText = pageMap.get(prevNodeIdText);
-          if (!pageText) {
+          if (!pageToUse) {
             log.warn(`GetTextNode ${node.id}: No page found to get text`);
             outputData = { text: null, reason: "No page found" };
             break;
           }
           const textSelector = node.data.config?.selector;
           if (!textSelector) throw new Error("Selector required for get text");
-          const text = await pageText.textContent(textSelector);
+          const text = await pageToUse.textContent(textSelector);
           outputData = { text: text || "No text found" };
           break;
 
@@ -607,15 +597,13 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdScroll = incomingEdges[0]?.source;
-          const pageScroll = pageMap.get(prevNodeIdScroll);
-          if (!pageScroll) {
+          if (!pageToUse) {
             log.warn(`ScrollElementNode ${node.id}: No page found to scroll`);
             outputData = { scrolled: false, reason: "No page found" };
             break;
           }
           const scrollSelector = node.data.config?.selector || "body";
-          await pageScroll.evaluate((sel) => {
+          await pageToUse.evaluate((sel) => {
             const element = document.querySelector(sel);
             if (element) element.scrollIntoView();
           }, scrollSelector);
@@ -627,21 +615,19 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdLink = incomingEdges[0]?.source;
-          const pageLink = pageMap.get(prevNodeIdLink);
-          if (!pageLink) {
+          if (!pageToUse) {
             log.warn(`LinkEventNode ${node.id}: No page found to follow link`);
             outputData = { followed: false, reason: "No page found" };
             break;
           }
           const linkSelector = node.data.config?.selector || "a";
-          await pageLink.click(linkSelector, {
+          await pageToUse.click(linkSelector, {
             timeout: node.data.config?.timeout || 5000,
           });
-          await pageLink.waitForNavigation({
+          await pageToUse.waitForNavigation({
             timeout: node.data.config?.timeout || 5000,
           });
-          outputData = { followed: true, url: pageLink.url() };
+          outputData = { followed: true, url: pageToUse.url() };
           break;
 
         case "customAttributeVariable":
@@ -649,9 +635,7 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdAttr = incomingEdges[0]?.source;
-          const pageAttr = pageMap.get(prevNodeIdAttr);
-          if (!pageAttr) {
+          if (!pageToUse) {
             log.warn(
               `GetAttributeNode ${node.id}: No page found to get attribute`
             );
@@ -661,7 +645,7 @@ export default class AutomationExecutor {
           const attrSelector = node.data.config?.selector;
           if (!attrSelector)
             throw new Error("Selector required for get attribute");
-          const attrValue = await pageAttr.getAttribute(
+          const attrValue = await pageToUse.getAttribute(
             attrSelector,
             node.data.config?.attribute || "value"
           );
@@ -673,24 +657,49 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdForm = incomingEdges[0]?.source;
-          const pageForm = pageMap.get(prevNodeIdForm);
-          if (!pageForm) {
+          if (!pageToUse) {
             log.warn(`FillFormNode ${node.id}: No page found to fill form`);
             outputData = { filled: false, reason: "No page found" };
             break;
           }
+          // Use formData instead of formFields
           const formData =
             node.data.config?.formData || effectiveInput?.formData || {};
-          for (const [selector, value] of Object.entries(formData)) {
-            await pageForm.fill(selector, value as string, {
+          if (Object.keys(formData).length === 0) {
+            log.warn(`FillFormNode ${node.id}: No form data provided`);
+            outputData = { filled: false, reason: "No form data provided" };
+            break;
+          }
+          try {
+            for (const [selector, value] of Object.entries(formData)) {
+              if (typeof value !== "string") {
+                log.warn(
+                  `FillFormNode ${node.id}: Invalid value for ${selector}: ${value}`
+                );
+                continue;
+              }
+              await pageToUse.fill(selector, value, {
+                timeout: node.data.config?.timeout || 5000,
+              });
+              log.info(
+                `FillFormNode ${node.id}: Filled ${selector} with ${value}`
+              );
+            }
+            const submitSelector =
+              node.data.config?.submitSelector || "button[type='submit']";
+            await pageToUse.click(submitSelector, {
               timeout: node.data.config?.timeout || 5000,
             });
+            log.info(
+              `FillFormNode ${node.id}: Submitted form using ${submitSelector}`
+            );
+            outputData = { filled: true, formData, submitted: true };
+          } catch (e: any) {
+            log.error(
+              `FillFormNode ${node.id}: Failed to fill form - ${e.message}`
+            );
+            outputData = { filled: false, error: e.message };
           }
-          await pageForm.click(
-            node.data.config?.submitSelector || "button[type='submit']"
-          );
-          outputData = { filled: true, formData };
           break;
 
         case "customJavaScript":
@@ -698,9 +707,7 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdJS = incomingEdges[0]?.source;
-          const pageJS = pageMap.get(prevNodeIdJS);
-          if (!pageJS) {
+          if (!pageToUse) {
             log.warn(
               `JavaScriptCodeNode ${node.id}: No page found to execute JS`
             );
@@ -708,7 +715,7 @@ export default class AutomationExecutor {
             break;
           }
           const script = node.data.config?.script || "() => 'No script'";
-          const jsResult = await pageJS.evaluate(script);
+          const jsResult = await pageToUse.evaluate(script);
           outputData = { executed: true, result: jsResult };
           break;
 
@@ -717,19 +724,17 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdEventTrigger = incomingEdges[0]?.source;
-          const pageEventTrigger = pageMap.get(prevNodeIdEventTrigger);
-          if (!pageEventTrigger) {
+          if (!pageToUse) {
             log.warn(
               `TriggerEventNode ${node.id}: No page found to trigger event`
             );
             outputData = { triggered: false, reason: "No page found" };
             break;
           }
-          const eventSelector = node.data.config?.selectorValue; // Changed from selector to selectorValue
+          const eventSelector = node.data.config?.selectorValue;
           log.info(
             `TriggerEventNode ${node.id}: Selector provided - ${eventSelector}`
-          ); // Debug log
+          );
           if (!eventSelector || eventSelector.trim() === "") {
             log.warn(
               `TriggerEventNode ${node.id}: No valid selector value provided`
@@ -742,7 +747,7 @@ export default class AutomationExecutor {
           }
           const triggerEventType = node.data.config?.eventType || "click";
           const eventProperties = node.data.config?.eventProperties || {};
-          await pageEventTrigger.dispatchEvent(
+          await pageToUse.dispatchEvent(
             eventSelector,
             triggerEventType,
             eventProperties
@@ -758,9 +763,7 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdFrame = incomingEdges[0]?.source;
-          const pageFrame = pageMap.get(prevNodeIdFrame);
-          if (!pageFrame) {
+          if (!pageToUse) {
             log.warn(
               `SwitchFrameNode ${node.id}: No page found to switch frame`
             );
@@ -768,10 +771,11 @@ export default class AutomationExecutor {
             break;
           }
           const frameSelector = node.data.config?.frameSelector || "iframe";
-          const frame = pageFrame.frame(frameSelector);
+          const frame = pageToUse.frame(frameSelector);
           if (!frame) throw new Error(`Frame not found: ${frameSelector}`);
           outputData = { switched: true, frame: frameSelector };
-          pageMap.set(node.id, frame as any); // Type assertion
+          pageMap.set(node.id, frame as any); // Update pageMap
+          this.currentPage = frame as any; // Update current page (type assertion)
           break;
 
         case "customUploadFile":
@@ -779,9 +783,7 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdUpload = incomingEdges[0]?.source;
-          const pageUpload = pageMap.get(prevNodeIdUpload);
-          if (!pageUpload) {
+          if (!pageToUse) {
             log.warn(`UploadFileNode ${node.id}: No page found to upload file`);
             outputData = { uploaded: false, reason: "No page found" };
             break;
@@ -790,7 +792,7 @@ export default class AutomationExecutor {
             node.data.config?.selector || "input[type='file']";
           const filePath = node.data.config?.filePath;
           if (!filePath) throw new Error("File path required for upload");
-          await pageUpload.setInputFiles(uploadSelector, filePath);
+          await pageToUse.setInputFiles(uploadSelector, filePath);
           outputData = { uploaded: true, filePath };
           break;
 
@@ -799,9 +801,7 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdHover = incomingEdges[0]?.source;
-          const pageHover = pageMap.get(prevNodeIdHover);
-          if (!pageHover) {
+          if (!pageToUse) {
             log.warn(
               `HoverElementNode ${node.id}: No page found to hover element`
             );
@@ -810,7 +810,7 @@ export default class AutomationExecutor {
           }
           const hoverSelector = node.data.config?.selector;
           if (!hoverSelector) throw new Error("Selector required for hover");
-          await pageHover.hover(hoverSelector);
+          await pageToUse.hover(hoverSelector);
           outputData = { hovered: true, selector: hoverSelector };
           break;
 
@@ -819,15 +819,13 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdAssets = incomingEdges[0]?.source;
-          const pageAssets = pageMap.get(prevNodeIdAssets);
-          if (!pageAssets) {
+          if (!pageToUse) {
             log.warn(`SaveAssetsNode ${node.id}: No page found to save assets`);
             outputData = { saved: false, reason: "No page found" };
             break;
           }
           const assetSelector = node.data.config?.selector || "img";
-          const assetUrl = await pageAssets.getAttribute(assetSelector, "src");
+          const assetUrl = await pageToUse.getAttribute(assetSelector, "src");
           if (!assetUrl) throw new Error("No asset URL found");
           outputData = { saved: true, assetUrl };
           break;
@@ -837,16 +835,14 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdKey = incomingEdges[0]?.source;
-          const pageKey = pageMap.get(prevNodeIdKey);
-          if (!pageKey) {
+          if (!pageToUse) {
             log.warn(`PressKeyNode ${node.id}: No page found to press key`);
             outputData = { pressed: false, reason: "No page found" };
             break;
           }
           const keySelector = node.data.config?.selector || "body";
           const key = node.data.config?.key || "Enter";
-          await pageKey.press(keySelector, key);
+          await pageToUse.press(keySelector, key);
           outputData = { pressed: true, key };
           break;
 
@@ -855,9 +851,7 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdCreate = incomingEdges[0]?.source;
-          const pageCreate = pageMap.get(prevNodeIdCreate);
-          if (!pageCreate) {
+          if (!pageToUse) {
             log.warn(
               `CreateElementNode ${node.id}: No page found to create element`
             );
@@ -868,7 +862,7 @@ export default class AutomationExecutor {
             tag: "div",
             text: "New Element",
           };
-          await pageCreate.evaluate((config) => {
+          await pageToUse.evaluate((config) => {
             const elem = document.createElement(config.tag || "div");
             elem.textContent = config.text || "New Element";
             document.body.appendChild(elem);
@@ -930,9 +924,7 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdExist = incomingEdges[0]?.source;
-          const pageExist = pageMap.get(prevNodeIdExist);
-          if (!pageExist) {
+          if (!pageToUse) {
             log.warn(
               `ElementExistNode ${node.id}: No page found to check element`
             );
@@ -942,7 +934,7 @@ export default class AutomationExecutor {
           const existsSelector = node.data.config?.selector;
           if (!existsSelector)
             throw new Error("Selector required for element exist");
-          const exists = (await pageExist.$(existsSelector)) !== null;
+          const exists = (await pageToUse.$(existsSelector)) !== null;
           outputData = { exists };
           break;
 
@@ -1013,9 +1005,7 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          const prevNodeIdLoop = incomingEdges[0]?.source;
-          const pageLoop = pageMap.get(prevNodeIdLoop);
-          if (!pageLoop) {
+          if (!pageToUse) {
             log.warn(
               `LoopElementNode ${node.id}: No page found to loop elements`
             );
@@ -1025,7 +1015,7 @@ export default class AutomationExecutor {
           const loopSelector = node.data.config?.selector;
           if (!loopSelector)
             throw new Error("Selector required for loop element");
-          const elements = await pageLoop.$$(loopSelector);
+          const elements = await pageToUse.$$(loopSelector);
           const elementLoopResults = [];
           for (const [elementIndex, element] of elements.entries()) {
             const nextEdgeElement = this.edges.find(
@@ -1086,7 +1076,7 @@ export default class AutomationExecutor {
   }
 
   getPage(nodeId: string): Page | undefined {
-    return pageMap.get(nodeId);
+    return pageMap.get(nodeId) || this.currentPage;
   }
 
   async cleanup() {
@@ -1096,6 +1086,7 @@ export default class AutomationExecutor {
     }
     this.nodeOutputs.clear();
     pageMap.clear();
+    this.currentPage = null;
     log.info("AutomationExecutor: Cleanup completed");
   }
 }

@@ -34,6 +34,7 @@ import {
   Loader2,
   Minus,
   Plus,
+  AlertCircle,
 } from "lucide-react";
 import {
   GENERAL,
@@ -97,6 +98,13 @@ import { ScheduleTimerNode } from "../Node/General/ScheduleTimmerNode";
 import { BrowserAuthenticationNode } from "../Node/Browser/BrowserAuthenticationNode";
 import { ClearCookiesNode } from "../Node/Browser/ClearCookiesNode";
 import { SetUserAgentNode } from "../Node/Browser/SetUserAgentNode";
+import { useParams } from "next/navigation";
+import { useSession } from "@/app/(main)/SessionProvider";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 
 // Define types
 interface NodeData {
@@ -163,9 +171,14 @@ const nodeTypes = {
   setUserAgent: SetUserAgentNode,
 };
 
+// Create a QueryClient instance
+const queryClient = new QueryClient();
+
 const PageWithProvider = () => (
   <ReactFlowProvider>
-    <Page />
+    <QueryClientProvider client={queryClient}>
+      <Page />
+    </QueryClientProvider>
   </ReactFlowProvider>
 );
 
@@ -174,18 +187,18 @@ export default PageWithProvider;
 function Page() {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode[]>([
-    {
-      id: "1",
-      type: "customTriggerNode",
-      position: { x: 250, y: 150 },
-      data: { label: "Trigger" },
-    },
-  ]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode[]>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [executionResult, setExecutionResult] = useState<any>(null);
+  const [workflowTitle, setWorkflowTitle] = useState("New Workflow");
+  const [isDirty, setIsDirty] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const params = useParams();
+  const workflowId = params.id as string;
+  const { user } = useSession();
 
   const uuidv4 = (): string => {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -219,6 +232,7 @@ function Page() {
       };
 
       setNodes((nds) => [...nds, newNode]);
+      setIsDirty(true);
     },
     [reactFlowInstance, setNodes]
   );
@@ -233,8 +247,33 @@ function Page() {
         markerEnd: { type: MarkerType.Arrow },
       };
       setEdges((eds) => addEdge(edge, eds));
+      setIsDirty(true);
     },
     [setEdges]
+  );
+
+  const onEdgeDoubleClick = useCallback(
+    (event: React.MouseEvent, edge: Edge) => {
+      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      setIsDirty(true);
+    },
+    [setEdges]
+  );
+
+  const handleNodesChange: OnNodesChange = useCallback(
+    (changes) => {
+      onNodesChange(changes);
+      setIsDirty(true);
+    },
+    [onNodesChange]
+  );
+
+  const handleEdgesChange: OnEdgesChange = useCallback(
+    (changes) => {
+      onEdgesChange(changes);
+      setIsDirty(true);
+    },
+    [onEdgesChange]
   );
 
   const runAutomation = useCallback(async () => {
@@ -278,6 +317,130 @@ function Page() {
     }
   }, [nodes, edges, setNodes]);
 
+  const saveWorkflow = useCallback(async () => {
+    if (!user) {
+      setError("Please log in to save workflows");
+      return;
+    }
+
+    if (isSaving) {
+      console.log("Save already in progress, skipping");
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const payload = {
+        workflowId: workflowId || uuidv4(),
+        title: workflowTitle || "Untitled Workflow",
+        description: "Auto-generated workflow",
+        nodes: nodes.map((node) => ({
+          id: node.id,
+          name: node.data.label,
+          type: node.type,
+          positionX: node.position.x,
+          positionY: node.position.y,
+          config: node.data.config || {},
+        })),
+        edges: edges.map((edge) => ({
+          id: edge.id,
+          sourceId: edge.source,
+          targetId: edge.target,
+        })),
+      };
+
+      console.log(
+        "Sending save request with payload:",
+        JSON.stringify(payload)
+      );
+
+      const response = await fetch("/api/workflows/save", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Workflow-Save": "true",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to save workflow: ${response.status} - ${errorText}`
+        );
+      }
+
+      const result = await response.json();
+      console.log("Workflow saved successfully:", result);
+      setIsDirty(false);
+    } catch (error) {
+      setError(
+        error instanceof Error ? error.message : "Failed to save workflow"
+      );
+      console.error("Save workflow error:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [nodes, edges, workflowTitle, workflowId, user, isSaving]);
+
+  // Fetch workflow data using Tanstack Query
+  const {
+    data: workflowData,
+    error: fetchError,
+    isLoading,
+  } = useQuery({
+    queryKey: ["workflow", workflowId],
+    queryFn: async () => {
+      const response = await fetch(`/api/workflows/${workflowId}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!response.ok) throw new Error("Failed to load workflow");
+      return response.json();
+    },
+    enabled: !!workflowId && !!user,
+  });
+
+  useEffect(() => {
+    if (workflowData && !isLoading) {
+      const { workflow } = workflowData;
+      setNodes(
+        (workflow.nodes || []).map((node: any) => ({
+          id: node.id,
+          type: node.type,
+          position: { x: node.positionX ?? 0, y: node.positionY ?? 0 },
+          data: {
+            label: node.name || "Unnamed Node",
+            config: node.config || {},
+          },
+        }))
+      );
+      setEdges(
+        (workflow.edges || []).map((edge: any) => ({
+          id: edge.id,
+          source: edge.sourceId,
+          target: edge.targetId,
+          type: "smoothstep",
+          markerEnd: { type: MarkerType.Arrow },
+        }))
+      );
+      setWorkflowTitle(workflow.title || "New Workflow"); // Ensure title updates
+      setIsDirty(false);
+    }
+  }, [workflowData, isLoading, setNodes, setEdges]);
+
+  useEffect(() => {
+    if (fetchError) {
+      setError(
+        fetchError instanceof Error
+          ? fetchError.message
+          : "Failed to load workflow"
+      );
+    }
+  }, [fetchError]);
+
   const nodeColor = (node: CustomNode): string => {
     switch (node.type) {
       case "customTriggerNode":
@@ -289,17 +452,29 @@ function Page() {
     }
   };
 
-  const handleNodesChange: OnNodesChange = onNodesChange;
-  const handleEdgesChange: OnEdgesChange = onEdgesChange;
-
   return (
     <div className="h-screen w-full bg-gray-950 text-white flex">
       <NodesPanel />
       <div className="flex-1 flex flex-col relative">
         <div className="absolute top-4 right-4 flex gap-2 z-10">
-          <Button variant="outline" className="text-white border-white">
-            <Save className="w-4 h-4 mr-2" /> Save
-          </Button>
+          <div className="relative">
+            <Button
+              variant="outline"
+              className="text-white border-white"
+              onClick={saveWorkflow}
+              disabled={isSaving || !user}
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              Save
+              {isDirty && !isSaving && (
+                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
+              )}
+            </Button>
+          </div>
           <Button
             variant="ghost"
             className="text-white border border-white bg-transparent disabled:opacity-50"
@@ -315,6 +490,18 @@ function Page() {
           </Button>
         </div>
 
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+          <Input
+            value={workflowTitle}
+            onChange={(e) => {
+              setWorkflowTitle(e.target.value);
+              setIsDirty(true);
+            }}
+            placeholder="Workflow Title"
+            className="bg-gray-800 text-white border-gray-600 w-48"
+          />
+        </div>
+
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -322,6 +509,7 @@ function Page() {
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
+          onEdgeDoubleClick={onEdgeDoubleClick}
           onDragOver={onDragOver}
           onDrop={onDrop}
           fitView
@@ -383,6 +571,21 @@ function Page() {
               >
                 Close
               </Button>
+            </div>
+          )}
+          {error && (
+            <div className="absolute top-16 left-1/2 transform -translate-x-1/2 bg-red-800 p-4 rounded-lg shadow-lg z-20 flex items-center gap-2">
+              <AlertCircle size={20} />
+              <span>{error}</span>
+              <Button variant="ghost" onClick={() => setError(null)}>
+                Close
+              </Button>
+            </div>
+          )}
+          {isLoading && (
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-800 p-4 rounded-lg shadow-lg z-20 flex items-center gap-2">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>Loading workflow...</span>
             </div>
           )}
         </ReactFlow>
