@@ -113,11 +113,12 @@ export const MobileSidebar = ({
   ...props
 }: React.ComponentProps<"div">) => {
   const { open, setOpen } = useSidebar();
+
   return (
     <>
       <div
         className={cn(
-          "h-10 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-background  w-full"
+          "h-10 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-background w-full sticky top-0 z-20"
         )}
         {...props}
       >
@@ -127,8 +128,10 @@ export const MobileSidebar = ({
             onClick={() => setOpen(!open)}
           />
         </div>
-        <AnimatePresence>
-          {open && (
+      </div>
+      <AnimatePresence>
+        {open && (
+          <>
             <motion.div
               initial={{ x: "-100%", opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
@@ -138,21 +141,30 @@ export const MobileSidebar = ({
                 ease: "easeInOut",
               }}
               className={cn(
-                "fixed h-full w-full inset-0 bg-background  p-10 z-[100] flex flex-col justify-between",
+                "fixed overflow-auto h-full w-[75%] max-w-[300px] top-0 left-0 bg-card p-6 z-50 flex flex-col justify-between border-r border-sidebar-border",
                 className
               )}
             >
               <div
-                className="absolute right-10 top-10 z-50 text-neutral-800 dark:text-neutral-200"
-                onClick={() => setOpen(!open)}
+                className="absolute right-4 top-4 z-50 text-neutral-800 dark:text-neutral-200"
+                onClick={() => setOpen(false)}
               >
                 <IconX />
               </div>
               {children}
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            {/* Overlay for closing sidebar when clicking outside */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black z-40 md:hidden"
+              onClick={() => setOpen(false)}
+            />
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 };
@@ -167,6 +179,7 @@ export const SidebarLink = ({
   props?: LinkProps;
 }) => {
   const { open, animate } = useSidebar();
+
   return (
     <Link
       href={link.href}
@@ -174,12 +187,18 @@ export const SidebarLink = ({
         "flex items-center justify-start gap-2 group/sidebar py-2",
         className
       )}
+      onClick={
+        link.action
+          ? (e) => {
+              e.preventDefault();
+              link.action();
+            }
+          : undefined
+      }
       {...props}
     >
       {link.icon}
-
       <motion.span
-        onClick={link.label === "Logout" ? link.action : undefined}
         animate={{
           display: animate ? (open ? "inline-block" : "none") : "inline-block",
           opacity: animate ? (open ? 1 : 0) : 1,

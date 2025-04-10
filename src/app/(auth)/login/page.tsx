@@ -15,7 +15,7 @@ const page = () => {
         <Image
           src={logInImage}
           alt="Login image"
-          className="hidden w-1/2 object-cover md:block"
+          className="hidden w-1/2 object-cover md:block border-border"
         />
         <div className="w-full space-y-10 overflow-y-auto p-10 md:w-1/2">
           <div className="space-y-1 text-center">

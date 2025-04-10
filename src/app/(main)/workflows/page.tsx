@@ -50,7 +50,6 @@ const handleUpdateWorkFlow = async (
 };
 
 export default function WorkflowPage() {
-  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newWorkflow, setNewWorkflow] = useState<NewWorkflow>({
     title: "",

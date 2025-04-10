@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/PasswordInput";
 import LoadingButton from "@/components/LoadingButton";
+import { IconBrandGoogle } from "@tabler/icons-react";
 
 export default function SignupForm() {
   const [error, setError] = useState<string>();
@@ -92,6 +93,14 @@ export default function SignupForm() {
         />
         <LoadingButton loading={isPending} type="submit" className="w-full">
           Create Account
+        </LoadingButton>
+        <LoadingButton
+          loading={false}
+          className="w-full text-foreground bg-input hover:bg-card/80 border border-border"
+          type="submit"
+        >
+          <IconBrandGoogle className="text-yellow-400" />
+          Sign up with Google
         </LoadingButton>
       </form>
     </Form>

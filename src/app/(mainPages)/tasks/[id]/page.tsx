@@ -732,7 +732,7 @@ interface DraggableNodeProps {
 
 const DraggableNode = ({ type, label, icon }: DraggableNodeProps) => (
   <div
-    className="p-3 bg-primary text-foreground rounded-lg cursor-move hover:bg-primary/9 transition-all duration-150 shadow-sm hover:shadow-md overflow-hidden border border-border"
+    className="p-3 bg-card text-foreground rounded-lg cursor-move hover:bg-primary/9 transition-all duration-150 shadow-sm hover:shadow-md overflow-hidden border border-border"
     draggable
     onDragStart={(e) => {
       e.dataTransfer.setData("application/reactflow", type);

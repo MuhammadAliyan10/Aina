@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/PasswordInput";
 import LoadingButton from "@/components/LoadingButton";
 import { useState, useTransition } from "react";
+import { IconBrandGoogle } from "@tabler/icons-react";
 
 export default function LoginForm() {
   const [error, setError] = useState<string>();
@@ -66,6 +67,14 @@ export default function LoginForm() {
         />
         <LoadingButton loading={isPending} className="w-full" type="submit">
           Log In
+        </LoadingButton>
+        <LoadingButton
+          loading={false}
+          className="w-full text-foreground bg-input hover:bg-card/80 border border-border"
+          type="submit"
+        >
+          <IconBrandGoogle className="text-yellow-400" />
+          Log In with Google
         </LoadingButton>
       </form>
     </Form>
