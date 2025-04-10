@@ -122,12 +122,12 @@ const TriggerNode = ({ id, data }: NodeProps) => {
 
   return (
     <div
-      className={`relative min-w-[12rem] text-white p-3 rounded-xl shadow-md border border-gray-600 group bg-gray-900 transition-all hover:shadow-lg ${
+      className={`relative min-w-[12rem] text-foreground p-3 rounded-xl shadow-md border border-border group bg-card transition-all hover:shadow-lg ${
         !isEnabled ? "opacity-50" : ""
       }`}
     >
       {/* Action buttons, visible on hover */}
-      <div className="absolute -top-[44px] left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md p-2 flex justify-between items-center gap-x-3 opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
+      <div className="absolute -top-[44px] left-1/2 transform -translate-x-1/2 bg-card rounded-md p-2 flex justify-between items-center gap-x-3 opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>

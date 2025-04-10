@@ -453,14 +453,14 @@ function Page() {
   };
 
   return (
-    <div className="h-screen w-full bg-gray-950 text-white flex">
+    <div className="h-screen w-full bg-card text-white flex">
       <NodesPanel />
       <div className="flex-1 flex flex-col relative">
         <div className="absolute top-4 right-4 flex gap-2 z-10">
           <div className="relative">
             <Button
               variant="outline"
-              className="text-white border-white"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-lg transition-all duration-300 hover:text-primary-foreground"
               onClick={saveWorkflow}
               disabled={isSaving || !user}
             >
@@ -477,7 +477,7 @@ function Page() {
           </div>
           <Button
             variant="ghost"
-            className="text-white border border-white bg-transparent disabled:opacity-50"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-lg transition-all duration-300 hover:text-primary-foreground"
             onClick={runAutomation}
             disabled={isRunning}
           >
@@ -498,7 +498,7 @@ function Page() {
               setIsDirty(true);
             }}
             placeholder="Workflow Title"
-            className="bg-gray-800 text-white border-gray-600 w-48"
+            className="bg-input border-border text-foreground w-48"
           />
         </div>
 
@@ -519,28 +519,28 @@ function Page() {
           <div className="absolute bottom-4 left-4 flex z-10 gap-3 p-3 rounded-lg shadow-lg">
             <Button
               variant="ghost"
-              className="text-white border-white bg-[#27272A]"
+              className="text-white border-white bg-primary"
               onClick={() => zoomIn()}
             >
               <ZoomIn size={20} />
             </Button>
             <Button
               variant="ghost"
-              className="text-white border-white bg-[#27272A]"
+              className="text-white border-white bg-primary"
               onClick={() => zoomOut()}
             >
               <ZoomOut size={20} />
             </Button>
             <Button
               variant="ghost"
-              className="text-white border-white bg-[#27272A]"
+              className="text-white border-white bg-primary"
               onClick={() => fitView()}
             >
               <RefreshCw size={20} />
             </Button>
             <Button
               variant="ghost"
-              className="text-white border-white bg-[#27272A]"
+              className="text-white border-white bg-primary"
               onClick={() => fitView({ duration: 800 })}
             >
               <Crosshair size={20} />
@@ -549,7 +549,7 @@ function Page() {
           <MiniMap
             nodeStrokeWidth={3}
             nodeColor={nodeColor}
-            className="absolute bottom-16 right-4 border border-white rounded-lg"
+            className="absolute bottom-16 right-4 border border-primary rounded-lg"
             style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
           />
           {executionResult && (
@@ -612,16 +612,16 @@ const NodesPanel = () => {
   };
 
   return (
-    <div className="w-80 h-screen overflow-auto bg-[#1E1E20] p-4 border-r border-[#2D2D30] flex flex-col gap-6 shadow-lg">
+    <div className="w-80 h-screen overflow-auto bg-background p-4 border-r border-border flex flex-col gap-6 shadow-lg">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
-          <Zap size={20} className="text-[#92C5FD] drop-shadow-sm" />
-          <h2 className="text-lg font-semibold text-gray-100 tracking-wide">
+          <Zap size={20} className=" text-primary animate-pulse" />
+          <h2 className="text-lg font-semibold text-foreground tracking-wide">
             Workflow Components
           </h2>
         </div>
         <Link href="/workflows">
-          <Undo2 className="cursor-pointer text-gray-400 hover:text-[#92C5FD] transition-colors" />
+          <Undo2 className="cursor-pointer text-primary animate-pulse transition-colors" />
         </Link>
       </div>
 
@@ -629,7 +629,7 @@ const NodesPanel = () => {
         placeholder="Search components..."
         value={searchKeyWords}
         onChange={(e) => setSearchKeyWords(e.target.value)}
-        className="bg-[#2A2A2C] border-[#3A3A3C] text-gray-200 placeholder-gray-500 focus:ring-2 focus:ring-[#92C5FD] focus:border-transparent rounded-lg py-2 px-3 transition-all"
+        className="bg-input border-border text-foreground placeholder-foreground focus:ring-2 focus:ring-[#92C5FD] focus:border-transparent rounded-lg py-2 px-3 transition-all"
       />
 
       <div className="space-y-4">
@@ -700,14 +700,14 @@ const PanelSection = ({
   toggle,
   children,
 }: PanelSectionProps) => (
-  <div className="bg-[#252527] rounded-xl p-3 shadow-md transition-all duration-200 hover:shadow-lg">
+  <div className="bg-card rounded-xl p-3 shadow-md transition-all duration-200 hover:shadow-lg">
     <div className="flex justify-between items-center">
       <div
         className="flex items-center gap-2 px-2 py-1 text-sm font-medium text-gray-300 cursor-pointer hover:text-gray-100 transition-colors"
         onClick={toggle}
       >
         {icon}
-        <span className="tracking-tight">{title}</span>
+        <span className="tracking-tight text-foreground">{title}</span>
       </div>
       <div
         onClick={toggle}
@@ -732,7 +732,7 @@ interface DraggableNodeProps {
 
 const DraggableNode = ({ type, label, icon }: DraggableNodeProps) => (
   <div
-    className="p-3 bg-[#2A2A2C] rounded-lg cursor-move hover:bg-[#353538] transition-all duration-150 shadow-sm hover:shadow-md overflow-hidden border border-[#3A3A3C]"
+    className="p-3 bg-primary text-foreground rounded-lg cursor-move hover:bg-primary/9 transition-all duration-150 shadow-sm hover:shadow-md overflow-hidden border border-border"
     draggable
     onDragStart={(e) => {
       e.dataTransfer.setData("application/reactflow", type);

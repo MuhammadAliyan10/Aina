@@ -53,6 +53,13 @@ export function AppSidebar({
       ),
     },
     {
+      label: "Workflows",
+      href: "/workflows",
+      icon: (
+        <Workflow className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
+      ),
+    },
+    {
       label: "Tasks",
       href: "/tasks",
       icon: <List className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
@@ -62,13 +69,7 @@ export function AppSidebar({
       href: "/team",
       icon: <Users className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
     },
-    {
-      label: "Workflows",
-      href: "/workflows",
-      icon: (
-        <Workflow className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
-      ),
-    },
+
     {
       label: "Automation Studio",
       href: "/automation-studio",
@@ -162,7 +163,7 @@ export function AppSidebar({
                         : undefined),
                   }}
                   className={cn(
-                    "flex items-center gap-2 py-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-200 rounded-md",
+                    "flex items-center gap-2 py-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-200 rounded-md",
                     link.href === "/settings" && "font-semibold" // Optional: highlight active link
                   )}
                 />
@@ -177,10 +178,10 @@ export function AppSidebar({
                 icon: (
                   <Image
                     src={profileImage}
-                    className="h-8 w-8 flex-shrink-0 rounded-full border border-sidebar-border object-cover shadow-sm"
-                    width={32}
-                    height={32}
-                    alt="User Avatar"
+                    className="h-7 w-7 flex-shrink-0 rounded-full border border-sidebar-border object-cover shadow-sm"
+                    width={50}
+                    height={50}
+                    alt="Avatar"
                   />
                 ),
               }}

@@ -136,7 +136,13 @@ const FacebookDataFetcher: React.FC = () => {
     }
 
     try {
-      type === "profile" ? setImageLoading(true) : setCoverLoading(true);
+      // Replace ternary with if statements
+      if (type === "profile") {
+        setImageLoading(true);
+      } else {
+        setCoverLoading(true);
+      }
+
       const toBase64 = (file: File): Promise<string> =>
         new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -149,7 +155,7 @@ const FacebookDataFetcher: React.FC = () => {
       const endpoint =
         type === "profile"
           ? "/api/auth/profile/updateProfileImage"
-          : "/api/auth/profile/updateCoverImage"; // Assume this endpoint exists
+          : "/api/auth/profile/updateCoverImage";
       const response = await axios.put(endpoint, {
         [type === "profile" ? "profilePic" : "coverPic"]: base64Image,
       });
@@ -165,9 +171,12 @@ const FacebookDataFetcher: React.FC = () => {
           description: "Refresh the page to see changes due to caching.",
           variant: "default",
         });
-        type === "profile"
-          ? setIsImageDialogOpen(false)
-          : setIsCoverDialogOpen(false);
+        // Replace ternary with if statements
+        if (type === "profile") {
+          setIsImageDialogOpen(false);
+        } else {
+          setIsCoverDialogOpen(false);
+        }
       } else {
         throw new Error(`Failed to upload ${type} picture.`);
       }
@@ -376,17 +385,21 @@ const FacebookDataFetcher: React.FC = () => {
           </DialogHeader>
           <div className="space-y-6">
             <div className="relative flex justify-center">
-              <Image
-                alt="User Avatar"
-                src={
-                  selectedImage
-                    ? URL.createObjectURL(selectedImage)
-                    : user?.profilePic || userAvatar
-                }
-                width={200}
-                height={200}
-                className="w-48 h-48 rounded-full border border-border object-cover shadow-md"
-              />
+              {/* Assign the ternary result to a variable */}
+              {(() => {
+                const imageSrc = selectedImage
+                  ? URL.createObjectURL(selectedImage)
+                  : user?.profilePic || userAvatar;
+                return (
+                  <Image
+                    alt="User Avatar"
+                    src={imageSrc}
+                    width={200}
+                    height={200}
+                    className="w-48 h-48 rounded-full border border-border object-cover shadow-md"
+                  />
+                );
+              })()}
               <label
                 htmlFor="profileImage"
                 className="absolute bottom-4 right-4 bg-secondary text-secondary-foreground p-3 rounded-full cursor-pointer hover:bg-accent hover:text-accent-foreground transition shadow"
@@ -432,17 +445,21 @@ const FacebookDataFetcher: React.FC = () => {
           </DialogHeader>
           <div className="space-y-6">
             <div className="relative flex justify-center">
-              <Image
-                alt="Cover Photo"
-                src={
-                  selectedCover
-                    ? URL.createObjectURL(selectedCover)
-                    : user?.profilePic || coverPlaceholder
-                }
-                width={400}
-                height={150}
-                className="w-full h-40 object-cover rounded-md border border-border shadow-md"
-              />
+              {/* Assign the ternary result to a variable */}
+              {(() => {
+                const coverSrc = selectedCover
+                  ? URL.createObjectURL(selectedCover)
+                  : user?.profilePic || coverPlaceholder;
+                return (
+                  <Image
+                    alt="Cover Photo"
+                    src={coverSrc}
+                    width={400}
+                    height={150}
+                    className="w-full h-40 object-cover rounded-md border border-border shadow-md"
+                  />
+                );
+              })()}
               <label
                 htmlFor="coverImage"
                 className="absolute bottom-4 right-4 bg-secondary text-secondary-foreground p-3 rounded-full cursor-pointer hover:bg-accent hover:text-accent-foreground transition shadow"

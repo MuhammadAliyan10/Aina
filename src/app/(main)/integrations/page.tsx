@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useSession } from "@/app/(main)/SessionProvider";
 import { toast } from "@/hooks/use-toast";
+import Image from "next/image";
 
 interface Integration {
   id: string;
@@ -215,7 +216,7 @@ const IntegrationsPage = () => {
                 className="bg-card border border-border rounded-xl shadow-lg hover:border-primary transition-all duration-300"
               >
                 <CardHeader className="flex flex-row items-center gap-3">
-                  <img
+                  <Image
                     src={integration.icon}
                     alt={`${integration.name} icon`}
                     className="h-12 w-12 rounded-lg object-cover"

@@ -26,7 +26,11 @@ export default function Home() {
         direction="right"
         speed="slow"
       /> */}
-      <section className="mx-5 my-12 md:mx-10 lg:mx-20">
+
+      <section>
+        <HeroParallax products={products}></HeroParallax>
+      </section>
+      <section className="mx-5 my-20 md:mx-10 lg:mx-20">
         <h2 className="text-4xl md:text-5xl font-bold my-6 text-center md:text-left">
           Meet My Team
         </h2>
@@ -38,10 +42,6 @@ export default function Home() {
         <AnimatedTooltip />
       </section>
       <section>
-        <HeroParallax products={products}></HeroParallax>
-      </section>
-
-      <section className="mt-[-500px]">
         <LampComponent text1={"Plans that are"} text2={"fit to you"} />
         <div className="flex flex-wrap items-center justify-center flex-col md:flex-row gap-8 -mt-72">
           <CardContainer className="inter-var ">
