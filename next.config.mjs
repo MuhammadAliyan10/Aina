@@ -11,7 +11,11 @@ const nextConfig = {
   },
   serverExternalPackages: ["@node-rs/argon2"],
   images: {
-    domains: ["assets.aceternity.com", "platform-lookaside.fbsbx.com"],
+    domains: [
+      "assets.aceternity.com",
+      "platform-lookaside.fbsbx.com",
+      "images.unsplash.com",
+    ],
     remotePatterns: [
       {
         protocol: "https",

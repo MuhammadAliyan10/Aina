@@ -1,3 +1,4 @@
+import { AnimatedTooltip } from "@/components/AnimatedTooltip";
 import { CardBody, CardContainer, CardItem } from "@/components/Global/3d-card";
 import { CarouselDemo } from "@/components/Global/CarouselDemo";
 import { HeroParallax } from "@/components/Global/ConnectParallax";
@@ -19,15 +20,27 @@ export default function Home() {
         <CarouselDemo />
       </section>
 
-      <InfiniteMovingCards
+      {/* <InfiniteMovingCards
         className="md:mt-[2rem] mt-[-100px]"
         items={clients}
         direction="right"
         speed="slow"
-      />
+      /> */}
+      <section className="mx-5 my-12 md:mx-10 lg:mx-20">
+        <h2 className="text-4xl md:text-5xl font-bold my-6 text-center md:text-left">
+          Meet My Team
+        </h2>
+        <p className="text-lg text-muted-foreground mb-10 text-center md:text-left max-w-2xl mx-auto md:mx-0">
+          We’re a passionate group of innovators, creators, and problem-solvers
+          dedicated to pushing boundaries and delivering excellence. Get to know
+          the people behind the magic!
+        </p>
+        <AnimatedTooltip />
+      </section>
       <section>
         <HeroParallax products={products}></HeroParallax>
       </section>
+
       <section className="mt-[-500px]">
         <LampComponent text1={"Plans that are"} text2={"fit to you"} />
         <div className="flex flex-wrap items-center justify-center flex-col md:flex-row gap-8 -mt-72">

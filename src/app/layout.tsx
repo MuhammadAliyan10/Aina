@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "next-themes";
+
 import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const font = DM_Sans({ subsets: ["latin"] });
 
@@ -25,7 +26,7 @@ export default function RootLayout({
         <Toaster />
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >

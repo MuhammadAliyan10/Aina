@@ -1,15 +1,17 @@
-// src/app/(mainPages)/analytics/page.tsx
 "use client";
 
 import React, { useState } from "react";
 import {
-  BarChart,
-  LineChart,
-  PieChart,
+  BarChart as BarChartIcon,
+  LineChart as LineChartIcon,
+  PieChart as PieChartIcon,
   Calendar,
   Activity,
   Zap,
   Loader2,
+  Users,
+  AlertTriangle,
+  Link,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -32,20 +34,22 @@ import {
   YAxis,
   CartesianGrid,
   Legend,
+  Cell,
 } from "recharts";
 import { useSession } from "@/app/(main)/SessionProvider";
 
-// Types for analytics data
 interface WorkflowPerformance {
   name: string;
   executions: number;
   successRate: number;
+  errors: number;
 }
 
 interface TaskCompletion {
   date: string;
   completed: number;
   pending: number;
+  overdue: number;
 }
 
 interface AIUsage {
@@ -53,24 +57,38 @@ interface AIUsage {
   value: number;
 }
 
+interface IntegrationUsage {
+  name: string;
+  requests: number;
+}
+
+interface UserActivity {
+  date: string;
+  logins: number;
+  actions: number;
+}
+
+const COLORS = [
+  "hsl(var(--primary))", // Maps to --primary
+  "hsl(var(--secondary))", // Maps to --secondary
+  "hsl(var(--accent))", // Maps to --accent
+  "hsl(var(--muted))", // Maps to --muted
+  "hsl(var(--success))", // Add --success to globals.css if needed, or use a fallback
+];
+
 const AnalyticsPage = () => {
   const { user } = useSession();
   const [timeRange, setTimeRange] = useState<"week" | "month" | "year">(
     "month"
   );
 
-  // Fetch analytics data
   const { data: workflowData, isLoading: workflowLoading } = useQuery<
     WorkflowPerformance[]
   >({
     queryKey: ["workflowPerformance", user?.id, timeRange],
     queryFn: async () => {
       const response = await fetch(
-        `/api/analytics/workflows?userId=${user?.id}&range=${timeRange}`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        }
+        `/api/analytics/workflows?userId=${user?.id}&range=${timeRange}`
       );
       if (!response.ok) throw new Error("Failed to fetch workflow performance");
       return response.json();
@@ -83,11 +101,7 @@ const AnalyticsPage = () => {
       queryKey: ["taskCompletion", user?.id, timeRange],
       queryFn: async () => {
         const response = await fetch(
-          `/api/analytics/tasks?userId=${user?.id}&range=${timeRange}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-          }
+          `/api/analytics/tasks?userId=${user?.id}&range=${timeRange}`
         );
         if (!response.ok) throw new Error("Failed to fetch task completion");
         return response.json();
@@ -100,13 +114,37 @@ const AnalyticsPage = () => {
     queryKey: ["aiUsage", user?.id, timeRange],
     queryFn: async () => {
       const response = await fetch(
-        `/api/analytics/ai?userId=${user?.id}&range=${timeRange}`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        }
+        `/api/analytics/ai?userId=${user?.id}&range=${timeRange}`
       );
       if (!response.ok) throw new Error("Failed to fetch AI usage");
+      return response.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: integrationData, isLoading: integrationLoading } = useQuery<
+    IntegrationUsage[]
+  >({
+    queryKey: ["integrationUsage", user?.id, timeRange],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/analytics/integrations?userId=${user?.id}&range=${timeRange}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch integration usage");
+      return response.json();
+    },
+    enabled: !!user?.id,
+  });
+
+  const { data: userActivityData, isLoading: userActivityLoading } = useQuery<
+    UserActivity[]
+  >({
+    queryKey: ["userActivity", user?.id, timeRange],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/analytics/user-activity?userId=${user?.id}&range=${timeRange}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch user activity");
       return response.json();
     },
     enabled: !!user?.id,
@@ -118,13 +156,21 @@ const AnalyticsPage = () => {
     { label: "Last Year", value: "year" },
   ];
 
-  const isLoading = workflowLoading || taskLoading || aiLoading;
+  const isLoading =
+    workflowLoading ||
+    taskLoading ||
+    aiLoading ||
+    integrationLoading ||
+    userActivityLoading;
 
   return (
-    <div className="flex flex-col min-h-screen text-neutral-200 p-6">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Analytics</h1>
-        <div className="flex gap-2">
+    <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
+      <header className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
+        <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
+          <Zap className="h-9 w-9 text-primary animate-pulse" />
+          Analytics
+        </h1>
+        <div className="flex gap-3">
           {timeRangeOptions.map((option) => (
             <Button
               key={option.value}
@@ -133,10 +179,10 @@ const AnalyticsPage = () => {
                 setTimeRange(option.value as "week" | "month" | "year")
               }
               className={cn(
-                "text-neutral-200",
+                "text-foreground font-semibold rounded-lg transition-all duration-300",
                 timeRange === option.value
-                  ? "bg-blue-600 hover:bg-blue-700"
-                  : "border-blue-400 hover:bg-neutral-800"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "border-border text-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               {option.label}
@@ -146,51 +192,86 @@ const AnalyticsPage = () => {
       </header>
 
       {isLoading ? (
-        <div className="flex flex-1 justify-center items-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+        <div className="flex flex-1 justify-center items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">Loading analytics...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-          {/* Workflow Performance */}
-          <Card className="bg-neutral-800 border-neutral-700">
-            <CardHeader className="flex flex-row items-center gap-2">
-              <BarChart className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-neutral-200">
-                Workflow Performance
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <Card className="bg-card border border-border rounded-xl shadow-lg">
+            <CardHeader className="flex flex-row items-center gap-3">
+              <Activity className="h-6 w-6 text-primary animate-pulse" />
+              <CardTitle className="text-xl font-semibold text-card-foreground">
+                AI Usage
               </CardTitle>
             </CardHeader>
             <CardContent>
               <ChartContainer
                 config={{
-                  executions: {
-                    label: "Executions",
-                    color: "hsl(205, 78%, 60%)",
-                  },
-                  successRate: {
-                    label: "Success Rate (%)",
-                    color: "hsl(120, 60%, 60%)",
-                  },
+                  value: { label: "Value", color: COLORS[0] },
                 }}
-                className="h-[300px]"
+                className="h-[350px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <RechartsBarChart data={workflowData || []}>
+                  <RechartsPieChart>
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Pie
+                      data={aiData || []}
+                      dataKey="value"
+                      nameKey="category"
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      fill={COLORS[0]}
+                      label={({ name }) => name}
+                    >
+                      {(aiData || []).map((_, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border border-border rounded-xl shadow-lg">
+            <CardHeader className="flex flex-row items-center gap-3">
+              <Link className="h-6 w-6 text-primary animate-pulse" />
+              <CardTitle className="text-xl font-semibold text-card-foreground">
+                Integration Usage
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={{
+                  requests: { label: "Requests", color: COLORS[1] },
+                }}
+                className="h-[350px]"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsBarChart data={integrationData || []}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="hsl(0, 0%, 20%)"
+                      stroke="hsl(var(--muted))"
                     />
-                    <XAxis dataKey="name" stroke="hsl(0, 0%, 70%)" />
-                    <YAxis stroke="hsl(0, 0%, 70%)" />
+                    <XAxis
+                      dataKey="name"
+                      stroke="hsl(var(--muted-foreground))"
+                      tick={{ fill: "hsl(var(--muted-foreground))" }}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      tick={{ fill: "hsl(var(--muted-foreground))" }}
+                    />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Legend />
                     <Bar
-                      dataKey="executions"
-                      fill="hsl(205, 78%, 60%)"
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar
-                      dataKey="successRate"
-                      fill="hsl(120, 60%, 60%)"
+                      dataKey="requests"
+                      fill={COLORS[1]}
                       radius={[4, 4, 0, 0]}
                     />
                   </RechartsBarChart>
@@ -199,85 +280,53 @@ const AnalyticsPage = () => {
             </CardContent>
           </Card>
 
-          {/* Task Completion */}
-          <Card className="bg-neutral-800 border-neutral-700">
-            <CardHeader className="flex flex-row items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-neutral-200">
-                Task Completion
+          <Card className="bg-card border border-border rounded-xl shadow-lg">
+            <CardHeader className="flex flex-row items-center gap-3">
+              <Users className="h-6 w-6 text-primary animate-pulse" />
+              <CardTitle className="text-xl font-semibold text-card-foreground">
+                User Activity
               </CardTitle>
             </CardHeader>
             <CardContent>
               <ChartContainer
                 config={{
-                  completed: {
-                    label: "Completed",
-                    color: "hsl(120, 60%, 60%)",
-                  },
-                  pending: { label: "Pending", color: "hsl(0, 60%, 60%)" },
+                  logins: { label: "Logins", color: COLORS[0] },
+                  actions: { label: "Actions", color: COLORS[2] },
                 }}
-                className="h-[300px]"
+                className="h-[350px]"
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <RechartsLineChart data={taskData || []}>
+                  <RechartsLineChart data={userActivityData || []}>
                     <CartesianGrid
                       strokeDasharray="3 3"
-                      stroke="hsl(0, 0%, 20%)"
+                      stroke="hsl(var(--muted))"
                     />
-                    <XAxis dataKey="date" stroke="hsl(0, 0%, 70%)" />
-                    <YAxis stroke="hsl(0, 0%, 70%)" />
+                    <XAxis
+                      dataKey="date"
+                      stroke="hsl(var(--muted-foreground))"
+                      tick={{ fill: "hsl(var(--muted-foreground))" }}
+                    />
+                    <YAxis
+                      stroke="hsl(var(--muted-foreground))"
+                      tick={{ fill: "hsl(var(--muted-foreground))" }}
+                    />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Legend />
                     <Line
                       type="monotone"
-                      dataKey="completed"
-                      stroke="hsl(120, 60%, 60%)"
+                      dataKey="logins"
+                      stroke={COLORS[0]}
                       strokeWidth={2}
                       dot={false}
                     />
                     <Line
                       type="monotone"
-                      dataKey="pending"
-                      stroke="hsl(0, 60%, 60%)"
+                      dataKey="actions"
+                      stroke={COLORS[2]}
                       strokeWidth={2}
                       dot={false}
                     />
                   </RechartsLineChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-
-          {/* AI Usage */}
-          <Card className="bg-neutral-800 border-neutral-700">
-            <CardHeader className="flex flex-row items-center gap-2">
-              <Activity className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-neutral-200">AI Usage</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer
-                config={{
-                  value: { label: "Usage", color: "hsl(205, 78%, 60%)" },
-                }}
-                className="h-[300px]"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPieChart>
-                    <Pie
-                      data={aiData || []}
-                      dataKey="value"
-                      nameKey="category"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="hsl(205, 78%, 60%)"
-                      label={({ name, percent }) =>
-                        `${name} (${(percent * 100).toFixed(0)}%)`
-                      }
-                      labelLine={false}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                  </RechartsPieChart>
                 </ResponsiveContainer>
               </ChartContainer>
             </CardContent>

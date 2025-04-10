@@ -29,11 +29,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/app/(main)/SessionProvider";
-
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd"; // For drag-and-drop
+import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { toast } from "@/hooks/use-toast";
 
-// Types for workflows and steps
 interface WorkflowStep {
   id: string;
   type: "trigger" | "action" | "condition";
@@ -61,7 +59,6 @@ const AutomationStudioPage = () => {
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
   const stepsContainerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch workflow list
   const { data: workflows, isLoading: workflowsLoading } = useQuery<Workflow[]>(
     {
       queryKey: ["workflows", user?.id],
@@ -80,7 +77,6 @@ const AutomationStudioPage = () => {
     }
   );
 
-  // Mutation to create a workflow
   const createWorkflow = useMutation({
     mutationFn: async () => {
       const response = await fetch(`/api/automation/workflows`, {
@@ -112,7 +108,6 @@ const AutomationStudioPage = () => {
     },
   });
 
-  // Mutation to update a workflow
   const updateWorkflow = useMutation({
     mutationFn: async (workflow: Workflow) => {
       const response = await fetch(`/api/automation/workflows/${workflow.id}`, {
@@ -144,7 +139,6 @@ const AutomationStudioPage = () => {
     },
   });
 
-  // Mutation to delete a workflow
   const deleteWorkflow = useMutation({
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/automation/workflows/${id}`, {
@@ -169,7 +163,6 @@ const AutomationStudioPage = () => {
     },
   });
 
-  // Mutation to simulate a workflow
   const simulateWorkflow = useMutation({
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/automation/workflows/${id}/simulate`, {
@@ -198,7 +191,6 @@ const AutomationStudioPage = () => {
     },
   });
 
-  // Drag-and-drop handler
   const onDragEnd = (result: any) => {
     if (!result.destination || !editingWorkflow) return;
 
@@ -206,13 +198,13 @@ const AutomationStudioPage = () => {
     const [movedStep] = reorderedSteps.splice(result.source.index, 1);
     reorderedSteps.splice(result.destination.index, 0, movedStep);
 
-    // Update step order
     const updatedSteps = reorderedSteps.map((step, index) => ({
       ...step,
       order: index,
     }));
 
     setEditingWorkflow({ ...editingWorkflow, steps: updatedSteps });
+    setSteps(updatedSteps);
   };
 
   const filteredWorkflows = workflows?.filter((workflow) =>
@@ -243,54 +235,64 @@ const AutomationStudioPage = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen text-neutral-200 p-6">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Zap className="h-8 w-8 text-blue-400" />
+    <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
+        <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
+          <Zap className="h-9 w-9 text-primary animate-pulse" />
           Automation Studio
         </h1>
         <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <Input
             placeholder="Search workflows..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-neutral-700 border-neutral-600 text-white"
+            className="pl-10 bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
           />
         </div>
       </header>
 
       {workflowsLoading ? (
-        <div className="flex flex-1 justify-center items-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+        <div className="flex flex-1 justify-center items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">Loading workflows...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Workflow List */}
-          <Card className="lg:col-span-1 bg-neutral-800 border-neutral-700">
-            <CardHeader className="flex flex-row items-center gap-2">
-              <Zap className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-neutral-200">Workflows</CardTitle>
+          <Card className="lg:col-span-1 bg-card border border-border rounded-xl shadow-lg">
+            <CardHeader className="flex flex-row items-center gap-3">
+              <Zap className="h-6 w-6 text-primary animate-pulse" />
+              <CardTitle className="text-2xl font-bold text-card-foreground">
+                Workflows
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               <Button
                 onClick={() => createWorkflow.mutate()}
                 disabled={createWorkflow.isPending}
-                className="w-full mb-4"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
               >
                 {createWorkflow.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
                 ) : (
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="h-5 w-5 mr-2" />
                 )}
                 New Workflow
               </Button>
               <Table>
                 <TableHeader>
-                  <TableRow className="border-neutral-700">
-                    <TableHead className="text-neutral-400">Name</TableHead>
-                    <TableHead className="text-neutral-400">Status</TableHead>
-                    <TableHead className="text-neutral-400">Actions</TableHead>
+                  <TableRow className="border-border hover:bg-muted">
+                    <TableHead className="text-muted-foreground font-medium">
+                      Name
+                    </TableHead>
+                    <TableHead className="text-muted-foreground font-medium">
+                      Status
+                    </TableHead>
+                    <TableHead className="text-muted-foreground font-medium">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -298,18 +300,18 @@ const AutomationStudioPage = () => {
                     filteredWorkflows.map((workflow) => (
                       <TableRow
                         key={workflow.id}
-                        className="border-neutral-700"
+                        className="border-border hover:bg-muted transition-colors duration-200"
                       >
-                        <TableCell className="text-neutral-200">
+                        <TableCell className="text-foreground font-medium">
                           {workflow.name}
                         </TableCell>
                         <TableCell>
                           <span
                             className={cn(
-                              "text-sm font-medium px-2 py-1 rounded-full",
+                              "text-sm font-medium px-3 py-1 rounded-full",
                               workflow.status === "active"
-                                ? "bg-green-700 text-green-100"
-                                : "bg-neutral-600 text-neutral-200"
+                                ? "bg-success/20 text-success"
+                                : "bg-muted text-muted-foreground"
                             )}
                           >
                             {workflow.status}
@@ -320,26 +322,27 @@ const AutomationStudioPage = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(workflow)}
+                            className="text-primary hover:text-primary-foreground hover:bg-muted rounded-full p-2"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-5 w-5" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => simulateWorkflow.mutate(workflow.id)}
                             disabled={simulateWorkflow.isPending}
-                            className="text-yellow-400 hover:text-yellow-300"
+                            className="text-accent hover:text-accent/80 hover:bg-muted rounded-full p-2"
                           >
-                            <Play className="h-4 w-4" />
+                            <Play className="h-5 w-5" />
                           </Button>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => deleteWorkflow.mutate(workflow.id)}
                             disabled={deleteWorkflow.isPending}
-                            className="text-red-400 hover:text-red-300"
+                            className="text-destructive hover:text-destructive-foreground hover:bg-muted rounded-full p-2"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-5 w-5" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -348,7 +351,7 @@ const AutomationStudioPage = () => {
                     <TableRow>
                       <TableCell
                         colSpan={3}
-                        className="text-neutral-400 text-center"
+                        className="text-muted-foreground text-center py-6"
                       >
                         No workflows found.
                       </TableCell>
@@ -360,16 +363,16 @@ const AutomationStudioPage = () => {
           </Card>
 
           {/* Workflow Builder */}
-          <Card className="lg:col-span-2 bg-neutral-800 border-neutral-700">
-            <CardHeader className="flex flex-row items-center gap-2">
-              <Zap className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-neutral-200">
+          <Card className="lg:col-span-2 bg-card border border-border rounded-xl shadow-lg">
+            <CardHeader className="flex flex-row items-center gap-3">
+              <Zap className="h-6 w-6 text-primary animate-pulse" />
+              <CardTitle className="text-2xl font-bold text-card-foreground">
                 {editingWorkflow
                   ? `Editing: ${editingWorkflow.name}`
                   : "Workflow Builder"}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               {editingWorkflow ? (
                 <>
                   <Input
@@ -381,7 +384,7 @@ const AutomationStudioPage = () => {
                         name: e.target.value,
                       })
                     }
-                    className="bg-neutral-700 border-neutral-600 text-white"
+                    className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
                   />
                   <Textarea
                     placeholder="Workflow Description"
@@ -392,21 +395,25 @@ const AutomationStudioPage = () => {
                         description: e.target.value,
                       })
                     }
-                    className="bg-neutral-700 border-neutral-600 text-white min-h-[100px]"
+                    className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg min-h-[120px]"
                   />
-                  <div className="flex justify-between items-center">
-                    <Button onClick={handleAddStep}>
-                      <Plus className="h-4 w-4 mr-2" />
+                  <div className="flex justify-between items-center gap-4">
+                    <Button
+                      onClick={handleAddStep}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
+                    >
+                      <Plus className="h-5 w-5 mr-2" />
                       Add Step
                     </Button>
                     <Button
                       onClick={handleSave}
                       disabled={updateWorkflow.isPending}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
                     >
                       {updateWorkflow.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
                       ) : (
-                        <Save className="h-4 w-4 mr-2" />
+                        <Save className="h-5 w-5 mr-2" />
                       )}
                       Save Workflow
                     </Button>
@@ -417,7 +424,7 @@ const AutomationStudioPage = () => {
                         <div
                           {...provided.droppableProps}
                           ref={provided.innerRef}
-                          className="space-y-2 max-h-[400px] overflow-y-auto"
+                          className="space-y-3 max-h-[400px] overflow-y-auto p-2 bg-card rounded-lg"
                         >
                           {steps.map((step, index) => (
                             <Draggable
@@ -430,14 +437,14 @@ const AutomationStudioPage = () => {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  className="bg-neutral-700 border border-neutral-600 p-3 rounded-md flex justify-between items-center"
+                                  className="bg-card border border-border p-4 rounded-lg flex justify-between items-center hover:border-primary transition-all duration-300"
                                 >
-                                  <div className="flex items-center gap-2">
-                                    <ChevronDown className="h-4 w-4 text-neutral-400" />
-                                    <span className="text-neutral-200">
+                                  <div className="flex items-center gap-3">
+                                    <ChevronDown className="h-5 w-5 text-muted-foreground cursor-move" />
+                                    <span className="text-foreground font-medium">
                                       {step.name}
                                     </span>
-                                    <span className="text-neutral-400 text-sm">
+                                    <span className="text-muted-foreground text-sm">
                                       ({step.type})
                                     </span>
                                   </div>
@@ -449,9 +456,9 @@ const AutomationStudioPage = () => {
                                         steps.filter((s) => s.id !== step.id)
                                       )
                                     }
-                                    className="text-red-400 hover:text-red-300"
+                                    className="text-destructive hover:text-destructive-foreground hover:bg-muted rounded-full p-2"
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-5 w-5" />
                                   </Button>
                                 </div>
                               )}
@@ -464,8 +471,9 @@ const AutomationStudioPage = () => {
                   </DragDropContext>
                 </>
               ) : (
-                <p className="text-neutral-400 text-center">
+                <p className="text-muted-foreground text-center py-12">
                   Select a workflow to edit or create a new one.
+                  <Zap className="h-10 w-10 mx-auto mt-4 text-primary animate-bounce" />
                 </p>
               )}
             </CardContent>

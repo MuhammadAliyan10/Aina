@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react"; // Add useRef
-import FullCalendar from "@fullcalendar/react"; // Import CalendarApi type
+import React, { useState, useEffect, useRef } from "react";
+import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -23,7 +23,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/app/(main)/SessionProvider";
 import { toast } from "@/hooks/use-toast";
 
-// Types for events and tasks
 interface CalendarEvent {
   id: string;
   title: string;
@@ -31,7 +30,7 @@ interface CalendarEvent {
   end?: string;
   description?: string;
   type: "event" | "task";
-  status?: "pending" | "completed"; // For tasks
+  status?: "pending" | "completed";
 }
 
 const CalendarPage = () => {
@@ -45,11 +44,11 @@ const CalendarPage = () => {
     description: "",
     start: "",
     end: "",
+    type: "event" as "event" | "task",
   });
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
-  const calendarRef = useRef<FullCalendar>(null); // Add ref for FullCalendar
+  const calendarRef = useRef<FullCalendar>(null);
 
-  // Fetch events and tasks
   const { data: events, isLoading: eventsLoading } = useQuery<CalendarEvent[]>({
     queryKey: ["calendarEvents", user?.id],
     queryFn: async () => {
@@ -71,7 +70,6 @@ const CalendarPage = () => {
       const eventsData = await eventsResponse.json();
       const tasksData = await tasksResponse.json();
 
-      // Transform tasks into calendar events
       const taskEvents = tasksData.map((task: any) => ({
         id: task.id,
         title: task.title,
@@ -86,40 +84,56 @@ const CalendarPage = () => {
     enabled: !!user?.id,
   });
 
-  // Mutation to create an event
   const createEvent = useMutation({
     mutationFn: async () => {
-      const response = await fetch(`/api/calendar/events`, {
+      const endpoint =
+        newEvent.type === "event" ? `/api/calendar/events` : `/api/tasks`;
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user?.id,
-          title: newEvent.title || "Untitled Event",
+          title:
+            newEvent.title ||
+            `Untitled ${newEvent.type === "event" ? "Event" : "Task"}`,
           description: newEvent.description,
           start: newEvent.start,
           end: newEvent.end || undefined,
-          type: "event",
+          type: newEvent.type,
+          ...(newEvent.type === "task" && { status: "pending" }),
         }),
       });
-      if (!response.ok) throw new Error("Failed to create event");
+      if (!response.ok) throw new Error(`Failed to create ${newEvent.type}`);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["calendarEvents", user?.id] });
-      setNewEvent({ title: "", description: "", start: "", end: "" });
-      toast({ title: "Success", description: "Event created successfully" });
+      setNewEvent({
+        title: "",
+        description: "",
+        start: "",
+        end: "",
+        type: "event",
+      });
+      toast({
+        title: "Success",
+        description: `${
+          newEvent.type === "event" ? "Event" : "Task"
+        } created successfully`,
+      });
     },
     onError: (error) => {
       toast({
         title: "Error",
         description:
-          error instanceof Error ? error.message : "Failed to create event",
+          error instanceof Error
+            ? error.message
+            : `Failed to create ${newEvent.type}`,
         variant: "destructive",
       });
     },
   });
 
-  // Mutation to update an event
   const updateEvent = useMutation({
     mutationFn: async (event: CalendarEvent) => {
       const endpoint =
@@ -138,7 +152,7 @@ const CalendarPage = () => {
           ...(event.type === "task" && { status: event.status }),
         }),
       });
-      if (!response.ok) throw new Error("Failed to update event");
+      if (!response.ok) throw new Error(`Failed to update ${event.type}`);
       return response.json();
     },
     onSuccess: () => {
@@ -156,18 +170,23 @@ const CalendarPage = () => {
     },
   });
 
-  // Mutation to delete an event
   const deleteEvent = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/calendar/events/${id}`, {
+      const event = events?.find((e) => e.id === id);
+      const endpoint =
+        event?.type === "event"
+          ? `/api/calendar/events/${id}`
+          : `/api/tasks/${id}`;
+      const response = await fetch(endpoint, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user?.id }),
       });
-      if (!response.ok) throw new Error("Failed to delete event");
+      if (!response.ok) throw new Error(`Failed to delete ${event?.type}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["calendarEvents", user?.id] });
+      setEditingEvent(null);
       toast({ title: "Success", description: "Event deleted successfully" });
     },
     onError: (error) => {
@@ -180,23 +199,21 @@ const CalendarPage = () => {
     },
   });
 
-  // Handle date click to create event
   const handleDateClick = (info: any) => {
     setNewEvent({
       title: "",
       description: "",
-      start: info.dateStr,
+      start: info.dateStr.slice(0, 16),
       end: "",
+      type: "event",
     });
   };
 
-  // Handle event click to edit
   const handleEventClick = (info: any) => {
     const event = events?.find((e) => e.id === info.event.id);
     if (event) setEditingEvent(event);
   };
 
-  // Handle event drop (drag-and-drop)
   const handleEventDrop = (info: any) => {
     const updatedEvent = events?.find((e) => e.id === info.event.id);
     if (updatedEvent) {
@@ -208,29 +225,31 @@ const CalendarPage = () => {
     }
   };
 
-  // Handle save (placeholder implementation)
   const handleSave = () => {
     if (editingEvent) {
       updateEvent.mutate(editingEvent);
+    } else {
+      createEvent.mutate();
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen text-neutral-200 p-6">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <CalendarIcon className="h-8 w-8 text-blue-400" />
+    <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
+        <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
+          <CalendarIcon className="h-9 w-9 text-primary animate-pulse" />
           Calendar
         </h1>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Button
             variant={view === "dayGridMonth" ? "default" : "outline"}
             onClick={() => setView("dayGridMonth")}
             className={cn(
-              "text-neutral-200",
+              "text-foreground font-semibold rounded-lg shadow-md transition-all duration-300",
               view === "dayGridMonth"
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "border-blue-400 hover:bg-neutral-800"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "border-border hover:bg-muted"
             )}
           >
             Month
@@ -239,10 +258,10 @@ const CalendarPage = () => {
             variant={view === "timeGridWeek" ? "default" : "outline"}
             onClick={() => setView("timeGridWeek")}
             className={cn(
-              "text-neutral-200",
+              "text-foreground font-semibold rounded-lg shadow-md transition-all duration-300",
               view === "timeGridWeek"
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "border-blue-400 hover:bg-neutral-800"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "border-border hover:bg-muted"
             )}
           >
             Week
@@ -251,10 +270,10 @@ const CalendarPage = () => {
             variant={view === "timeGridDay" ? "default" : "outline"}
             onClick={() => setView("timeGridDay")}
             className={cn(
-              "text-neutral-200",
+              "text-foreground font-semibold rounded-lg shadow-md transition-all duration-300",
               view === "timeGridDay"
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "border-blue-400 hover:bg-neutral-800"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                : "border-border hover:bg-muted"
             )}
           >
             Day
@@ -263,20 +282,23 @@ const CalendarPage = () => {
       </header>
 
       {eventsLoading ? (
-        <div className="flex flex-1 justify-center items-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+        <div className="flex flex-1 justify-center items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">Loading calendar...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Calendar */}
-          <Card className="lg:col-span-2 bg-neutral-800 border-neutral-700">
-            <CardHeader className="flex flex-row items-center gap-2">
-              <CalendarIcon className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-neutral-200">Calendar</CardTitle>
+          <Card className="lg:col-span-2 bg-card border border-border rounded-xl shadow-lg">
+            <CardHeader className="flex flex-row items-center gap-3">
+              <CalendarIcon className="h-6 w-6 text-primary animate-pulse" />
+              <CardTitle className="text-2xl font-bold text-card-foreground">
+                Calendar
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <FullCalendar
-                ref={calendarRef} // Attach ref to FullCalendar
+                ref={calendarRef}
                 plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                 initialView={view}
                 events={events?.map((event) => ({
@@ -286,10 +308,11 @@ const CalendarPage = () => {
                   end: event.end || undefined,
                   classNames: [
                     event.type === "task" && event.status === "completed"
-                      ? "bg-green-700 border-green-500"
+                      ? "bg-success/20 border-success"
                       : event.type === "task"
-                      ? "bg-yellow-700 border-yellow-500"
-                      : "bg-blue-600 border-blue-400",
+                      ? "bg-accent/20 border-accent"
+                      : "bg-primary/20 border-primary",
+                    "rounded-md p-1 shadow-sm",
                   ],
                 }))}
                 headerToolbar={{
@@ -311,31 +334,76 @@ const CalendarPage = () => {
                   today: {
                     text: "Today",
                     click: () => {
-                      const calendarApi = calendarRef.current?.getApi(); // Use ref to get API
+                      const calendarApi = calendarRef.current?.getApi();
                       if (calendarApi) calendarApi.today();
                     },
                   },
                 }}
-                eventClassNames="text-white font-medium p-1 rounded-md"
-                dayHeaderClassNames="text-neutral-400"
-                dayCellClassNames="bg-neutral-800 border-neutral-700"
+                eventClassNames="text-foreground font-medium"
+                dayHeaderClassNames="text-foreground bg-background"
+                dayCellClassNames="bg-card border-border"
+                slotLabelClassNames="text-muted-foreground"
               />
             </CardContent>
           </Card>
 
           {/* Event/Task Form */}
-          <Card className="bg-neutral-800 border-neutral-700">
-            <CardHeader className="flex flex-row items-center gap-2">
-              <Plus className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-neutral-200">
-                {editingEvent ? "Edit Event/Task" : "New Event"}
+          <Card className="bg-card border border-border rounded-xl shadow-lg">
+            <CardHeader className="flex flex-row items-center gap-3">
+              <Plus className="h-6 w-6 text-primary animate-pulse" />
+              <CardTitle className="text-2xl font-bold text-card-foreground">
+                {editingEvent ? "Edit Event/Task" : "New Event/Task"}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
+              <div className="flex gap-2">
+                <Button
+                  variant={
+                    newEvent.type === "event" && !editingEvent
+                      ? "default"
+                      : "outline"
+                  }
+                  onClick={() =>
+                    !editingEvent && setNewEvent({ ...newEvent, type: "event" })
+                  }
+                  className={cn(
+                    "flex-1 text-foreground font-semibold rounded-lg transition-all duration-300",
+                    newEvent.type === "event" && !editingEvent
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "border-border hover:bg-muted",
+                    editingEvent && "opacity-50 pointer-events-none"
+                  )}
+                >
+                  Event
+                </Button>
+                <Button
+                  variant={
+                    newEvent.type === "task" && !editingEvent
+                      ? "default"
+                      : "outline"
+                  }
+                  onClick={() =>
+                    !editingEvent && setNewEvent({ ...newEvent, type: "task" })
+                  }
+                  className={cn(
+                    "flex-1 text-foreground font-semibold rounded-lg transition-all duration-300",
+                    newEvent.type === "task" && !editingEvent
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "border-border hover:bg-muted",
+                    editingEvent && "opacity-50 pointer-events-none"
+                  )}
+                >
+                  Task
+                </Button>
+              </div>
               {(newEvent.start || editingEvent) && (
                 <>
                   <Input
-                    placeholder="Event Title"
+                    placeholder={`${
+                      editingEvent?.type || newEvent.type === "event"
+                        ? "Event"
+                        : "Task"
+                    } Title`}
                     value={editingEvent ? editingEvent.title : newEvent.title}
                     onChange={(e) =>
                       editingEvent
@@ -345,7 +413,7 @@ const CalendarPage = () => {
                           })
                         : setNewEvent({ ...newEvent, title: e.target.value })
                     }
-                    className="bg-neutral-700 border-neutral-600 text-white"
+                    className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
                   />
                   <Textarea
                     placeholder="Description"
@@ -365,7 +433,7 @@ const CalendarPage = () => {
                             description: e.target.value,
                           })
                     }
-                    className="bg-neutral-700 border-neutral-600 text-white min-h-[100px]"
+                    className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg min-h-[100px]"
                   />
                   <Input
                     type="datetime-local"
@@ -382,7 +450,7 @@ const CalendarPage = () => {
                           })
                         : setNewEvent({ ...newEvent, start: e.target.value })
                     }
-                    className="bg-neutral-700 border-neutral-600 text-white"
+                    className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
                   />
                   <Input
                     type="datetime-local"
@@ -399,50 +467,50 @@ const CalendarPage = () => {
                           })
                         : setNewEvent({ ...newEvent, end: e.target.value })
                     }
-                    className="bg-neutral-700 border-neutral-600 text-white"
+                    className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
                   />
-                  {editingEvent?.type === "task" && (
+                  {(editingEvent?.type === "task" ||
+                    (!editingEvent && newEvent.type === "task")) && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       onClick={() =>
-                        setEditingEvent({
-                          ...editingEvent,
-                          status:
-                            editingEvent.status === "completed"
-                              ? "pending"
-                              : "completed",
-                        })
+                        editingEvent
+                          ? setEditingEvent({
+                              ...editingEvent,
+                              status:
+                                editingEvent.status === "completed"
+                                  ? "pending"
+                                  : "completed",
+                            })
+                          : setNewEvent({ ...newEvent, type: "task" })
                       }
                       className={cn(
-                        "text-neutral-400 hover:text-neutral-200",
-                        editingEvent.status === "completed" &&
-                          "text-green-400 hover:text-green-300"
+                        "w-full border-border text-primary hover:bg-muted font-semibold rounded-lg transition-all duration-300",
+                        editingEvent?.status === "completed" &&
+                          "border-success text-success hover:bg-success/10"
                       )}
                     >
                       <CheckCircle
                         className={cn(
-                          "h-4 w-4 mr-2",
-                          editingEvent.status === "completed" &&
-                            "fill-green-400"
+                          "h-5 w-5 mr-2",
+                          editingEvent?.status === "completed" && "fill-success"
                         )}
                       />
-                      {editingEvent.status === "completed"
+                      {editingEvent?.status === "completed"
                         ? "Mark Incomplete"
                         : "Mark Complete"}
                     </Button>
                   )}
-                  <div className="flex gap-2">
+                  <div className="flex gap-3">
                     <Button
-                      onClick={() =>
-                        editingEvent ? handleSave() : createEvent.mutate()
-                      }
+                      onClick={handleSave}
                       disabled={createEvent.isPending || updateEvent.isPending}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                      className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
                     >
                       {createEvent.isPending || updateEvent.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
                       ) : (
-                        <Plus className="h-4 w-4 mr-2" />
+                        <Plus className="h-5 w-5 mr-2" />
                       )}
                       {editingEvent ? "Save" : "Create"}
                     </Button>
@@ -451,28 +519,27 @@ const CalendarPage = () => {
                         variant="ghost"
                         onClick={() => deleteEvent.mutate(editingEvent.id)}
                         disabled={deleteEvent.isPending}
-                        className="text-red-400 hover:text-red-300"
+                        className="text-destructive hover:text-destructive-foreground hover:bg-muted rounded-full p-2 transition-all duration-300"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-5 w-5" />
                       </Button>
                     )}
-                    {(newEvent.start || editingEvent) && (
-                      <Button
-                        variant="ghost"
-                        onClick={() => {
-                          setNewEvent({
-                            title: "",
-                            description: "",
-                            start: "",
-                            end: "",
-                          });
-                          setEditingEvent(null);
-                        }}
-                        className="text-neutral-400 hover:text-neutral-300"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setNewEvent({
+                          title: "",
+                          description: "",
+                          start: "",
+                          end: "",
+                          type: "event",
+                        });
+                        setEditingEvent(null);
+                      }}
+                      className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full p-2 transition-all duration-300"
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
                   </div>
                 </>
               )}

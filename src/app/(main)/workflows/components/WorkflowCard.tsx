@@ -17,6 +17,7 @@ interface WorkflowCardProps {
   onEdit: (workflow: Workflow) => void;
   onDelete: (id: string) => void;
   isDeleting: boolean;
+  className?: string; // Accept custom className from parent
 }
 
 const WorkflowCard: React.FC<WorkflowCardProps> = ({
@@ -24,34 +25,36 @@ const WorkflowCard: React.FC<WorkflowCardProps> = ({
   onEdit,
   onDelete,
   isDeleting,
+  className,
 }) => {
   return (
     <div
       className={cn(
-        "bg-neutral-800 border border-neutral-700 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between",
-        isDeleting && "opacity-50"
+        "bg-card border border-border rounded-xl p-5 shadow-lg hover:shadow-2xl hover:border-primary transition-all duration-300 flex flex-col justify-between",
+        isDeleting && "opacity-50 pointer-events-none",
+        className
       )}
     >
       <div>
-        <div className="flex items-center gap-2 mb-2">
-          <WorkflowIcon className="h-5 w-5 text-blue-400" />
-          <h3 className="text-lg font-semibold text-neutral-200 truncate">
+        <div className="flex items-center gap-3 mb-3">
+          <WorkflowIcon className="h-6 w-6 text-primary animate-pulse" />
+          <h3 className="text-xl font-semibold text-card-foreground truncate">
             {workflow.title}
           </h3>
         </div>
-        <p className="text-neutral-400 text-sm mb-4 line-clamp-2">
+        <p className="text-muted-foreground text-sm mb-4 line-clamp-2 leading-relaxed">
           {workflow.description || "No description provided"}
         </p>
-        <p className="text-neutral-500 text-xs">
+        <p className="text-muted-foreground text-xs">
           Created: {new Date(workflow.createdAt).toLocaleDateString()}
         </p>
       </div>
-      <div className="flex justify-between mt-4">
+      <div className="flex justify-between items-center mt-5">
         <Link href={`/tasks/${workflow.id}`}>
           <Button
             variant="outline"
             size="sm"
-            className="text-blue-400 border-blue-400 hover:bg-blue-900 hover:text-blue-300"
+            className="bg-transparent border-primary text-primary hover:bg-primary hover:text-primary-foreground font-medium rounded-lg transition-all duration-300"
           >
             View Tasks
           </Button>
@@ -61,21 +64,21 @@ const WorkflowCard: React.FC<WorkflowCardProps> = ({
             variant="ghost"
             size="sm"
             onClick={() => onEdit(workflow)}
-            className="text-blue-400 hover:text-blue-300"
+            className="text-primary hover:text-primary-foreground hover:bg-muted rounded-full p-2 transition-all duration-300"
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-5 w-5" />
           </Button>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onDelete(workflow.id)}
             disabled={isDeleting}
-            className="text-red-400 hover:text-red-300"
+            className="text-destructive hover:text-destructive-foreground hover:bg-muted rounded-full p-2 transition-all duration-300"
           >
             {isDeleting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-5 w-5" />
             )}
           </Button>
         </div>

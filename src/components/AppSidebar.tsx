@@ -1,4 +1,3 @@
-// src/app/(mainPages)/AppSidebar.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -10,7 +9,6 @@ import {
   IconHelp,
   IconLogout2,
   IconSettings,
-  IconUser,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -23,11 +21,13 @@ import {
   Calendar,
   FileText,
   List,
-  Notebook,
   Workflow,
   Users,
   BarChart,
   Zap,
+  Shield,
+  GitBranch,
+  BotIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -49,76 +49,90 @@ export function AppSidebar({
       label: "Dashboard",
       href: "/dashboard",
       icon: (
-        <IconHomeFilled className="h-5 w-5 flex-shrink-0 text-neutral-200" />
+        <IconHomeFilled className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
       ),
-    },
-    {
-      label: "Workflows",
-      href: "/workflows",
-      icon: <Workflow className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
-    },
-    {
-      label: "Automation Studio",
-      href: "/automation-studio",
-      icon: <Zap className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
-    },
-    {
-      label: "Calendar",
-      href: "/calendar",
-      icon: <Calendar className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
     },
     {
       label: "Tasks",
       href: "/tasks",
-      icon: <List className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
-    },
-    {
-      label: "Documents",
-      href: "/documents",
-      icon: <FileText className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
-    },
-    {
-      label: "Integrations",
-      href: "/integrations",
-      icon: <Cable className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
-    },
-    {
-      label: "AI Assistant",
-      href: "/assistant",
-      icon: <Bot className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
-    },
-    {
-      label: "Analytics",
-      href: "/analytics",
-      icon: <BarChart className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
+      icon: <List className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
     },
     {
       label: "Team",
       href: "/team",
-      icon: <Users className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
+      icon: <Users className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
+    },
+    {
+      label: "Workflows",
+      href: "/workflows",
+      icon: (
+        <Workflow className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
+      ),
+    },
+    {
+      label: "Automation Studio",
+      href: "/automation-studio",
+      icon: <Zap className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
+    },
+    {
+      label: "Calendar",
+      href: "/calendar",
+      icon: (
+        <Calendar className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
+      ),
+    },
+    {
+      label: "Documents",
+      href: "/documents",
+      icon: (
+        <FileText className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
+      ),
+    },
+    {
+      label: "Integrations",
+      href: "/integrations",
+      icon: <Cable className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
+    },
+    {
+      label: "AI Assistant",
+      href: "/assistant",
+      icon: <Bot className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
+    },
+    {
+      label: "Analytics",
+      href: "/analytics",
+      icon: (
+        <BarChart className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
+      ),
     },
     {
       label: "Billing",
       href: "/billing",
       icon: (
-        <IconCurrencyDollar className="h-5 w-5 flex-shrink-0 text-neutral-200" />
+        <IconCurrencyDollar className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
       ),
     },
     {
       label: "Support",
       href: "/support",
-      icon: <IconHelp className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
+      icon: (
+        <IconHelp className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
+      ),
     },
     {
       label: "Settings",
       href: "/settings",
-      icon: <IconSettings className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
+      icon: (
+        <IconSettings className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
+      ),
     },
     {
       label: "Sign Out",
       href: "#",
       action: logout,
-      icon: <IconLogout2 className="h-5 w-5 flex-shrink-0 text-neutral-200" />,
+      icon: (
+        <IconLogout2 className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
+      ),
     },
   ];
 
@@ -126,12 +140,16 @@ export function AppSidebar({
   const profileImage = user?.profilePic || userAvatar;
 
   return (
-    <div className={cn("flex w-full flex-1 max-w-full mx-auto h-screen")}>
+    <div
+      className={cn(
+        "flex w-full flex-1 max-w-full mx-auto h-screen bg-sidebar"
+      )}
+    >
       <Sidebar open={open} setOpen={setOpen}>
-        <SidebarBody className="justify-between gap-10 bg-neutral-800">
+        <SidebarBody className="justify-between gap-10 bg-sidebar-background border-r border-sidebar-border">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             {open ? <Logo /> : <LogoIcon />}
-            <div className="mt-8 flex flex-col gap-2">
+            <div className="mt-8 flex flex-col gap-1">
               {sidebarLinks.map((link, idx) => (
                 <SidebarLink
                   key={idx}
@@ -143,6 +161,10 @@ export function AppSidebar({
                         ? link.action
                         : undefined),
                   }}
+                  className={cn(
+                    "flex items-center gap-2 py-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-200 rounded-md",
+                    link.href === "/settings" && "font-semibold" // Optional: highlight active link
+                  )}
                 />
               ))}
             </div>
@@ -155,18 +177,19 @@ export function AppSidebar({
                 icon: (
                   <Image
                     src={profileImage}
-                    className="h-8 w-8 flex-shrink-0 rounded-full border object-cover border-neutral-700"
+                    className="h-8 w-8 flex-shrink-0 rounded-full border border-sidebar-border object-cover shadow-sm"
                     width={32}
                     height={32}
                     alt="User Avatar"
                   />
                 ),
               }}
+              className="flex items-center gap-2 py-2 px-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-200 rounded-md"
             />
           </div>
         </SidebarBody>
       </Sidebar>
-      <div className="flex-1 p-6overflow-y-auto">{children}</div>
+      <div className="flex-1 overflow-y-auto bg-background">{children}</div>
     </div>
   );
 }
@@ -174,16 +197,17 @@ export function AppSidebar({
 export const Logo = () => {
   return (
     <Link
-      href="/dashboard"
-      className="flex items-center space-x-2 text-sm py-2 relative z-20"
+      href="/"
+      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal"
     >
-      <div className="h-6 w-6 bg-white rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
+      <BotIcon className="h-6 w-6 text-primary" />
+
       <motion.span
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="font-semibold text-neutral-200 text-lg whitespace-pre"
+        className="font-medium whitespace-pre text-sidebar-foreground"
       >
-        QuantumTask
+        quantumTasks
       </motion.span>
     </Link>
   );
@@ -192,13 +216,12 @@ export const Logo = () => {
 export const LogoIcon = () => {
   return (
     <Link
-      href="/dashboard"
-      className="flex items-center text-sm py-2 relative z-20"
+      href="/"
+      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal"
     >
-      <div className="h-6 w-6 bg-white rounded-br-lg rounded-tr-sm rounded-tl-lg rounded-bl-sm flex-shrink-0" />
+      <BotIcon className="h-6 w-6 text-primary" />
     </Link>
   );
 };
 
-// Export as default for compatibility
 export default AppSidebar;

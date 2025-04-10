@@ -1,4 +1,3 @@
-// src/app/(mainPages)/integrations/page.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -11,6 +10,7 @@ import {
   AlertCircle,
   Zap,
   Search,
+  ChevronDown,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -20,12 +20,11 @@ import { Input } from "@/components/ui/input";
 import { useSession } from "@/app/(main)/SessionProvider";
 import { toast } from "@/hooks/use-toast";
 
-// Types for integrations
 interface Integration {
   id: string;
   name: string;
   description: string;
-  icon: string; // URL to an icon or a placeholder
+  icon: string;
   category: "CRM" | "Messaging" | "Storage" | "Analytics" | "Payment";
   isConnected: boolean;
 }
@@ -34,8 +33,12 @@ const IntegrationsPage = () => {
   const { user } = useSession();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState<
+    "all" | "CRM" | "Messaging" | "Storage" | "Analytics" | "Payment"
+  >("all");
+  const [sortBy, setSortBy] = useState<"name" | "category">("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
-  // Fetch available integrations and their connection status
   const { data: integrations, isLoading: integrationsLoading } = useQuery<
     Integration[]
   >({
@@ -51,7 +54,6 @@ const IntegrationsPage = () => {
     enabled: !!user?.id,
   });
 
-  // Mutation to connect an integration
   const connectIntegration = useMutation({
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/integrations/${id}/connect`, {
@@ -89,7 +91,6 @@ const IntegrationsPage = () => {
     },
   });
 
-  // Mutation to disconnect an integration
   const disconnectIntegration = useMutation({
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/integrations/${id}/disconnect`, {
@@ -126,69 +127,122 @@ const IntegrationsPage = () => {
     },
   });
 
-  const filteredIntegrations = integrations?.filter((integration) =>
-    integration.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredIntegrations = integrations
+    ?.filter((integration) =>
+      integration.name.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .filter(
+      (integration) =>
+        filterCategory === "all" || integration.category === filterCategory
+    )
+    .sort((a, b) => {
+      if (sortBy === "name") {
+        return sortOrder === "asc"
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      } else {
+        return sortOrder === "asc"
+          ? a.category.localeCompare(b.category)
+          : b.category.localeCompare(a.category);
+      }
+    });
+
+  const toggleSortOrder = (field: "name" | "category") => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
 
   return (
-    <div className="flex flex-col min-h-screen  text-neutral-200 p-6">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-2">
-          <Cable className="h-8 w-8 text-blue-400" />
+    <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
+        <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
+          <Cable className="h-9 w-9 text-primary animate-pulse" />
           Integrations
         </h1>
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-neutral-400" />
-          <Input
-            placeholder="Search integrations..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-neutral-700 border-neutral-600 text-white"
-          />
+        <div className="flex gap-4 items-center w-full max-w-lg">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              placeholder="Search integrations..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
+            />
+          </div>
+          <select
+            value={filterCategory}
+            onChange={(e) =>
+              setFilterCategory(
+                e.target.value as
+                  | "all"
+                  | "CRM"
+                  | "Messaging"
+                  | "Storage"
+                  | "Analytics"
+                  | "Payment"
+              )
+            }
+            className="bg-input border border-border text-foreground p-2 rounded-lg focus:ring-2 focus:ring-primary"
+          >
+            <option value="all">All Categories</option>
+            <option value="CRM">CRM</option>
+            <option value="Messaging">Messaging</option>
+            <option value="Storage">Storage</option>
+            <option value="Analytics">Analytics</option>
+            <option value="Payment">Payment</option>
+          </select>
         </div>
       </header>
 
       {integrationsLoading ? (
-        <div className="flex flex-1 justify-center items-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+        <div className="flex flex-1 justify-center items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">
+            Loading integrations...
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredIntegrations && filteredIntegrations.length > 0 ? (
             filteredIntegrations.map((integration) => (
               <Card
                 key={integration.id}
-                className="bg-neutral-800 border-neutral-700 hover:border-blue-600 transition-colors"
+                className="bg-card border border-border rounded-xl shadow-lg hover:border-primary transition-all duration-300"
               >
                 <CardHeader className="flex flex-row items-center gap-3">
                   <img
                     src={integration.icon}
                     alt={`${integration.name} icon`}
-                    className="h-10 w-10 rounded-md"
+                    className="h-12 w-12 rounded-lg object-cover"
                     onError={(e) =>
                       (e.currentTarget.src = "/placeholder-icon.png")
-                    } // Fallback icon
+                    }
                   />
                   <div>
-                    <CardTitle className="text-neutral-200 text-lg">
+                    <CardTitle className="text-foreground text-xl font-semibold">
                       {integration.name}
                     </CardTitle>
-                    <p className="text-neutral-400 text-sm">
+                    <p className="text-muted-foreground text-sm">
                       {integration.category}
                     </p>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-neutral-300 text-sm">
+                  <p className="text-foreground text-sm line-clamp-2">
                     {integration.description}
                   </p>
                   <div className="flex justify-between items-center">
                     <span
                       className={cn(
-                        "text-sm font-medium px-2 py-1 rounded-full",
+                        "text-sm font-medium px-3 py-1 rounded-full",
                         integration.isConnected
-                          ? "bg-green-700 text-green-100"
-                          : "bg-neutral-600 text-neutral-200"
+                          ? "bg-success/20 text-success"
+                          : "bg-muted text-muted-foreground"
                       )}
                     >
                       {integration.isConnected ? "Connected" : "Not Connected"}
@@ -206,34 +260,34 @@ const IntegrationsPage = () => {
                         disconnectIntegration.isPending
                       }
                       className={cn(
-                        "text-blue-400 border-blue-400 hover:bg-blue-900",
+                        "text-primary border-primary hover:bg-primary hover:text-primary-foreground font-semibold rounded-lg transition-all duration-300",
                         integration.isConnected &&
-                          "text-red-400 border-red-400 hover:bg-red-900"
+                          "text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
                       )}
                     >
                       {connectIntegration.isPending &&
                       connectIntegration.variables === integration.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
                       ) : disconnectIntegration.isPending &&
                         disconnectIntegration.variables === integration.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
                       ) : integration.isConnected ? (
-                        <X className="h-4 w-4" />
+                        <X className="h-5 w-5 mr-2" />
                       ) : (
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-5 w-5 mr-2" />
                       )}
-                      <span className="ml-1">
-                        {integration.isConnected ? "Disconnect" : "Connect"}
-                      </span>
+                      {integration.isConnected ? "Disconnect" : "Connect"}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             ))
           ) : (
-            <div className="col-span-full flex flex-col items-center justify-center text-neutral-400">
-              <AlertCircle className="h-12 w-12 mb-2" />
-              <p>No integrations found matching your search.</p>
+            <div className="col-span-full flex flex-col items-center justify-center text-muted-foreground py-12">
+              <AlertCircle className="h-12 w-12 mb-4 text-primary animate-bounce" />
+              <p className="text-lg">
+                No integrations found matching your search.
+              </p>
             </div>
           )}
         </div>

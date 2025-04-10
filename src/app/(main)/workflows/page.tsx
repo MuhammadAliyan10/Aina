@@ -35,7 +35,7 @@ interface NewWorkflow {
   description: string;
 }
 
-// Simulated update function (since not provided in action.ts)
+// Simulated update function
 const handleUpdateWorkFlow = async (
   id: string,
   data: { title: string; description: string }
@@ -58,18 +58,16 @@ export default function WorkflowPage() {
   });
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
 
-  // Fetch workflows using action
   const {
     data: workflows,
     isLoading: loadingWorkflows,
-    error, // Extract error state
+    error,
     refetch,
   } = useQuery<Workflow[]>({
     queryKey: ["workflows"],
     queryFn: fetchUserWorkFlow,
   });
 
-  // Handle error state
   React.useEffect(() => {
     if (error) {
       toast({
@@ -81,7 +79,6 @@ export default function WorkflowPage() {
     }
   }, [error]);
 
-  // Mutation to create a workflow
   const createWorkflow = useMutation({
     mutationFn: handleAddWorkFlow,
     onSuccess: (data) => {
@@ -108,7 +105,6 @@ export default function WorkflowPage() {
     },
   });
 
-  // Mutation to update a workflow
   const updateWorkflow = useMutation({
     mutationFn: async (workflow: Workflow) =>
       handleUpdateWorkFlow(workflow.id, {
@@ -138,7 +134,6 @@ export default function WorkflowPage() {
     },
   });
 
-  // Mutation to delete a workflow
   const deleteWorkflow = useMutation({
     mutationFn: handleRemoveWorkFlow,
     onSuccess: (data) => {
@@ -193,33 +188,34 @@ export default function WorkflowPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen text-neutral-200 p-6">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold flex items-center gap-2">
-          <Zap className="h-8 w-8 text-blue-400" />
-          Your Workflows
+    <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
+      {/* Header */}
+      <header className="flex justify-between items-center mb-10">
+        <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
+          <Zap className="h-9 w-9 text-primary animate-pulse" />
+          Workflows
         </h1>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-lg transition-all duration-300">
+              <Plus className="h-5 w-5 mr-2" />
               New Workflow
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-neutral-800 border-neutral-700">
+          <DialogContent className="bg-card border border-border rounded-xl shadow-2xl">
             <DialogHeader>
-              <DialogTitle className="text-neutral-200">
+              <DialogTitle className="text-2xl font-bold text-card-foreground">
                 Add New Workflow
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-6">
               <Input
                 placeholder="Workflow Title"
                 value={newWorkflow.title}
                 onChange={(e) =>
                   setNewWorkflow({ ...newWorkflow, title: e.target.value })
                 }
-                className="bg-neutral-700 border-neutral-600 text-white"
+                className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
               />
               <Textarea
                 placeholder="Workflow Description"
@@ -230,15 +226,15 @@ export default function WorkflowPage() {
                     description: e.target.value,
                   })
                 }
-                className="bg-neutral-700 border-neutral-600 text-white min-h-[100px]"
+                className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg min-h-[120px]"
               />
               <Button
                 onClick={handleSubmit}
                 disabled={createWorkflow.isPending}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
               >
                 {createWorkflow.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
                 ) : (
                   "Add Workflow"
                 )}
@@ -248,15 +244,17 @@ export default function WorkflowPage() {
         </Dialog>
       </header>
 
-      <Separator className="bg-neutral-700 mb-6" />
+      <Separator className="bg-border mb-8" />
 
       {loadingWorkflows ? (
-        <div className="flex flex-1 justify-center items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
-          <p>Loading your workflows...</p>
+        <div className="flex flex-1 justify-center items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">
+            Loading your workflows...
+          </p>
         </div>
       ) : Array.isArray(workflows) && workflows.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {workflows.map((flow) => (
             <WorkflowCard
               key={flow.id}
@@ -275,8 +273,11 @@ export default function WorkflowPage() {
           ))}
         </div>
       ) : (
-        <div className="text-center text-neutral-400">
-          <p>No workflows yet. Create one to get started!</p>
+        <div className="text-center text-muted-foreground py-12">
+          <p className="text-xl font-medium">
+            No workflows yet. Create one to get started!
+          </p>
+          <Zap className="h-12 w-12 mx-auto mt-4 text-primary animate-bounce" />
         </div>
       )}
 
@@ -286,13 +287,13 @@ export default function WorkflowPage() {
           open={!!editingWorkflow}
           onOpenChange={() => setEditingWorkflow(null)}
         >
-          <DialogContent className="bg-neutral-800 border-neutral-700">
+          <DialogContent className="bg-card border border-border rounded-xl shadow-2xl">
             <DialogHeader>
-              <DialogTitle className="text-neutral-200">
+              <DialogTitle className="text-2xl font-bold text-card-foreground">
                 Edit Workflow
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-6">
               <Input
                 placeholder="Workflow Title"
                 value={editingWorkflow.title}
@@ -302,7 +303,7 @@ export default function WorkflowPage() {
                     title: e.target.value,
                   })
                 }
-                className="bg-neutral-700 border-neutral-600 text-white"
+                className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
               />
               <Textarea
                 placeholder="Workflow Description"
@@ -313,15 +314,15 @@ export default function WorkflowPage() {
                     description: e.target.value,
                   })
                 }
-                className="bg-neutral-700 border-neutral-600 text-white min-h-[100px]"
+                className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg min-h-[120px]"
               />
               <Button
                 onClick={handleUpdate}
                 disabled={updateWorkflow.isPending}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
               >
                 {updateWorkflow.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
                 ) : (
                   "Save Changes"
                 )}

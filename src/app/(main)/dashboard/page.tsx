@@ -1,87 +1,58 @@
-// src/app/(mainPages)/dashboard/page.tsx
 "use client";
 
 import React from "react";
 import {
-  BarChart,
-  DollarSign,
   Users,
-  Bot,
-  Cable,
-  FileText,
   List,
-  Calendar,
-  Zap,
   Loader2,
+  Plus,
+  CheckCircle,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import {
-  Bar,
-  BarChart as RechartsBarChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import Link from "next/link";
 import { useSession } from "@/app/(main)/SessionProvider";
 
-// Types for dashboard data
 interface DashboardData {
-  analytics: {
-    workflowExecutions: number;
-    taskCompletionRate: number;
-    aiUsage: number;
-  };
-  billing: {
-    plan: string;
-    nextBillingDate: string;
-    amountDue: number;
-  };
   team: {
     totalMembers: number;
     activeMembers: number;
-  };
-  aiAssistant: {
-    recentMessages: {
-      content: string;
-      sender: "user" | "ai";
-      timestamp: string;
+    members: {
+      id: string;
+      fullName: string;
+      email: string;
+      role: string;
+      status: string;
     }[];
-  };
-  integrations: {
-    connectedCount: number;
-  };
-  documents: {
-    totalDocs: number;
-    recentDoc: { title: string; updatedAt: string };
   };
   tasks: {
     pendingTasks: number;
     completedTasks: number;
     overdueTasks: number;
-  };
-  calendar: {
-    upcomingEvents: { title: string; start: string }[];
-  };
-  automation: {
-    activeWorkflows: number;
-    recentWorkflow: { name: string; status: string };
+    recentTasks: {
+      id: string;
+      title: string;
+      status: "pending" | "completed" | "overdue";
+      dueDate: string;
+    }[];
   };
 }
 
 const DashboardPage = () => {
   const { user } = useSession();
 
-  // Fetch dashboard data
   const { data: dashboardData, isLoading } = useQuery<DashboardData>({
     queryKey: ["dashboard", user?.id],
     queryFn: async () => {
@@ -96,336 +67,229 @@ const DashboardPage = () => {
   });
 
   return (
-    <div className="flex flex-col min-h-screen  text-neutral-200 p-6">
-      {/* Dashboard Content */}
-      <div className="flex-1 max-w-7xl mx-auto w-full">
-        <h1 className="text-3xl font-bold mb-8 flex items-center gap-2">
-          <span className="text-blue-400">Welcome back,</span>{" "}
-          {user?.fullName || "User"}!
+    <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
+        <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
+          <Users className="h-9 w-9 text-primary animate-pulse" />
+          Dashboard
         </h1>
+        <div className="flex gap-4">
+          <Button
+            asChild
+            className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
+          >
+            <Link href="/tasks/new">
+              <Plus className="h-5 w-5 mr-2" />
+              New Task
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            className="text-primary border-border hover:bg-muted hover:text-foreground font-semibold rounded-lg transition-all duration-300"
+          >
+            <Link href="/team/invite">
+              <Plus className="h-5 w-5 mr-2" />
+              Invite Member
+            </Link>
+          </Button>
+        </div>
+      </header>
 
-        {isLoading ? (
-          <div className="flex flex-1 justify-center items-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Quick Stats */}
-            <Card className="bg-neutral-800 border-neutral-700 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center gap-2">
-                <BarChart className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-neutral-200">Quick Stats</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Workflows Run</span>
-                  <span className="text-neutral-200 font-medium">
-                    {dashboardData?.analytics.workflowExecutions || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Tasks Completed</span>
-                  <span className="text-neutral-200 font-medium">
-                    {dashboardData?.tasks.completedTasks || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Team Members</span>
-                  <span className="text-neutral-200 font-medium">
-                    {dashboardData?.team.totalMembers || 0}
-                  </span>
-                </div>
-                <Button className="w-full transition-colors" asChild>
-                  <Link href="/analytics">Explore Analytics</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Your Plan */}
-            <Card className="bg-neutral-800 border-neutral-700 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center gap-2">
-                <DollarSign className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-neutral-200">Your Plan</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Current Plan</span>
-                  <span className="text-neutral-200 font-medium">
-                    {dashboardData?.billing.plan || "Free"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Next Billing</span>
-                  <span className="text-neutral-200">
-                    {dashboardData?.billing.nextBillingDate
-                      ? new Date(
-                          dashboardData.billing.nextBillingDate
-                        ).toLocaleDateString()
-                      : "N/A"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Amount Due</span>
-                  <span className="text-neutral-200 font-medium">
-                    ${dashboardData?.billing.amountDue.toFixed(2) || "0.00"}
-                  </span>
-                </div>
-                <Button className="w-full  transition-colors" asChild>
-                  <Link href="/billing">Manage Billing</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Team at a Glance */}
-            <Card className="bg-neutral-800 border-neutral-700 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center gap-2">
-                <Users className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-neutral-200">
-                  Team at a Glance
+      {isLoading ? (
+        <div className="flex flex-1 justify-center items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">Loading dashboard...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-7xl mx-auto w-full">
+          {/* Task Overview */}
+          <Card className="bg-card border border-border rounded-xl shadow-lg lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <List className="h-6 w-6 text-primary animate-pulse" />
+                <CardTitle className="text-2xl font-bold text-card-foreground">
+                  Task Overview
                 </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Total Members</span>
-                  <span className="text-neutral-200 font-medium">
+              </div>
+              <Button
+                asChild
+                variant="outline"
+                className="text-primary border-border hover:bg-muted hover:text-foreground rounded-lg"
+              >
+                <Link href="/tasks">View All Tasks</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Task Stats */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
+                  <Clock className="h-6 w-6 text-accent" />
+                  <div>
+                    <p className="text-muted-foreground text-sm">Pending</p>
+                    <p className="text-card-foreground text-xl font-semibold">
+                      {dashboardData?.tasks.pendingTasks || 0}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
+                  <CheckCircle className="h-6 w-6 text-success" />{" "}
+                  {/* Add --success to globals.css if missing */}
+                  <div>
+                    <p className="text-muted-foreground text-sm">Completed</p>
+                    <p className="text-card-foreground text-xl font-semibold">
+                      {dashboardData?.tasks.completedTasks || 0}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-4 bg-card rounded-lg border border-border">
+                  <AlertCircle className="h-6 w-6 text-destructive" />
+                  <div>
+                    <p className="text-muted-foreground text-sm">Overdue</p>
+                    <p className="text-card-foreground text-xl font-semibold">
+                      {dashboardData?.tasks.overdueTasks || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              {/* Recent Tasks */}
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border hover:bg-muted">
+                    <TableHead className="text-foreground font-medium">
+                      Task
+                    </TableHead>
+                    <TableHead className="text-foreground font-medium">
+                      Status
+                    </TableHead>
+                    <TableHead className="text-foreground font-medium">
+                      Due Date
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData?.tasks.recentTasks?.length ? (
+                    dashboardData.tasks.recentTasks.slice(0, 5).map((task) => (
+                      <TableRow
+                        key={task.id}
+                        className="border-border hover:bg-muted transition-colors duration-200"
+                      >
+                        <TableCell className="text-foreground font-medium truncate max-w-[300px]">
+                          {task.title}
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              "text-sm font-medium px-3 py-1 rounded-full",
+                              task.status === "pending"
+                                ? "bg-accent/20 text-accent"
+                                : task.status === "completed"
+                                ? "bg-success/20 text-success" /* Add --success if missing */
+                                : "bg-destructive/20 text-destructive"
+                            )}
+                          >
+                            {task.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-foreground">
+                          {new Date(task.dueDate).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={3}
+                        className="text-muted-foreground text-center py-6"
+                      >
+                        No recent tasks.
+                        <List className="h-10 w-10 mx-auto mt-4 text-primary animate-bounce" />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Team Overview */}
+          <Card className="bg-card border border-border rounded-xl shadow-lg">
+            <CardHeader className="flex flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Users className="h-6 w-6 text-primary animate-pulse" />
+                <CardTitle className="text-2xl font-bold text-card-foreground">
+                  Team Overview
+                </CardTitle>
+              </div>
+              <Button
+                asChild
+                variant="outline"
+                className="text-primary border-border hover:bg-muted hover:text-foreground rounded-lg"
+              >
+                <Link href="/team">Manage Team</Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Team Stats */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-4 bg-card rounded-lg border border-border">
+                  <span className="text-muted-foreground">Total Members</span>
+                  <span className="text-card-foreground text-xl font-semibold">
                     {dashboardData?.team.totalMembers || 0}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Active Members</span>
-                  <span className="text-neutral-200 font-medium">
+                <div className="flex justify-between items-center p-4 bg-card rounded-lg border border-border">
+                  <span className="text-muted-foreground">Active Members</span>
+                  <span className="text-card-foreground text-xl font-semibold">
                     {dashboardData?.team.activeMembers || 0}
                   </span>
                 </div>
-                <Button className="w-full transition-colors" asChild>
-                  <Link href="/team">See Your Team</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* AI Assistant Chat */}
-            <Card className="bg-neutral-800 border-neutral-700 md:col-span-2 lg:col-span-3 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center gap-2">
-                <Bot className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-neutral-200">
-                  AI Assistant Chat
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                  {dashboardData?.aiAssistant.recentMessages.length ? (
-                    dashboardData.aiAssistant.recentMessages
-                      .slice(0, 5)
-                      .map((msg, index) => (
-                        <div
-                          key={index}
-                          className={cn(
-                            "flex gap-2 p-2 rounded-md",
-                            msg.sender === "user"
-                              ? "bg-blue-600 justify-end"
-                              : "bg-neutral-700 justify-start"
-                          )}
-                        >
-                          <span className="text-neutral-200">
-                            {msg.content.slice(0, 50)}...
-                          </span>
-                          <span className="text-neutral-400 text-sm ml-2">
-                            {new Date(msg.timestamp).toLocaleTimeString()}
-                          </span>
-                        </div>
-                      ))
+              </div>
+              {/* Team Members */}
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-border hover:bg-muted">
+                    <TableHead className="text-foreground font-medium">
+                      Name
+                    </TableHead>
+                    <TableHead className="text-foreground font-medium">
+                      Role
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dashboardData?.team.members?.length ? (
+                    dashboardData.team.members.slice(0, 5).map((member) => (
+                      <TableRow
+                        key={member.id}
+                        className="border-border hover:bg-muted transition-colors duration-200"
+                      >
+                        <TableCell className="text-foreground font-medium truncate max-w-[200px]">
+                          {member.fullName}
+                        </TableCell>
+                        <TableCell className="text-foreground capitalize">
+                          {member.role}
+                        </TableCell>
+                      </TableRow>
+                    ))
                   ) : (
-                    <p className="text-neutral-400 text-center">
-                      No recent messages.
-                    </p>
+                    <TableRow>
+                      <TableCell
+                        colSpan={2}
+                        className="text-muted-foreground text-center py-6"
+                      >
+                        No team members.
+                        <Users className="h-10 w-10 mx-auto mt-4 text-primary animate-bounce" />
+                      </TableCell>
+                    </TableRow>
                   )}
-                </div>
-                <Button className="w-full mt-4 transition-colors" asChild>
-                  <Link href="/ai-assistant">Chat with AI</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Connected Integrations */}
-            <Card className="bg-neutral-800 border-neutral-700 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center gap-2">
-                <Cable className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-neutral-200">
-                  Connected Integrations
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Active Connections</span>
-                  <span className="text-neutral-200 font-medium">
-                    {dashboardData?.integrations.connectedCount || 0}
-                  </span>
-                </div>
-                <Button className="w-full  transition-colors" asChild>
-                  <Link href="/integrations">Manage Integrations</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Your Documents */}
-            <Card className="bg-neutral-800 border-neutral-700 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-neutral-200">
-                  Your Documents
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Total Documents</span>
-                  <span className="text-neutral-200 font-medium">
-                    {dashboardData?.documents.totalDocs || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Latest Update</span>
-                  <span className="text-neutral-200 truncate max-w-[150px]">
-                    {dashboardData?.documents.recentDoc?.title || "N/A"}
-                  </span>
-                </div>
-                <Button className="w-full transition-colors" asChild>
-                  <Link href="/documents">View Documents</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Task Status */}
-            <Card className="bg-neutral-800 border-neutral-700 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center gap-2">
-                <List className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-neutral-200">Task Status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Pending</span>
-                  <span className="text-neutral-200 font-medium">
-                    {dashboardData?.tasks.pendingTasks || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Completed</span>
-                  <span className="text-neutral-200 font-medium">
-                    {dashboardData?.tasks.completedTasks || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Overdue</span>
-                  <span className="text-neutral-200 font-medium">
-                    {dashboardData?.tasks.overdueTasks || 0}
-                  </span>
-                </div>
-                <Button className="w-full  transition-colors" asChild>
-                  <Link href="/tasks">Manage Tasks</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Upcoming Events */}
-            <Card className="bg-neutral-800 border-neutral-700 md:col-span-2 lg:col-span-3 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center gap-2">
-                <Calendar className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-neutral-200">
-                  Upcoming Events
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                  {dashboardData?.calendar.upcomingEvents.length ? (
-                    dashboardData.calendar.upcomingEvents
-                      .slice(0, 5)
-                      .map((event, index) => (
-                        <div
-                          key={index}
-                          className="flex justify-between p-2 bg-neutral-700 rounded-md hover:bg-neutral-600 transition-colors"
-                        >
-                          <span className="text-neutral-200 truncate max-w-[60%]">
-                            {event.title}
-                          </span>
-                          <span className="text-neutral-400 text-sm">
-                            {new Date(event.start).toLocaleString()}
-                          </span>
-                        </div>
-                      ))
-                  ) : (
-                    <p className="text-neutral-400 text-center">
-                      No upcoming events.
-                    </p>
-                  )}
-                </div>
-                <Button className="w-full mt-4 transition-colors" asChild>
-                  <Link href="/calendar">View Calendar</Link>
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Automation Overview */}
-            <Card className="bg-neutral-800 border-neutral-700 md:col-span-2 lg:col-span-3 hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center gap-2">
-                <Zap className="h-5 w-5 text-blue-400" />
-                <CardTitle className="text-neutral-200">
-                  Automation Overview
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Active Workflows</span>
-                  <span className="text-neutral-200 font-medium">
-                    {dashboardData?.automation.activeWorkflows || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-neutral-400">Latest Workflow</span>
-                  <span className="text-neutral-200 truncate max-w-[200px]">
-                    {dashboardData?.automation.recentWorkflow?.name || "N/A"}
-                  </span>
-                </div>
-                <ChartContainer
-                  config={{
-                    executions: {
-                      label: "Executions",
-                      color: "hsl(205, 78%, 60%)",
-                    },
-                  }}
-                  className="h-[200px]"
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsBarChart
-                      data={[
-                        { name: "Mon", executions: 12 },
-                        { name: "Tue", executions: 19 },
-                        { name: "Wed", executions: 15 },
-                        { name: "Thu", executions: 22 },
-                        { name: "Fri", executions: 18 },
-                      ]}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke="hsl(0, 0%, 20%)"
-                      />
-                      <XAxis dataKey="name" stroke="hsl(0, 0%, 70%)" />
-                      <YAxis stroke="hsl(0, 0%, 70%)" />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar
-                        dataKey="executions"
-                        fill="hsl(205, 78%, 60%)"
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </RechartsBarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-                <Button className="w-full transition-colors" asChild>
-                  <Link href="/automation-studio">Automation Studio</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-      </div>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
