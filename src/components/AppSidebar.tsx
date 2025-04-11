@@ -100,8 +100,8 @@ export function AppSidebar({
       icon: <Bot className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
     },
     {
-      label: "Analytics",
-      href: "/analytics",
+      label: "App Insight",
+      href: "/app-insight",
       icon: (
         <BarChart className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
       ),

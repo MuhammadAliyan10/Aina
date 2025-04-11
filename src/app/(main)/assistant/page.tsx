@@ -7,7 +7,6 @@ import {
   Loader2,
   Mic,
   Paperclip,
-  Type,
   User,
   X,
   MessageSquare,
@@ -16,17 +15,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/app/(main)/SessionProvider";
 import { toast } from "@/hooks/use-toast";
+import axios from "axios";
 
 interface Message {
   id: string;
   content: string;
   sender: "user" | "ai";
   timestamp: string;
-  attachment?: string; // URL or file name for attachments
+  attachment?: string;
 }
 
 const AIAssistantPage = () => {
@@ -34,19 +33,18 @@ const AIAssistantPage = () => {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false); // For floating chatbot
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  // Declare SpeechRecognition type globally
+
+  const recognitionRef = useRef<null>(null);
 
   const { data: messages, isLoading: messagesLoading } = useQuery<Message[]>({
     queryKey: ["aiMessages", user?.id],
     queryFn: async () => {
       const response = await fetch(
-        `/api/ai-assistant/messages?userId=${user?.id}`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        }
+        `/api/ai-assistant/messages?userId=${user?.id}`
       );
       if (!response.ok) throw new Error("Failed to fetch messages");
       return response.json();
@@ -55,21 +53,51 @@ const AIAssistantPage = () => {
   });
 
   const sendMessage = useMutation({
-    mutationFn: async (content: string) => {
-      const response = await fetch(`/api/ai-assistant/send`, {
+    mutationFn: async ({
+      content,
+      attachment,
+    }: {
+      content: string;
+      attachment?: string;
+    }) => {
+      // Save user message to DB
+      const userResponse = await fetch(`/api/ai-assistant/send`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id, content }),
+        body: JSON.stringify({ userId: user?.id, content, attachment }),
       });
-      if (!response.ok) throw new Error("Failed to send message");
-      return response.json();
+      if (!userResponse.ok) throw new Error("Failed to send user message");
+      const userMessage = await userResponse.json();
+
+      // Call local DeepSeek model
+      const aiResponse = await axios.post("http://localhost:8000/generate", {
+        prompt: content,
+        max_length: 150,
+        temperature: 0.7,
+      });
+      const aiContent =
+        aiResponse.data.text || "Sorry, I couldn't generate a response.";
+
+      // Save AI response to DB
+      const aiDbResponse = await fetch(`/api/ai-assistant/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user?.id,
+          content: aiContent,
+          sender: "ai",
+        }),
+      });
+      if (!aiDbResponse.ok) throw new Error("Failed to save AI response");
+      return { userMessage, aiMessage: await aiDbResponse.json() };
     },
-    onMutate: async (content) => {
+    onMutate: async ({ content, attachment }) => {
       const newMessage: Message = {
         id: Date.now().toString(),
         content,
         sender: "user",
         timestamp: new Date().toISOString(),
+        attachment,
       };
       queryClient.setQueryData<Message[]>(["aiMessages", user?.id], (old) => [
         ...(old || []),
@@ -77,15 +105,10 @@ const AIAssistantPage = () => {
       ]);
       setIsTyping(true);
     },
-    onSuccess: (aiResponse) => {
+    onSuccess: ({ aiMessage }) => {
       queryClient.setQueryData<Message[]>(["aiMessages", user?.id], (old) => [
         ...(old || []),
-        {
-          id: aiResponse.id,
-          content: aiResponse.content,
-          sender: "ai",
-          timestamp: aiResponse.timestamp,
-        },
+        aiMessage,
       ]);
       setIsTyping(false);
       setMessage("");
@@ -106,9 +129,7 @@ const AIAssistantPage = () => {
   }, [messages, isTyping]);
 
   const handleSend = () => {
-    if (message.trim()) {
-      sendMessage.mutate(message);
-    }
+    if (message.trim()) sendMessage.mutate({ content: message });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -119,51 +140,95 @@ const AIAssistantPage = () => {
   };
 
   const handleVoiceInput = () => {
-    toast({
-      title: "Voice Input",
-      description: "Voice input is not yet implemented.",
-    });
+    if (!("webkitSpeechRecognition" in window)) {
+      toast({
+        title: "Error",
+        description: "Speech recognition not supported in this browser.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const recognition = new (window as any).webkitSpeechRecognition();
+    recognitionRef.current = recognition;
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+
+    recognition.onstart = () => setIsRecording(true);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setMessage(transcript);
+      setIsRecording(false);
+    };
+    recognition.onerror = () => {
+      toast({
+        title: "Error",
+        description: "Failed to record voice input.",
+        variant: "destructive",
+      });
+      setIsRecording(false);
+    };
+    recognition.onend = () => setIsRecording(false);
+
+    recognition.start();
   };
 
-  const handleAttachment = () => {
-    toast({
-      title: "Attachment",
-      description: "Attachment upload is not yet implemented.",
-    });
-  };
+  const handleAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const toggleChat = () => {
-    setIsChatOpen(!isChatOpen);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("userId", user?.id || "");
+
+    try {
+      const response = await fetch("/api/ai-assistant/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error("Failed to upload attachment");
+      const { url } = await response.json();
+      sendMessage.mutate({
+        content: message || "Attached a file",
+        attachment: url,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to upload attachment",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background via-muted/20 to-background text-foreground p-8">
       {/* Header */}
       <header className="flex justify-between items-center mb-10">
-        <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
+        <h1 className="text-4xl font-extrabold flex items-center gap-3 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
           <Bot className="h-9 w-9 text-primary animate-pulse" />
           AI Assistant
         </h1>
       </header>
 
       {/* Main Chat Area */}
-      <Card className="flex-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+      <Card className="flex-1 bg-gradient-to-br from-card to-muted/20 border-border rounded-2xl shadow-lg overflow-hidden">
         <CardHeader className="border-b border-border">
           <CardTitle className="text-2xl font-bold text-card-foreground">
-            Chat with Your Assistant
+            Chat with Grok
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 flex flex-col h-[calc(100vh-200px)]">
-          {/* Message Area */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {messagesLoading ? (
               <div className="flex justify-center items-center h-full gap-4">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                <p className="text-lg text-muted-foreground">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-xl font-medium text-muted-foreground animate-pulse">
                   Loading messages...
                 </p>
               </div>
-            ) : messages && messages.length > 0 ? (
+            ) : messages?.length ? (
               messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -174,9 +239,9 @@ const AIAssistantPage = () => {
                 >
                   <div
                     className={cn(
-                      "flex items-start gap-2 max-w-xs md:max-w-md p-4 rounded-lg shadow-md",
+                      "flex items-start gap-2 max-w-xs md:max-w-md p-4 rounded-lg shadow-md transition-all duration-200 hover:shadow-lg",
                       msg.sender === "user"
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
                         : "bg-muted text-foreground"
                     )}
                   >
@@ -186,7 +251,7 @@ const AIAssistantPage = () => {
                       <User className="h-5 w-5 text-muted-foreground" />
                     )}
                     <div>
-                      <p>{msg.content}</p>
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
                       {msg.attachment && (
                         <a
                           href={msg.attachment}
@@ -194,7 +259,7 @@ const AIAssistantPage = () => {
                           rel="noopener noreferrer"
                           className="text-primary hover:underline text-sm mt-1 block"
                         >
-                          Attachment
+                          View Attachment
                         </a>
                       )}
                       <span className="text-xs text-muted-foreground mt-1 block">
@@ -206,9 +271,9 @@ const AIAssistantPage = () => {
               ))
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                <Bot className="h-12 w-12 mb-4 text-primary animate-bounce" />
-                <p className="text-lg">
-                  No messages yet. Start chatting with your AI assistant!
+                <Bot className="h-16 w-16 mb-4 text-primary animate-bounce" />
+                <p className="text-xl font-medium">
+                  Ask me anything to get started!
                 </p>
               </div>
             )}
@@ -217,7 +282,7 @@ const AIAssistantPage = () => {
                 <div className="bg-muted p-4 rounded-lg shadow-md flex items-center gap-2">
                   <Bot className="h-5 w-5 text-primary" />
                   <span className="text-foreground animate-pulse">
-                    Typing...
+                    Thinking...
                   </span>
                 </div>
               </div>
@@ -233,13 +298,13 @@ const AIAssistantPage = () => {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message..."
-                className="flex-1 bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg resize-none min-h-[50px] max-h-[150px]"
+                className="flex-1 bg-input border-border text-foreground focus:ring-2 focus:ring-primary/50 rounded-lg resize-none min-h-[50px] max-h-[150px] shadow-inner"
                 disabled={sendMessage.isPending}
               />
               <Button
                 onClick={handleSend}
                 disabled={sendMessage.isPending || !message.trim()}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
+                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
               >
                 {sendMessage.isPending ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -253,53 +318,61 @@ const AIAssistantPage = () => {
                 variant="ghost"
                 size="sm"
                 onClick={handleVoiceInput}
-                className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full p-2"
+                disabled={isRecording}
+                className={cn(
+                  "text-muted-foreground hover:text-foreground hover:bg-muted rounded-full p-2",
+                  isRecording && "text-primary animate-pulse"
+                )}
               >
                 <Mic className="h-5 w-5" />
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleAttachment}
-                className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full p-2"
-              >
-                <Paperclip className="h-5 w-5" />
-              </Button>
+              <label className="flex items-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full p-2"
+                >
+                  <span>
+                    <Paperclip className="h-5 w-5" />
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={handleAttachment}
+                    />
+                  </span>
+                </Button>
+              </label>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Floating Chatbot Toggle */}
+      {/* Floating Chatbot */}
       <Button
-        onClick={toggleChat}
-        className="fixed bottom-6 right-6 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 z-50"
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-full p-4 shadow-lg hover:shadow-xl transition-all duration-300 z-50"
       >
         <MessageSquare className="h-6 w-6" />
       </Button>
-
-      {/* Floating Chatbot Window */}
       {isChatOpen && (
-        <div
-          ref={chatContainerRef}
-          className="fixed bottom-20 right-6 w-80 md:w-96 bg-card border border-border rounded-xl shadow-2xl z-50 flex flex-col max-h-[70vh] overflow-hidden"
-        >
+        <div className="fixed bottom-20 right-6 w-80 md:w-96 bg-gradient-to-br from-card to-muted/20 border-border rounded-2xl shadow-2xl z-50 flex flex-col max-h-[70vh] overflow-hidden">
           <div className="flex justify-between items-center p-4 border-b border-border">
             <h2 className="text-lg font-semibold text-card-foreground flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
-              AI Assistant
+              Grok Chat
             </h2>
             <Button
               variant="ghost"
               size="sm"
-              onClick={toggleChat}
+              onClick={() => setIsChatOpen(false)}
               className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full p-2"
             >
               <X className="h-5 w-5" />
             </Button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages && messages.length > 0 ? (
+            {messages?.length ? (
               messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -312,7 +385,7 @@ const AIAssistantPage = () => {
                     className={cn(
                       "flex items-start gap-2 max-w-[80%] p-3 rounded-lg shadow-sm",
                       msg.sender === "user"
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
                         : "bg-muted text-foreground"
                     )}
                   >
@@ -322,7 +395,9 @@ const AIAssistantPage = () => {
                       <User className="h-4 w-4 text-muted-foreground" />
                     )}
                     <div>
-                      <p className="text-sm">{msg.content}</p>
+                      <p className="text-sm whitespace-pre-wrap">
+                        {msg.content}
+                      </p>
                       {msg.attachment && (
                         <a
                           href={msg.attachment}
@@ -330,7 +405,7 @@ const AIAssistantPage = () => {
                           rel="noopener noreferrer"
                           className="text-primary hover:underline text-xs mt-1 block"
                         >
-                          Attachment
+                          View Attachment
                         </a>
                       )}
                     </div>
@@ -348,7 +423,7 @@ const AIAssistantPage = () => {
                 <div className="bg-muted p-3 rounded-lg shadow-sm flex items-center gap-2">
                   <Bot className="h-4 w-4 text-primary" />
                   <span className="text-foreground animate-pulse text-sm">
-                    Typing...
+                    Thinking...
                   </span>
                 </div>
               </div>
@@ -362,13 +437,13 @@ const AIAssistantPage = () => {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message..."
-                className="flex-1 bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg resize-none min-h-[40px] max-h-[100px] text-sm"
+                className="flex-1 bg-input border-border text-foreground focus:ring-2 focus:ring-primary/50 rounded-lg resize-none min-h-[40px] max-h-[100px] text-sm shadow-inner"
                 disabled={sendMessage.isPending}
               />
               <Button
                 onClick={handleSend}
                 disabled={sendMessage.isPending || !message.trim()}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg p-2"
+                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground rounded-lg p-2"
               >
                 {sendMessage.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

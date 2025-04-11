@@ -11,6 +11,7 @@ import {
   Download,
   AlertCircle,
   Lock,
+  Eye,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { useSession } from "@/app/(main)/SessionProvider";
 import { toast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 interface Subscription {
   plan: string;
@@ -55,22 +63,19 @@ interface BillingHistory {
 const BillingPage = () => {
   const { user } = useSession();
   const queryClient = useQueryClient();
-  const [newCardNumber, setNewCardNumber] = useState("");
-  const [newCardExpiry, setNewCardExpiry] = useState("");
-  const [newCardCVC, setNewCardCVC] = useState("");
+  const [newCard, setNewCard] = useState({ number: "", expiry: "", cvc: "" });
   const [methodToDelete, setMethodToDelete] = useState<string | null>(null);
   const [isCanceling, setIsCanceling] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<BillingHistory | null>(
+    null
+  );
 
   const { data: subscription, isLoading: subscriptionLoading } =
     useQuery<Subscription>({
       queryKey: ["subscription", user?.id],
       queryFn: async () => {
         const response = await fetch(
-          `/api/billing/subscription?userId=${user?.id}`,
-          {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-          }
+          `/api/billing/subscription?userId=${user?.id}`
         );
         if (!response.ok) throw new Error("Failed to fetch subscription");
         return response.json();
@@ -84,11 +89,7 @@ const BillingPage = () => {
     queryKey: ["paymentMethods", user?.id],
     queryFn: async () => {
       const response = await fetch(
-        `/api/billing/payment-methods?userId=${user?.id}`,
-        {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        }
+        `/api/billing/payment-methods?userId=${user?.id}`
       );
       if (!response.ok) throw new Error("Failed to fetch payment methods");
       return response.json();
@@ -101,10 +102,7 @@ const BillingPage = () => {
   >({
     queryKey: ["billingHistory", user?.id],
     queryFn: async () => {
-      const response = await fetch(`/api/billing/history?userId=${user?.id}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetch(`/api/billing/history?userId=${user?.id}`);
       if (!response.ok) throw new Error("Failed to fetch billing history");
       return response.json();
     },
@@ -113,34 +111,23 @@ const BillingPage = () => {
 
   const addPaymentMethod = useMutation({
     mutationFn: async () => {
-      if (!/^\d{16}$/.test(newCardNumber.replace(/\s/g, ""))) {
-        throw new Error("Invalid card number (must be 16 digits)");
-      }
-      if (!/^\d{2}\/\d{2}$/.test(newCardExpiry)) {
-        throw new Error("Invalid expiry date (MM/YY)");
-      }
-      if (!/^\d{3,4}$/.test(newCardCVC)) {
-        throw new Error("Invalid CVC (3-4 digits)");
-      }
       const response = await fetch(`/api/billing/payment-methods`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user?.id,
-          cardNumber: newCardNumber.replace(/\s/g, ""),
-          expiry: newCardExpiry,
-          cvc: newCardCVC,
+          cardNumber: newCard.number.replace(/\s/g, ""),
+          expiry: newCard.expiry,
+          cvc: newCard.cvc,
           type: "credit_card",
         }),
       });
-      if (!response.ok) throw new Error("Failed to add payment method");
+      if (!response.ok) throw new Error(await response.text());
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["paymentMethods", user?.id] });
-      setNewCardNumber("");
-      setNewCardExpiry("");
-      setNewCardCVC("");
+      setNewCard({ number: "", expiry: "", cvc: "" });
       toast({
         title: "Success",
         description: "Payment method added successfully",
@@ -160,10 +147,10 @@ const BillingPage = () => {
 
   const deletePaymentMethod = useMutation({
     mutationFn: async (id: string) => {
-      const response = await fetch(`/api/billing/payment-methods/${id}`, {
+      const response = await fetch(`/api/billing/payment-methods`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id }),
+        body: JSON.stringify({ userId: user?.id, id }),
       });
       if (!response.ok) throw new Error("Failed to delete payment method");
     },
@@ -173,16 +160,6 @@ const BillingPage = () => {
       toast({
         title: "Success",
         description: "Payment method removed successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to remove payment method",
-        variant: "destructive",
       });
     },
   });
@@ -205,38 +182,16 @@ const BillingPage = () => {
         description: "Subscription canceled successfully",
       });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to cancel subscription",
-        variant: "destructive",
-      });
-    },
   });
-
-  const handleDownloadReceipt = (entry: BillingHistory) => {
-    if (entry.receiptUrl) {
-      window.open(entry.receiptUrl, "_blank");
-    } else {
-      toast({
-        title: "Error",
-        description: "Receipt not available for this transaction",
-        variant: "destructive",
-      });
-    }
-  };
 
   const isLoading =
     subscriptionLoading || paymentMethodsLoading || billingHistoryLoading;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background via-muted/20 to-background text-foreground p-8">
       {/* Header */}
       <header className="flex justify-between items-center mb-10">
-        <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
+        <h1 className="text-4xl font-extrabold flex items-center gap-3 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
           <CreditCard className="h-9 w-9 text-primary animate-pulse" />
           Billing
         </h1>
@@ -244,17 +199,17 @@ const BillingPage = () => {
 
       {isLoading ? (
         <div className="flex flex-1 justify-center items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-lg text-muted-foreground">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-xl font-medium text-muted-foreground animate-pulse">
             Loading billing details...
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Subscription Overview */}
-          <Card className="bg-card border border-border rounded-xl shadow-lg">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <DollarSign className="h-6 w-6 text-primary animate-pulse" />
+          <Card className="lg:col-span-1 bg-gradient-to-br from-card to-muted/20 border-border rounded-2xl shadow-lg">
+            <CardHeader className="flex flex-row items-center gap-2">
+              <DollarSign className="h-6 w-6 text-primary" />
               <CardTitle className="text-2xl font-bold text-card-foreground">
                 Subscription
               </CardTitle>
@@ -268,18 +223,13 @@ const BillingPage = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Status</span>
-                <span
-                  className={cn(
-                    "text-sm font-medium px-3 py-1 rounded-full",
-                    subscription?.status === "active"
-                      ? "bg-success/20 text-success"
-                      : subscription?.status === "inactive"
-                      ? "bg-accent/20 text-accent"
-                      : "bg-destructive/20 text-destructive"
-                  )}
+                <Badge
+                  variant={
+                    subscription?.status === "active" ? "success" : "outline"
+                  }
                 >
                   {subscription?.status || "Inactive"}
-                </span>
+                </Badge>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Next Billing</span>
@@ -300,15 +250,15 @@ const BillingPage = () => {
               <div className="flex gap-3">
                 <Button
                   variant="outline"
-                  className="flex-1 text-primary border-primary hover:bg-primary hover:text-primary-foreground font-semibold rounded-lg transition-all duration-300"
-                  disabled={subscription?.status !== "active"}
+                  className="flex-1 bg-gradient-to-r from-primary/80 to-primary hover:from-primary hover:to-primary/90 text-primary-foreground rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
+                  disabled={subscription?.status === "active"}
                 >
                   Upgrade Plan
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => setIsCanceling(true)}
-                  className="flex-1 text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground font-semibold rounded-lg transition-all duration-300"
+                  className="flex-1 bg-gradient-to-r from-destructive/80 to-destructive hover:from-destructive hover:to-destructive/90 text-destructive-foreground rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
                   disabled={subscription?.status !== "active"}
                 >
                   Cancel Subscription
@@ -317,21 +267,21 @@ const BillingPage = () => {
             </CardContent>
           </Card>
 
-          {/* Payment Methods */}
-          <Card className="bg-card border border-border rounded-xl shadow-lg">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <CreditCard className="h-6 w-6 text-primary animate-pulse" />
-              <CardTitle className="text-2xl font-bold text-card-foreground">
+          {/* Payment Methods & Billing History */}
+          <Card className="lg:col-span-2 bg-gradient-to-br from-card to-muted/20 border-border rounded-2xl shadow-lg">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-2xl font-bold text-card-foreground">
+                <CreditCard className="h-6 w-6 text-primary" />
                 Payment Methods
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">
-                {paymentMethods && paymentMethods.length > 0 ? (
+                {paymentMethods?.length ? (
                   paymentMethods.map((method) => (
                     <div
                       key={method.id}
-                      className="flex justify-between items-center py-3 border-b border-border"
+                      className="flex justify-between items-center py-3 border-b border-border hover:bg-muted/50 transition-colors duration-200"
                     >
                       <div className="flex items-center gap-3">
                         <CreditCard className="h-5 w-5 text-muted-foreground" />
@@ -340,9 +290,9 @@ const BillingPage = () => {
                             ? `**** **** **** ${method.lastFour}`
                             : "PayPal"}
                           {method.isDefault && (
-                            <span className="ml-2 text-primary text-sm">
-                              (Default)
-                            </span>
+                            <Badge variant="default" className="ml-2">
+                              Default
+                            </Badge>
                           )}
                         </span>
                       </div>
@@ -365,62 +315,66 @@ const BillingPage = () => {
                     </div>
                   ))
                 ) : (
-                  <p className="text-muted-foreground text-sm">
+                  <p className="text-muted-foreground text-sm py-4">
                     No payment methods added.
                   </p>
                 )}
               </div>
-              <div className="space-y-4">
+              <div className="space-y-4 p-4 bg-muted/10 rounded-lg border border-border">
                 <Input
                   placeholder="Card Number (e.g., 1234 5678 9012 3456)"
-                  value={newCardNumber}
+                  value={newCard.number}
                   onChange={(e) =>
-                    setNewCardNumber(
-                      e.target.value
+                    setNewCard({
+                      ...newCard,
+                      number: e.target.value
                         .replace(/\D/g, "")
                         .replace(/(.{4})/g, "$1 ")
                         .trim()
-                    )
+                        .slice(0, 19),
+                    })
                   }
                   maxLength={19}
-                  className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
+                  className="bg-input border-border rounded-lg shadow-inner focus:ring-2 focus:ring-primary/50"
                 />
                 <div className="flex gap-4">
                   <Input
                     placeholder="Expiry (MM/YY)"
-                    value={newCardExpiry}
+                    value={newCard.expiry}
                     onChange={(e) =>
-                      setNewCardExpiry(
-                        e.target.value
+                      setNewCard({
+                        ...newCard,
+                        expiry: e.target.value
                           .replace(/\D/g, "")
                           .replace(/(.{2})/, "$1/")
-                          .slice(0, 5)
-                      )
+                          .slice(0, 5),
+                      })
                     }
                     maxLength={5}
-                    className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
+                    className="bg-input border-border rounded-lg shadow-inner focus:ring-2 focus:ring-primary/50"
                   />
                   <Input
                     placeholder="CVC"
-                    value={newCardCVC}
+                    value={newCard.cvc}
                     onChange={(e) =>
-                      setNewCardCVC(
-                        e.target.value.replace(/\D/g, "").slice(0, 4)
-                      )
+                      setNewCard({
+                        ...newCard,
+                        cvc: e.target.value.replace(/\D/g, "").slice(0, 4),
+                      })
                     }
                     maxLength={4}
-                    className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
+                    className="bg-input border-border rounded-lg shadow-inner focus:ring-2 focus:ring-primary/50"
                   />
                 </div>
                 <Button
                   onClick={() => addPaymentMethod.mutate()}
                   disabled={
                     addPaymentMethod.isPending ||
-                    !newCardNumber ||
-                    !newCardExpiry ||
-                    !newCardCVC
+                    !newCard.number ||
+                    !newCard.expiry ||
+                    !newCard.cvc
                   }
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
+                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
                 >
                   {addPaymentMethod.isPending ? (
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -430,111 +384,91 @@ const BillingPage = () => {
                   Add Payment Method
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Billing History */}
-          <Card className="bg-card border border-border rounded-xl shadow-lg md:col-span-2">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <History className="h-6 w-6 text-primary animate-pulse" />
-              <CardTitle className="text-2xl font-bold text-card-foreground">
-                Billing History
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border hover:bg-muted">
-                    <TableHead className="text-muted-foreground font-medium">
-                      Date
-                    </TableHead>
-                    <TableHead className="text-muted-foreground font-medium">
-                      Description
-                    </TableHead>
-                    <TableHead className="text-muted-foreground font-medium">
-                      Amount
-                    </TableHead>
-                    <TableHead className="text-muted-foreground font-medium">
-                      Status
-                    </TableHead>
-                    <TableHead className="text-muted-foreground font-medium">
-                      Actions
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {billingHistory && billingHistory.length > 0 ? (
-                    billingHistory.map((entry) => (
-                      <TableRow
-                        key={entry.id}
-                        className="border-border hover:bg-muted transition-colors duration-200"
-                      >
-                        <TableCell className="text-foreground">
-                          {new Date(entry.date).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className="text-foreground">
-                          {entry.description}
-                        </TableCell>
-                        <TableCell className="text-foreground">
-                          ${entry.amount.toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={cn(
-                              "text-sm font-medium px-3 py-1 rounded-full",
-                              entry.status === "paid"
-                                ? "bg-success/20 text-success"
-                                : entry.status === "pending"
-                                ? "bg-accent/20 text-accent"
-                                : "bg-destructive/20 text-destructive"
-                            )}
-                          >
-                            {entry.status}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {entry.receiptUrl && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDownloadReceipt(entry)}
-                              className="text-primary hover:text-primary-foreground hover:bg-muted rounded-full p-2"
+              <div className="mt-6">
+                <h3 className="text-xl font-semibold flex items-center gap-2 mb-4">
+                  <History className="h-5 w-5 text-primary" />
+                  Billing History
+                </h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {billingHistory?.length ? (
+                      billingHistory.map((entry) => (
+                        <TableRow
+                          key={entry.id}
+                          className="hover:bg-muted/50 transition-colors duration-200"
+                        >
+                          <TableCell>
+                            {new Date(entry.date).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>{entry.description}</TableCell>
+                          <TableCell>${entry.amount.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                entry.status === "paid"
+                                  ? "default"
+                                  : entry.status === "pending"
+                                  ? "outline"
+                                  : "destructive"
+                              }
                             >
-                              <Download className="h-5 w-5" />
-                            </Button>
-                          )}
+                              {entry.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {entry.receiptUrl && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedReceipt(entry)}
+                              >
+                                <Eye className="h-5 w-5 text-primary" />
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={5}
+                          className="text-center py-6 text-muted-foreground"
+                        >
+                          No billing history available.
+                          <History className="h-10 w-10 mx-auto mt-4 text-primary animate-bounce" />
                         </TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="text-muted-foreground text-center py-6"
-                      >
-                        No billing history available.
-                        <History className="h-10 w-10 mx-auto mt-4 text-primary animate-bounce" />
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Confirmation Dialog for Deleting Payment Method */}
+      {/* Delete Confirmation Dialog */}
       {methodToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="bg-card border border-border rounded-xl shadow-2xl w-96">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <AlertCircle className="h-6 w-6 text-destructive" />
-              <CardTitle className="text-xl font-semibold text-card-foreground">
+        <Dialog
+          open={!!methodToDelete}
+          onOpenChange={() => setMethodToDelete(null)}
+        >
+          <DialogContent className="bg-card border-border rounded-2xl shadow-2xl max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                 Confirm Deletion
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6 p-4">
               <p className="text-foreground">
                 Are you sure you want to delete this payment method?
               </p>
@@ -542,14 +476,13 @@ const BillingPage = () => {
                 <Button
                   variant="outline"
                   onClick={() => setMethodToDelete(null)}
-                  className="text-muted-foreground border-border hover:bg-muted rounded-lg"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={() => deletePaymentMethod.mutate(methodToDelete)}
                   disabled={deletePaymentMethod.isPending}
-                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg"
+                  className="bg-gradient-to-r from-destructive to-destructive/80 hover:from-destructive/90 hover:to-destructive/70 text-destructive-foreground"
                 >
                   {deletePaymentMethod.isPending ? (
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -559,38 +492,33 @@ const BillingPage = () => {
                   Delete
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
-      {/* Confirmation Dialog for Canceling Subscription */}
+      {/* Cancel Subscription Dialog */}
       {isCanceling && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="bg-card border border-border rounded-xl shadow-2xl w-96">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <AlertCircle className="h-6 w-6 text-destructive" />
-              <CardTitle className="text-xl font-semibold text-card-foreground">
+        <Dialog open={isCanceling} onOpenChange={() => setIsCanceling(false)}>
+          <DialogContent className="bg-card border-border rounded-2xl shadow-2xl max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
                 Confirm Cancellation
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6 p-4">
               <p className="text-foreground">
                 Are you sure you want to cancel your subscription? This action
                 cannot be undone.
               </p>
               <div className="flex justify-end gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsCanceling(false)}
-                  className="text-muted-foreground border-border hover:bg-muted rounded-lg"
-                >
+                <Button variant="outline" onClick={() => setIsCanceling(false)}>
                   Cancel
                 </Button>
                 <Button
                   onClick={() => cancelSubscription.mutate()}
                   disabled={cancelSubscription.isPending}
-                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg"
+                  className="bg-gradient-to-r from-destructive to-destructive/80 hover:from-destructive/90 hover:to-destructive/70 text-destructive-foreground"
                 >
                   {cancelSubscription.isPending ? (
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
@@ -600,9 +528,41 @@ const BillingPage = () => {
                   Confirm
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Receipt Preview Dialog */}
+      {selectedReceipt && (
+        <Dialog
+          open={!!selectedReceipt}
+          onOpenChange={() => setSelectedReceipt(null)}
+        >
+          <DialogContent className="bg-card border-border rounded-2xl shadow-2xl max-w-3xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                Receipt: {selectedReceipt.description}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="p-4">
+              <iframe
+                src={selectedReceipt.receiptUrl}
+                className="w-full h-[500px]"
+              />
+              <Button
+                variant="outline"
+                onClick={() =>
+                  window.open(selectedReceipt.receiptUrl, "_blank")
+                }
+                className="mt-4 w-full"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Receipt
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

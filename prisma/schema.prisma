@@ -9,27 +9,34 @@ generator client {
 
 // Core User Model
 model User {
-  id             String         @id @default(uuid())
-  username       String         @unique
-  email          String         @unique
-  passwordHash   String
-  fullName       String
-  bio            String?
-  profilePic     String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  automations    Automation[]
-  sessions       Session[]
-  apiTokens      APIToken[]
-  tasks          Task[]
-  assignments    Assignment[]
-  workflows      Workflow[]
-  messages       Message[]      // For AI Assistant
-  teamMembers    TeamMember[]   // For Team
-  documents      Document[]     // For Documents
-  events         Event[]        // For Calendar
-  integrations   Integration[]  // For Integrations (opposite relation for Integration.user)
-  billings       Billing[]      // For Billing (opposite relation for Billing.user)
+  id              String            @id @default(uuid())
+  username        String            @unique
+  email           String            @unique
+  passwordHash    String
+  fullName        String
+  bio             String?
+  profilePic      String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  lastLogin       DateTime?
+  plan         String    @default("Free") // "Free", "Premium", "Enterprise"
+  socialLinks  Json?
+  activityLogs    UserActivityLog[]
+  analyticsEvents AnalyticsEvent[]
+  automations     Automation[]
+  sessions        Session[]
+  apiTokens       APIToken[]
+  tasks           Task[]
+  assignments     Assignment[]
+  workflows       Workflow[]
+  messages        Message[]
+  teamMembers     TeamMember[]
+  documents       Document[]
+  events          Event[]
+  integrations    Integration[]
+  billings        Billing[]
+  supportTickets   SupportTicket[]
+  contactSubmissions ContactSubmission[]
 }
 
 // Session Model
@@ -42,27 +49,60 @@ model Session {
   @@map("sessions")
 }
 
-// Automation Model (Enhanced from Automation Studio)
-model Automation {
-  id            String     @id @default(cuid())
-  title         String
-  description   String
-  automationUrl String     // URL or endpoint for automation
-  type          String     // e.g., "email", "report"
-  credentials   Json?      // Store API keys or credentials if needed
-  process       String     // Description of the process
-  fileUrl       String?    // Optional file for automation output
-  executeAt     DateTime   // Scheduled execution time
-  userId        String
-  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-  status        String     @default("PENDING") // "PENDING", "ACTIVE", "COMPLETED", "FAILED"
-  keywords      String[]   // For searchability
-  executions    Execution[] // Track automation runs
+// User Activity Log for tracking user actions
+model UserActivityLog {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String    // e.g., "login", "task_created", "workflow_executed"
+  entityType String?   // e.g., "task", "workflow", "document"
+  entityId   String?   // ID of the entity acted upon
+  timestamp  DateTime  @default(now())
+  metadata   Json?     // Additional context (e.g., IP, device)
 }
 
-// Execution Model (For Analytics and Automation Studio)
+// System Metrics for performance monitoring
+model SystemMetric {
+  id         String    @id @default(uuid())
+  metricType String    // e.g., "api_response_time", "uptime", "error_rate"
+  value      Float     // Metric value (e.g., 200ms, 99.9%)
+  recordedAt DateTime  @default(now())
+  metadata   Json?     // Additional details (e.g., endpoint, error code)
+}
+
+// Analytics Event for custom usage tracking
+model AnalyticsEvent {
+  id        String    @id @default(uuid())
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  eventType String    // e.g., "page_view", "button_click", "integration_connected"
+  eventData Json      // Event-specific data
+  timestamp DateTime  @default(now())
+}
+
+// Automation Model
+model Automation {
+  id           String      @id @default(cuid())
+  title        String
+  description  String
+  automationUrl String
+  type         String
+  credentials  Json?
+  process      String
+  fileUrl      String?
+  executeAt    DateTime
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  status       String      @default("PENDING")
+  keywords     String[]
+  executions   Execution[]
+  successRate  Float?
+  lastExecuted DateTime?
+}
+
+// Execution Model
 model Execution {
   id           String     @id @default(uuid())
   automationId String
@@ -72,39 +112,39 @@ model Execution {
   result       String?    // Result or error message
 }
 
-// Workflow Model (Enhanced from Workflows)
+// Workflow Model
 model Workflow {
-  id          String     @id @default(uuid())
+  id          String    @id @default(uuid())
   title       String
   description String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   userId      String
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   nodes       Node[]
-  edges       Edge[]     // Corrected from Edge to edges to match naming convention
-  status      String     @default("INACTIVE") // "INACTIVE", "ACTIVE"
+  edges       Edge[]
+  status      String    @default("INACTIVE") // "INACTIVE", "ACTIVE"
 }
 
-// Node Model (For Workflow and Automation Studio)
+// Node Model
 model Node {
-  id            String     @id @default(uuid())
+  id            String    @id @default(uuid())
   name          String
-  type          String     // "trigger", "action", "condition"
+  type          String    // "trigger", "action", "condition"
   positionX     Float
   positionY     Float
   description   String?
-  config        Json       // Configuration details (e.g., trigger conditions, action params)
+  config        Json      // Configuration details
   workflowId    String
-  workflow      Workflow   @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflow      Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   tasks         Task[]
-  outgoingEdges Edge[]     @relation("NodeOutgoingEdges")
-  incomingEdges Edge[]     @relation("NodeIncomingEdges")
+  outgoingEdges Edge[]    @relation("NodeOutgoingEdges")
+  incomingEdges Edge[]    @relation("NodeIncomingEdges")
 
   @@map("nodes")
 }
 
-// Edge Model (For Workflow)
+// Edge Model
 model Edge {
   id         String   @id @default(uuid())
   sourceId   String
@@ -117,7 +157,7 @@ model Edge {
   @@map("edges")
 }
 
-// Task Model (Enhanced from Tasks)
+// Task Model
 model Task {
   id            String       @id @default(uuid())
   title         String
@@ -127,17 +167,20 @@ model Task {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   userId        String
+  priority      String       @default("medium") // "low", "medium", "high"
+  labels        String[]     @default([])
   user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  nodeId        String
-  node          Node         @relation(fields: [nodeId], references: [id], onDelete: Cascade)
-  dependentOnId String?      // Optional dependency on another task
-  dependentOn   Task?        @relation("TaskDependencies", fields: [dependentOnId], references: [id])
+  nodeId        String?
+  node          Node?        @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  dependentOnId String?
+  dependentOn   Task?        @relation("TaskDependencies", fields: [dependentOnId], references: [id], onDelete: SetNull)
   dependencies  Task[]       @relation("TaskDependencies")
   assignment    Assignment?
-  event         Event?       // Link to Calendar events
+  eventId       String?      @unique
+  event         Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
 }
 
-// Assignment Model (Enhanced from Assignments)
+// Assignment Model
 model Assignment {
   id          String    @id @default(uuid())
   title       String
@@ -150,71 +193,75 @@ model Assignment {
   task        Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
 }
 
-// APIToken Model (Enhanced from Integrations)
+// API Token Model
 model APIToken {
-  id           String       @id @default(uuid())
+  id           String      @id @default(uuid())
   userId       String
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider     String       // e.g., "Slack", "Google Drive", "Stripe"
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String      // e.g., "Slack", "Google Drive", "Stripe"
   accessToken  String
   refreshToken String?
   tokenExpiry  DateTime?
-  createdAt    DateTime     @default(now())
-  integration  Integration? // Link to Integration status
+  createdAt    DateTime    @default(now())
+  integrationId String?     @unique
+  integration  Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
 
   @@unique([userId, provider])
 }
 
-// Integration Model (New for Integrations)
+// Integration Model
 model Integration {
-  id            String    @id @default(uuid())
-  userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apiTokenId    String    @unique
-  apiToken      APIToken  @relation(fields: [apiTokenId], references: [id], onDelete: Cascade)
-  name          String    // e.g., "Slack", "Salesforce"
-  description   String?
-  connectedAt   DateTime  @default(now())
-  status        String    @default("CONNECTED") // "CONNECTED", "DISCONNECTED"
-}
-
-// Document Model (New for Documents)
-model Document {
   id          String    @id @default(uuid())
-  title       String
-  content     String    // Full text content
   userId      String
+  name        String
+  description String?
+  status      String    @default("DISCONNECTED") // "CONNECTED" or "DISCONNECTED"
+  connectedAt DateTime?
+  permissions String[]  @default([])
+  authToken   String?
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  apiToken    APIToken?
+
+  @@unique([name, userId])
 }
 
-// Event Model (New for Calendar)
+// Document Model
+model Document {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  content   String?
+  fileUrl   String?
+  fileType  String?
+  category  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Event Model
 model Event {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
+  userId      String
   title       String
   description String?
   start       DateTime
   end         DateTime?
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  taskId      String?   @unique
-  task        Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task        Task?
 }
 
-// Message Model (New for AI Assistant)
 model Message {
-  id        String    @id @default(uuid())
-  content   String
-  sender    String    // "user" or "ai"
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime  @default(now())
+  id         String    @id @default(uuid())
+  content    String
+  sender     String    // "user" or "ai"
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+  attachment String?   // Added for file URLs
 }
 
-// TeamMember Model (New for Team)
+// Team Member Model
 model TeamMember {
   id        String    @id @default(uuid())
   userId    String
@@ -225,38 +272,60 @@ model TeamMember {
   invitedAt DateTime  @default(now())
 }
 
-// Billing Model (New for Billing)
+// Billing Model
 model Billing {
-  id             String         @id @default(uuid())
-  userId         String
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan           String         // e.g., "Free", "Pro", "Enterprise"
-  status         String         @default("active") // "active", "inactive", "canceled"
-  amount         Float          // Billing amount
-  billingDate    DateTime       // Next billing date
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  paymentMethods PaymentMethod[]
-  invoices       Invoice[]
+  id                          String          @id @default(uuid())
+  userId                      String          @unique
+  plan                        String          @default("Free")
+  status                      String          @default("inactive")
+  amount                      Float           @default(0)
+  billingDate                 DateTime?
+  stripeCustomerId            String?
+  stripeSubscriptionId        String?
+  stripeDefaultPaymentMethodId String?
+  user                        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentMethods              PaymentMethod[]
+  invoices                    Invoice[]
 }
 
-// PaymentMethod Model (New for Billing)
+// Payment Method Model
 model PaymentMethod {
-  id          String    @id @default(uuid())
-  billingId   String
-  billing     Billing   @relation(fields: [billingId], references: [id], onDelete: Cascade)
-  type        String    // "credit_card", "paypal"
-  lastFour    String?   // Last 4 digits for credit cards
-  expiry      String?   // Expiry date (MM/YY)
-  createdAt   DateTime  @default(now())
+  id        String  @id @default(uuid())
+  billingId String
+  type      String
+  lastFour  String
+  expiry    String
+  billing   Billing @relation(fields: [billingId], references: [id], onDelete: Cascade)
 }
 
-// Invoice Model (New for Billing)
+// Invoice Model
 model Invoice {
-  id        String    @id @default(uuid())
-  billingId String
-  billing   Billing   @relation(fields: [billingId], references: [id], onDelete: Cascade)
-  amount    Float
-  status    String    // "paid", "pending", "failed"
-  issuedAt  DateTime  @default(now())
+  id             String   @id @default(uuid())
+  billingId      String
+  amount         Float
+  status         String   @default("pending")
+  issuedAt       DateTime @default(now())
+  stripeInvoiceId String?
+  billing        Billing  @relation(fields: [billingId], references: [id], onDelete: Cascade)
+}
+
+
+model SupportTicket {
+  id          String   @id @default(uuid())
+  userId      String
+  subject     String
+  description String
+  status      String   @default("open") // "open", "in_progress", "resolved"
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ContactSubmission {
+  id        String   @id @default(uuid())
+  userId    String
+  email     String
+  subject   String
+  message   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

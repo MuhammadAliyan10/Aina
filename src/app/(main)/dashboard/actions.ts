@@ -1,8 +1,6 @@
 "use server";
 
-import { DashboardData } from "./types/DashboardDataTypes";
-
-// Define types separately if preferred
+import { DashboardData } from "./types";
 
 export async function fetchDashboardData(
   userId?: string

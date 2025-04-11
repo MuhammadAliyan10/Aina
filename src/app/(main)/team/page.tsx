@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Users,
   UserPlus,
@@ -13,6 +13,9 @@ import {
   Search,
   ChevronDown,
   AlertCircle,
+  User,
+  Activity,
+  Download,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -27,6 +30,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useSession } from "@/app/(main)/SessionProvider";
 import { toast } from "@/hooks/use-toast";
 
@@ -60,14 +78,14 @@ const TeamPage = () => {
   >("fullName");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const membersPerPage = 10;
 
-  const { data: teamMembers, isLoading: teamLoading } = useQuery<TeamMember[]>({
+  const { data: teamMembers, isLoading } = useQuery<TeamMember[]>({
     queryKey: ["teamMembers", user?.id],
     queryFn: async () => {
-      const response = await fetch(`/api/team/members?userId=${user?.id}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetch(`/api/team/members?userId=${user?.id}`);
       if (!response.ok) throw new Error("Failed to fetch team members");
       return response.json();
     },
@@ -85,21 +103,16 @@ const TeamPage = () => {
           role: inviteForm.role,
         }),
       });
-      if (!response.ok) throw new Error("Failed to invite team member");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to invite team member");
+      }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["teamMembers", user?.id] });
       setInviteForm({ email: "", role: "member" });
       toast({ title: "Success", description: "Invitation sent successfully" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to send invitation",
-        variant: "destructive",
-      });
     },
   });
 
@@ -113,17 +126,8 @@ const TeamPage = () => {
       if (!response.ok) throw new Error("Failed to resend invite");
       return response.json();
     },
-    onSuccess: () => {
-      toast({ title: "Success", description: "Invite resent successfully" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to resend invite",
-        variant: "destructive",
-      });
-    },
+    onSuccess: () =>
+      toast({ title: "Success", description: "Invite resent successfully" }),
   });
 
   const updateTeamMemberRole = useMutation({
@@ -140,101 +144,118 @@ const TeamPage = () => {
       setEditingMemberId(null);
       toast({ title: "Success", description: "Role updated successfully" });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to update role",
-        variant: "destructive",
-      });
-    },
   });
 
-  const removeTeamMember = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/team/members/${id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id }),
-      });
-      if (!response.ok) throw new Error("Failed to remove team member");
+  const bulkRemoveTeamMembers = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/team/members/${id}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user?.id }),
+          }).then((res) => {
+            if (!res.ok) throw new Error(`Failed to remove member ${id}`);
+          })
+        )
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["teamMembers", user?.id] });
+      setSelectedMembers([]);
       setMemberToRemove(null);
-      toast({
-        title: "Success",
-        description: "Team member removed successfully",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to remove team member",
-        variant: "destructive",
-      });
+      toast({ title: "Success", description: "Selected team members removed" });
     },
   });
 
-  const filteredTeamMembers = teamMembers
-    ?.filter(
-      (member) =>
-        member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.email.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-      if (sortBy === "fullName" || sortBy === "email") {
-        return sortOrder === "asc"
-          ? a[sortBy].localeCompare(b[sortBy])
-          : b[sortBy].localeCompare(a[sortBy]);
-      } else {
-        return sortOrder === "asc"
-          ? a[sortBy].localeCompare(b[sortBy])
-          : b[sortBy].localeCompare(a[sortBy]);
-      }
-    });
-
-  const handleEdit = (member: TeamMember) => {
-    setEditingMemberId(member.id);
-    setEditedRole(member.role);
-  };
-
-  const handleSave = (id: string) => {
-    updateTeamMemberRole.mutate({ id, role: editedRole });
-  };
+  const filteredMembers = useMemo(() => {
+    return teamMembers
+      ?.filter(
+        (member) =>
+          member.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          member.email.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => {
+        if (
+          sortBy === "fullName" ||
+          sortBy === "email" ||
+          sortBy === "role" ||
+          sortBy === "status"
+        ) {
+          return sortOrder === "asc"
+            ? a[sortBy].localeCompare(b[sortBy])
+            : b[sortBy].localeCompare(a[sortBy]);
+        }
+        return 0;
+      })
+      .slice((page - 1) * membersPerPage, page * membersPerPage);
+  }, [teamMembers, searchTerm, sortBy, sortOrder, page]);
 
   const toggleSortOrder = (field: "fullName" | "email" | "role" | "status") => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
+    if (sortBy === field) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    else {
       setSortBy(field);
       setSortOrder("asc");
     }
   };
 
+  const exportToCSV = () => {
+    const csv = filteredMembers?.map((member) => ({
+      Name: member.fullName,
+      Email: member.email,
+      Role: member.role,
+      Status: member.status,
+    }));
+    // Implement CSV generation with papaparse or similar
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [
+        ["Name", "Email", "Role", "Status"].join(","),
+        ...csv!.map((row) => Object.values(row).join(",")),
+      ].join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", "team_members.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
-      {/* Header */}
       <header className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
-        <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
+        <h1 className="text-4xl font-extrabold flex items-center gap-3">
           <Users className="h-9 w-9 text-primary animate-pulse" />
-          Team
+          Team Management
         </h1>
-        <div className="relative w-full max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-          <Input
-            placeholder="Search team members..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
-          />
+        <div className="flex gap-4 items-center w-full max-w-2xl">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              placeholder="Search team members..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-input border-border rounded-lg"
+            />
+          </div>
+          {selectedMembers.length > 0 && (
+            <Button
+              variant="destructive"
+              onClick={() => bulkRemoveTeamMembers.mutate(selectedMembers)}
+              disabled={bulkRemoveTeamMembers.isPending}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Remove Selected ({selectedMembers.length})
+            </Button>
+          )}
+          <Button variant="outline" onClick={exportToCSV}>
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
         </div>
       </header>
 
-      {teamLoading ? (
+      {isLoading ? (
         <div className="flex flex-1 justify-center items-center gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-lg text-muted-foreground">
@@ -242,72 +263,87 @@ const TeamPage = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Invite Team Member */}
-          <Card className="bg-card border border-border rounded-xl shadow-lg">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <UserPlus className="h-6 w-6 text-primary animate-pulse" />
-              <CardTitle className="text-2xl font-bold text-card-foreground">
+          <Card className="lg:col-span-1 bg-card border-border shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserPlus className="h-6 w-6 text-primary" />
                 Invite Team Member
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex flex-col md:flex-row gap-4">
-                <Input
-                  placeholder="Email Address"
-                  value={inviteForm.email}
-                  onChange={(e) =>
-                    setInviteForm({ ...inviteForm, email: e.target.value })
-                  }
-                  className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg flex-1"
-                />
-                <select
-                  value={inviteForm.role}
-                  onChange={(e) =>
-                    setInviteForm({
-                      ...inviteForm,
-                      role: e.target.value as "admin" | "member" | "viewer",
-                    })
-                  }
-                  className="bg-input border-border text-foreground p-2 rounded-lg focus:ring-2 focus:ring-primary"
-                >
-                  <option value="admin">Admin</option>
-                  <option value="member">Member</option>
-                  <option value="viewer">Viewer</option>
-                </select>
-                <Button
-                  onClick={() => inviteTeamMember.mutate()}
-                  disabled={inviteTeamMember.isPending || !inviteForm.email}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
-                >
-                  {inviteTeamMember.isPending ? (
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  ) : (
-                    <Mail className="h-5 w-5 mr-2" />
-                  )}
-                  Send Invite
-                </Button>
-              </div>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Email Address"
+                value={inviteForm.email}
+                onChange={(e) =>
+                  setInviteForm({ ...inviteForm, email: e.target.value })
+                }
+                className="bg-input border-border"
+              />
+              <Select
+                value={inviteForm.role}
+                onValueChange={(val) =>
+                  setInviteForm({ ...inviteForm, role: val as any })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="member">Member</SelectItem>
+                  <SelectItem value="viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => inviteTeamMember.mutate()}
+                disabled={inviteTeamMember.isPending || !inviteForm.email}
+                className="w-full bg-primary hover:bg-primary/90"
+              >
+                {inviteTeamMember.isPending ? (
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                ) : (
+                  <Mail className="h-5 w-5 mr-2" />
+                )}
+                Send Invite
+              </Button>
             </CardContent>
           </Card>
 
           {/* Team Members */}
-          <Card className="bg-card border border-border rounded-xl shadow-lg">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <Users className="h-6 w-6 text-primary animate-pulse" />
-              <CardTitle className="text-2xl font-bold text-card-foreground">
-                Team Members
+          <Card className="lg:col-span-2 bg-card border-border shadow-lg">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-6 w-6 text-primary" />
+                Team Members ({filteredMembers?.length || 0})
               </CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
-                  <TableRow className="border-border hover:bg-muted">
+                  <TableRow>
+                    <TableHead className="w-12">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedMembers.length === filteredMembers?.length &&
+                          filteredMembers?.length > 0
+                        }
+                        onChange={(e) =>
+                          setSelectedMembers(
+                            e.target.checked
+                              ? filteredMembers!.map((m) => m.id)
+                              : []
+                          )
+                        }
+                      />
+                    </TableHead>
                     <TableHead
-                      className="text-muted-foreground font-medium cursor-pointer"
                       onClick={() => toggleSortOrder("fullName")}
+                      className="cursor-pointer"
                     >
-                      Name
+                      Name{" "}
                       {sortBy === "fullName" && (
                         <ChevronDown
                           className={cn(
@@ -318,10 +354,10 @@ const TeamPage = () => {
                       )}
                     </TableHead>
                     <TableHead
-                      className="text-muted-foreground font-medium cursor-pointer"
                       onClick={() => toggleSortOrder("email")}
+                      className="cursor-pointer"
                     >
-                      Email
+                      Email{" "}
                       {sortBy === "email" && (
                         <ChevronDown
                           className={cn(
@@ -332,10 +368,10 @@ const TeamPage = () => {
                       )}
                     </TableHead>
                     <TableHead
-                      className="text-muted-foreground font-medium cursor-pointer"
                       onClick={() => toggleSortOrder("role")}
+                      className="cursor-pointer"
                     >
-                      Role
+                      Role{" "}
                       {sortBy === "role" && (
                         <ChevronDown
                           className={cn(
@@ -346,10 +382,10 @@ const TeamPage = () => {
                       )}
                     </TableHead>
                     <TableHead
-                      className="text-muted-foreground font-medium cursor-pointer"
                       onClick={() => toggleSortOrder("status")}
+                      className="cursor-pointer"
                     >
-                      Status
+                      Status{" "}
                       {sortBy === "status" && (
                         <ChevronDown
                           className={cn(
@@ -359,81 +395,103 @@ const TeamPage = () => {
                         />
                       )}
                     </TableHead>
-                    <TableHead className="text-muted-foreground font-medium">
-                      Actions
-                    </TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredTeamMembers && filteredTeamMembers.length > 0 ? (
-                    filteredTeamMembers.map((member) => (
+                  {filteredMembers && filteredMembers.length > 0 ? (
+                    filteredMembers.map((member) => (
                       <TableRow
                         key={member.id}
-                        className="border-border hover:bg-muted transition-colors duration-200"
+                        className={cn(
+                          "border-border hover:bg-muted",
+                          member.id === user?.id && "bg-muted/50"
+                        )}
                       >
-                        <TableCell className="text-foreground font-medium">
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            checked={selectedMembers.includes(member.id)}
+                            onChange={(e) =>
+                              setSelectedMembers(
+                                e.target.checked
+                                  ? [...selectedMembers, member.id]
+                                  : selectedMembers.filter(
+                                      (id) => id !== member.id
+                                    )
+                              )
+                            }
+                            disabled={member.id === user?.id}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">
                           {member.fullName}
                         </TableCell>
-                        <TableCell className="text-foreground">
-                          {member.email}
-                        </TableCell>
+                        <TableCell>{member.email}</TableCell>
                         <TableCell>
                           {editingMemberId === member.id ? (
-                            <select
+                            <Select
                               value={editedRole}
-                              onChange={(e) =>
-                                setEditedRole(
-                                  e.target.value as
-                                    | "admin"
-                                    | "member"
-                                    | "viewer"
-                                )
-                              }
-                              className="bg-input border-border text-foreground p-1 rounded-lg focus:ring-2 focus:ring-primary"
+                              onValueChange={(val) => setEditedRole(val as any)}
                             >
-                              <option value="admin">Admin</option>
-                              <option value="member">Member</option>
-                              <option value="viewer">Viewer</option>
-                            </select>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="member">Member</SelectItem>
+                                <SelectItem value="viewer">Viewer</SelectItem>
+                              </SelectContent>
+                            </Select>
                           ) : (
-                            <span className="text-foreground capitalize">
+                            <Badge
+                              variant={
+                                member.role === "admin"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                            >
                               {member.role}
-                            </span>
+                            </Badge>
                           )}
                         </TableCell>
                         <TableCell>
-                          <span
-                            className={cn(
-                              "text-sm font-medium px-3 py-1 rounded-full",
+                          <Badge
+                            variant={
                               member.status === "active"
-                                ? "bg-success/20 text-success"
+                                ? "default"
                                 : member.status === "pending"
-                                ? "bg-accent/20 text-accent"
-                                : "bg-primary/20 text-primary"
-                            )}
+                                ? "secondary"
+                                : "outline"
+                            }
                           >
                             {member.status}
-                          </span>
+                          </Badge>
                         </TableCell>
                         <TableCell className="flex gap-2">
                           {editingMemberId === member.id ? (
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleSave(member.id)}
-                              disabled={updateTeamMemberRole.isPending}
-                              className="text-primary hover:text-primary-foreground hover:bg-muted rounded-full p-2"
+                              onClick={() =>
+                                updateTeamMemberRole.mutate({
+                                  id: member.id,
+                                  role: editedRole,
+                                })
+                              }
                             >
-                              <Save className="h-5 w-5" />
+                              <Save className="h-5 w-5 text-primary" />
                             </Button>
                           ) : (
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleEdit(member)}
-                              className="text-primary hover:text-primary-foreground hover:bg-muted rounded-full p-2"
+                              onClick={() => {
+                                setEditingMemberId(member.id);
+                                setEditedRole(member.role);
+                              }}
                             >
-                              <Edit className="h-5 w-5" />
+                              <Edit className="h-5 w-5 text-primary" />
                             </Button>
                           )}
                           {(member.status === "invited" ||
@@ -442,23 +500,26 @@ const TeamPage = () => {
                               variant="ghost"
                               size="sm"
                               onClick={() => resendInvite.mutate(member.id)}
-                              disabled={resendInvite.isPending}
-                              className="text-primary hover:text-primary-foreground hover:bg-muted rounded-full p-2"
                             >
-                              <Mail className="h-5 w-5" />
+                              <Mail className="h-5 w-5 text-primary" />
                             </Button>
                           )}
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => setMemberToRemove(member.id)}
-                            disabled={
-                              removeTeamMember.isPending ||
-                              member.id === user?.id
-                            }
-                            className="text-destructive hover:text-destructive-foreground hover:bg-muted rounded-full p-2"
+                            disabled={member.id === user?.id}
                           >
-                            <Trash2 className="h-5 w-5" />
+                            <Trash2 className="h-5 w-5 text-destructive" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              /* Open activity log modal */
+                            }}
+                          >
+                            <Activity className="h-5 w-5 text-muted-foreground" />
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -466,8 +527,8 @@ const TeamPage = () => {
                   ) : (
                     <TableRow>
                       <TableCell
-                        colSpan={5}
-                        className="text-muted-foreground text-center py-6"
+                        colSpan={6}
+                        className="text-center py-6 text-muted-foreground"
                       >
                         No team members found.
                         <Users className="h-10 w-10 mx-auto mt-4 text-primary animate-bounce" />
@@ -476,48 +537,67 @@ const TeamPage = () => {
                   )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Confirmation Dialog for Removal */}
-      {memberToRemove && (
-        <div className="fixed inset-0 bg-background/50 flex items-center justify-center z-50">
-          <Card className="bg-card border border-border rounded-xl shadow-2xl w-96">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <AlertCircle className="h-6 w-6 text-destructive" />
-              <CardTitle className="text-xl font-semibold text-card-foreground">
-                Confirm Removal
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <p className="text-muted-foreground">
-                Are you sure you want to remove this team member?
-              </p>
-              <div className="flex justify-end gap-3">
+              <div className="flex justify-between mt-4">
                 <Button
                   variant="outline"
-                  onClick={() => setMemberToRemove(null)}
-                  className="text-foreground border-border hover:bg-muted rounded-lg"
+                  disabled={page === 1}
+                  onClick={() => setPage(page - 1)}
                 >
-                  Cancel
+                  Previous
                 </Button>
+                <span>
+                  Page {page} of{" "}
+                  {Math.ceil((teamMembers?.length || 0) / membersPerPage)}
+                </span>
                 <Button
-                  onClick={() => removeTeamMember.mutate(memberToRemove)}
-                  disabled={removeTeamMember.isPending}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg"
+                  variant="outline"
+                  disabled={
+                    page >=
+                    Math.ceil((teamMembers?.length || 0) / membersPerPage)
+                  }
+                  onClick={() => setPage(page + 1)}
                 >
-                  {removeTeamMember.isPending ? (
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  ) : (
-                    <Trash2 className="h-5 w-5 mr-2" />
-                  )}
-                  Remove
+                  Next
                 </Button>
               </div>
             </CardContent>
           </Card>
+
+          {/* Removal Confirmation Dialog */}
+          {memberToRemove && (
+            <Dialog
+              open={!!memberToRemove}
+              onOpenChange={() => setMemberToRemove(null)}
+            >
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <AlertCircle className="h-6 w-6 text-destructive" />
+                    Confirm Removal
+                  </DialogTitle>
+                </DialogHeader>
+                <p>Are you sure you want to remove this team member?</p>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setMemberToRemove(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() =>
+                      bulkRemoveTeamMembers.mutate([memberToRemove])
+                    }
+                    disabled={bulkRemoveTeamMembers.isPending}
+                  >
+                    <Trash2 className="h-5 w-5 mr-2" />
+                    Remove
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       )}
     </div>

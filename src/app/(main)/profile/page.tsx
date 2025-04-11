@@ -1,9 +1,10 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import { useSession } from "../SessionProvider";
 import Image from "next/image";
 import userAvatar from "@/assets/UserAvatar.png";
-import coverPlaceholder from "@/assets/Network-Block.jpeg"; // Add a placeholder cover image
+import coverPlaceholder from "@/assets/Network-Block.jpeg";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,19 +16,34 @@ import { useForm, Controller } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
 import LoadingButton from "@/components/LoadingButton";
 import { Input } from "@/components/ui/input";
-import { Highlight } from "@/components/Highlight";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
 import {
   CameraIcon,
   LoaderCircle,
   Instagram,
   Twitter,
   Link2,
+  Award,
+  Settings,
 } from "lucide-react";
 import axios from "axios";
-import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
 
-const FacebookDataFetcher: React.FC = () => {
+interface UserProfile {
+  fullName: string;
+  username: string;
+  bio?: string;
+  email: string;
+  profilePic?: string;
+  coverPic?: string;
+  createdAt: string;
+  plan: "Free" | "Premium" | "Enterprise";
+  points: { automation: number; tasks: number; workflows: number };
+  socialLinks?: { instagram?: string; twitter?: string; website?: string };
+}
+
+const ProfilePage = () => {
   const { user } = useSession();
   const { toast } = useToast();
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
@@ -39,20 +55,41 @@ const FacebookDataFetcher: React.FC = () => {
   const [imageLoading, setImageLoading] = useState(false);
   const [coverLoading, setCoverLoading] = useState(false);
 
+  const profile: UserProfile = {
+    ...user,
+    plan: user?.plan || "Free",
+    points: { automation: 150, tasks: 300, workflows: 75 }, // Example data, fetch from API if available
+    socialLinks: {
+      instagram: "user_insta",
+      twitter: "user_twitter",
+      website: "https://example.com",
+    }, // Example data
+  };
+
   const {
     control,
     handleSubmit,
     formState: { errors, isDirty },
+    reset,
   } = useForm({
     defaultValues: {
-      fullName: user?.fullName || "",
-      bio: user?.bio || "",
+      fullName: profile.fullName || "",
+      bio: profile.bio || "",
+      instagram: profile.socialLinks?.instagram || "",
+      twitter: profile.socialLinks?.twitter || "",
+      website: profile.socialLinks?.website || "",
     },
   });
 
   useEffect(() => {
-    // Simulate fetching additional user data if needed
-  }, [user]);
+    reset({
+      fullName: profile.fullName || "",
+      bio: profile.bio || "",
+      instagram: profile.socialLinks?.instagram || "",
+      twitter: profile.socialLinks?.twitter || "",
+      website: profile.socialLinks?.website || "",
+    });
+  }, [profile, reset]);
 
   const onSubmit = async (data: any) => {
     setIsLoading(true);
@@ -60,34 +97,21 @@ const FacebookDataFetcher: React.FC = () => {
       const res = await fetch("/api/auth/profile/updateProfile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, userId: user?.id }),
       });
 
       if (res.ok) {
         const resData = await res.json();
-        toast({
-          title: "Profile Updated",
-          description: resData.message,
-          variant: "default",
-        });
-        toast({
-          title: "Note",
-          description: "Refresh the page to see changes due to caching.",
-          variant: "default",
-        });
+        toast({ title: "Profile Updated", description: resData.message });
         setIsProfileDialogOpen(false);
       } else {
         const errorData = await res.json();
-        toast({
-          title: "Error",
-          description: errorData.message || "Something went wrong.",
-          variant: "destructive",
-        });
+        throw new Error(errorData.message || "Something went wrong.");
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: "An unexpected error occurred.",
+        description: (error as Error).message,
         variant: "destructive",
       });
     } finally {
@@ -100,48 +124,32 @@ const FacebookDataFetcher: React.FC = () => {
     type: "profile" | "cover"
   ) => {
     try {
-      setImageLoading(type === "profile");
-      setCoverLoading(type === "cover");
       const file = e.target.files?.[0];
       if (!file) throw new Error("No file selected");
-
-      const validTypes = ["image/png", "image/jpg", "image/jpeg"];
-      if (!validTypes.includes(file.type)) {
+      if (!["image/png", "image/jpg", "image/jpeg"].includes(file.type)) {
         throw new Error("Please select a PNG, JPG, or JPEG file.");
       }
-
-      const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-      if (file.size > MAX_FILE_SIZE) {
+      if (file.size > 5 * 1024 * 1024)
         throw new Error("File size exceeds 5MB limit.");
-      }
 
       if (type === "profile") setSelectedImage(file);
       else setSelectedCover(file);
     } catch (error) {
-      toast({
-        description: (error as Error).message,
-        variant: "destructive",
-      });
-    } finally {
-      setImageLoading(false);
-      setCoverLoading(false);
+      toast({ description: (error as Error).message, variant: "destructive" });
     }
   };
 
   const handleImageUpload = async (type: "profile" | "cover") => {
     const image = type === "profile" ? selectedImage : selectedCover;
-    if (!image) {
-      toast({ description: "No image selected.", variant: "destructive" });
-      return;
-    }
+    if (!image)
+      return toast({
+        description: "No image selected.",
+        variant: "destructive",
+      });
 
     try {
-      // Replace ternary with if statements
-      if (type === "profile") {
-        setImageLoading(true);
-      } else {
-        setCoverLoading(true);
-      }
+      setImageLoading(type === "profile");
+      setCoverLoading(type === "cover");
 
       const toBase64 = (file: File): Promise<string> =>
         new Promise((resolve, reject) => {
@@ -158,27 +166,13 @@ const FacebookDataFetcher: React.FC = () => {
           : "/api/auth/profile/updateCoverImage";
       const response = await axios.put(endpoint, {
         [type === "profile" ? "profilePic" : "coverPic"]: base64Image,
+        userId: user?.id,
       });
 
       if (response.status === 200) {
-        toast({
-          title: "Success",
-          description: response.data.message,
-          variant: "default",
-        });
-        toast({
-          title: "Note",
-          description: "Refresh the page to see changes due to caching.",
-          variant: "default",
-        });
-        // Replace ternary with if statements
-        if (type === "profile") {
-          setIsImageDialogOpen(false);
-        } else {
-          setIsCoverDialogOpen(false);
-        }
-      } else {
-        throw new Error(`Failed to upload ${type} picture.`);
+        toast({ title: "Success", description: response.data.message });
+        if (type === "profile") setIsImageDialogOpen(false);
+        else setIsCoverDialogOpen(false);
       }
     } catch (error) {
       toast({
@@ -192,24 +186,22 @@ const FacebookDataFetcher: React.FC = () => {
     }
   };
 
-  const isSaveDisabled = !isDirty;
-
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background text-foreground">
       {/* Cover Photo */}
       <div className="relative h-64 md:h-80 w-full overflow-hidden">
         <Image
-          src={user?.profilePic || coverPlaceholder}
+          src={profile.coverPic || coverPlaceholder}
           alt="Cover Photo"
           layout="fill"
           objectFit="cover"
           className="w-full h-full"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
         <Button
           variant="secondary"
           size="sm"
-          className="absolute top-4 right-4 bg-secondary/80 text-secondary-foreground hover:bg-accent hover:text-accent-foreground"
+          className="absolute top-4 right-4 bg-secondary/80 text-secondary-foreground hover:bg-accent hover:text-accent-foreground shadow-md"
           onClick={() => setIsCoverDialogOpen(true)}
         >
           <CameraIcon className="w-4 h-4 mr-2" />
@@ -219,7 +211,12 @@ const FacebookDataFetcher: React.FC = () => {
 
       {/* Profile Content */}
       <div className="container mx-auto px-4 -mt-20 md:-mt-32">
-        <div className="relative flex flex-col items-center md:items-start md:flex-row gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative flex flex-col items-center md:flex-row gap-6"
+        >
           {/* Profile Picture */}
           <motion.div
             initial={{ scale: 0.9 }}
@@ -228,51 +225,104 @@ const FacebookDataFetcher: React.FC = () => {
           >
             <Image
               alt="User Avatar"
-              src={user?.profilePic || userAvatar}
+              src={profile.profilePic || userAvatar}
               width={160}
               height={160}
-              className="w-40 h-40 rounded-full border-4 border-background object-cover cursor-pointer transition-transform group-hover:scale-105 shadow-lg"
+              className="w-40 h-40 rounded-full border-4 border-background object-cover cursor-pointer transition-transform group-hover:scale-105 shadow-xl"
               onClick={() => setIsImageDialogOpen(true)}
             />
-            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <CameraIcon className="text-primary w-10 h-10" />
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-full">
+              <CameraIcon className="text-white w-10 h-10" />
             </div>
           </motion.div>
 
           {/* Profile Info */}
-          <div className="flex-1 bg-card rounded-lg shadow-lg border border-border p-6 w-full max-w-3xl">
+          <div className="flex-1 bg-gradient-to-br from-card to-muted/20 rounded-2xl shadow-lg border border-border p-6 w-full max-w-3xl">
             <div className="flex flex-col md:flex-row justify-between items-center md:items-start gap-4">
               <div>
-                <h1 className="text-3xl font-bold text-foreground">
-                  {isLoading ? "Loading..." : user?.fullName || "Anonymous"}
-                </h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-blue-500 text-transparent bg-clip-text">
+                    {profile.fullName || "Anonymous"}
+                  </h1>
+                  <Badge
+                    className={cn(
+                      "text-sm font-semibold",
+                      profile.plan === "Free" && "bg-gray-600",
+                      profile.plan === "Premium" && "bg-blue-600",
+                      profile.plan === "Enterprise" && "bg-purple-600"
+                    )}
+                  >
+                    {profile.plan}
+                  </Badge>
+                </div>
                 <p className="text-muted-foreground text-lg">
-                  @{user?.username || "N/A"}
+                  @{profile.username || "N/A"}
                 </p>
-                <p className="mt-2 text-foreground">
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <LoaderCircle className="animate-spin text-muted-foreground" />
-                      Loading...
-                    </span>
-                  ) : (
-                    user?.bio || "No bio yet."
+                <p className="mt-2 text-foreground leading-relaxed">
+                  {profile.bio || "No bio yet."}
+                </p>
+                {/* Badges */}
+                <div className="flex gap-2 mt-3">
+                  {profile.points.automation > 100 && (
+                    <Badge
+                      variant="outline"
+                      className="flex items-center gap-1"
+                    >
+                      <Award className="w-4 h-4 text-yellow-400" />
+                      Automation Master
+                    </Badge>
                   )}
-                </p>
+                  {profile.points.tasks > 200 && (
+                    <Badge
+                      variant="outline"
+                      className="flex items-center gap-1"
+                    >
+                      <Award className="w-4 h-4 text-green-400" />
+                      Task Titan
+                    </Badge>
+                  )}
+                </div>
               </div>
-              <Button
-                onClick={() => setIsProfileDialogOpen(true)}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                Edit Profile
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => setIsProfileDialogOpen(true)}
+                  className="bg-gradient-to-r from-indigo-400 to-blue-500 hover:from-indigo-500 hover:to-blue-600 text-white shadow-md hover:shadow-xl transition-all duration-300"
+                >
+                  Edit Profile
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-border text-foreground hover:bg-muted"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </Button>
+              </div>
             </div>
 
             {/* Stats */}
-            <div className="mt-6 grid grid-cols-3 gap-4 text-center border-t border-border pt-4">
+            <div className="mt-6 grid grid-cols-3 md:grid-cols-5 gap-4 text-center border-t border-border pt-4">
               <div>
-                <p className="text-lg font-semibold text-foreground">123</p>
-                <p className="text-sm text-muted-foreground">Posts</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {profile.points.automation}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Automation Points
+                </p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-foreground">
+                  {profile.points.tasks}
+                </p>
+                <p className="text-sm text-muted-foreground">Tasks Completed</p>
+              </div>
+              <div>
+                <p className="text-lg font-semibold text-foreground">
+                  {profile.points.workflows}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Workflows Created
+                </p>
               </div>
               <div>
                 <p className="text-lg font-semibold text-foreground">456</p>
@@ -284,37 +334,89 @@ const FacebookDataFetcher: React.FC = () => {
               </div>
             </div>
 
-            {/* Additional Info */}
-            <div className="mt-4 text-sm text-muted-foreground">
-              <p>
-                Email: <Highlight>{user?.email || "N/A"}</Highlight>
-              </p>
-              <p>
-                Joined:{" "}
-                <Highlight>
-                  {user?.createdAt
-                    ? new Date(user.createdAt).toLocaleString("en-US", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })
-                    : "N/A"}
-                </Highlight>
-              </p>
+            {/* Additional Info & Social Links */}
+            <div className="mt-6 flex flex-col md:flex-row gap-6">
+              <div className="text-sm text-muted-foreground">
+                <p>
+                  Email:{" "}
+                  <span className="text-foreground">
+                    {profile.email || "N/A"}
+                  </span>
+                </p>
+                <p>
+                  Joined:{" "}
+                  <span className="text-foreground">
+                    {new Date(profile.createdAt).toLocaleDateString()}
+                  </span>
+                </p>
+              </div>
+              <div className="flex gap-4">
+                {profile.socialLinks?.instagram && (
+                  <a
+                    href={`https://instagram.com/${profile.socialLinks.instagram}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Instagram className="w-6 h-6 text-indigo-400 hover:text-indigo-500 transition-colors" />
+                  </a>
+                )}
+                {profile.socialLinks?.twitter && (
+                  <a
+                    href={`https://twitter.com/${profile.socialLinks.twitter}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Twitter className="w-6 h-6 text-indigo-400 hover:text-indigo-500 transition-colors" />
+                  </a>
+                )}
+                {profile.socialLinks?.website && (
+                  <a
+                    href={profile.socialLinks.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Link2 className="w-6 h-6 text-indigo-400 hover:text-indigo-500 transition-colors" />
+                  </a>
+                )}
+              </div>
             </div>
-
-            {/* Social Links */}
           </div>
-        </div>
+        </motion.div>
+
+        {/* Activity Feed */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="mt-8 bg-gradient-to-br from-card to-muted/20 rounded-2xl shadow-lg border border-border p-6"
+        >
+          <h2 className="text-2xl font-semibold bg-gradient-to-r from-indigo-400 to-blue-500 text-transparent bg-clip-text mb-4">
+            Recent Activity
+          </h2>
+          <div className="space-y-4">
+            <p className="text-muted-foreground">
+              Completed 5 tasks today -{" "}
+              <span className="text-foreground">+25 points</span>
+            </p>
+            <p className="text-muted-foreground">
+              Created a new automation workflow -{" "}
+              <span className="text-foreground">+50 points</span>
+            </p>
+            <p className="text-muted-foreground">
+              Invited a team member -{" "}
+              <span className="text-foreground">+10 points</span>
+            </p>
+          </div>
+        </motion.div>
       </div>
 
       {/* Profile Update Dialog */}
       <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
-        <DialogContent className="bg-card text-card-foreground border border-border rounded-lg max-w-md mx-auto">
+        <DialogContent className="bg-gradient-to-br from-card to-muted/20 text-foreground border border-border rounded-2xl max-w-md mx-auto">
           <DialogHeader>
             <DialogTitle className="text-foreground">Edit Profile</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <Controller
               name="fullName"
               control={control}
@@ -327,7 +429,7 @@ const FacebookDataFetcher: React.FC = () => {
                   <Input
                     {...field}
                     placeholder="Enter your full name"
-                    className="bg-input border-border text-foreground placeholder-muted-foreground"
+                    className="bg-input border-border text-foreground shadow-inner"
                   />
                   {errors.fullName && (
                     <p className="text-destructive text-sm mt-1">
@@ -348,12 +450,59 @@ const FacebookDataFetcher: React.FC = () => {
                   <Input
                     {...field}
                     placeholder="Enter your bio"
-                    className="bg-input border-border text-foreground placeholder-muted-foreground"
+                    className="bg-input border-border text-foreground shadow-inner"
                   />
                 </div>
               )}
             />
-
+            <Controller
+              name="instagram"
+              control={control}
+              render={({ field }) => (
+                <div>
+                  <label className="block text-sm font-medium text-foreground">
+                    Instagram
+                  </label>
+                  <Input
+                    {...field}
+                    placeholder="Instagram handle"
+                    className="bg-input border-border text-foreground shadow-inner"
+                  />
+                </div>
+              )}
+            />
+            <Controller
+              name="twitter"
+              control={control}
+              render={({ field }) => (
+                <div>
+                  <label className="block text-sm font-medium text-foreground">
+                    Twitter
+                  </label>
+                  <Input
+                    {...field}
+                    placeholder="Twitter handle"
+                    className="bg-input border-border text-foreground shadow-inner"
+                  />
+                </div>
+              )}
+            />
+            <Controller
+              name="website"
+              control={control}
+              render={({ field }) => (
+                <div>
+                  <label className="block text-sm font-medium text-foreground">
+                    Website
+                  </label>
+                  <Input
+                    {...field}
+                    placeholder="Your website"
+                    className="bg-input border-border text-foreground shadow-inner"
+                  />
+                </div>
+              )}
+            />
             <div className="flex justify-end gap-4">
               <Button
                 variant="outline"
@@ -364,9 +513,9 @@ const FacebookDataFetcher: React.FC = () => {
               </Button>
               <LoadingButton
                 loading={isLoading}
-                disabled={isSaveDisabled}
+                disabled={!isDirty}
                 type="submit"
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-gradient-to-r from-indigo-400 to-blue-500 hover:from-indigo-500 hover:to-blue-600 text-white shadow-md hover:shadow-xl transition-all duration-300"
               >
                 Save Changes
               </LoadingButton>
@@ -377,7 +526,7 @@ const FacebookDataFetcher: React.FC = () => {
 
       {/* Profile Picture Upload Dialog */}
       <Dialog open={isImageDialogOpen} onOpenChange={setIsImageDialogOpen}>
-        <DialogContent className="bg-card text-card-foreground border border-border rounded-lg max-w-md mx-auto">
+        <DialogContent className="bg-gradient-to-br from-card to-muted/20 text-foreground border border-border rounded-2xl max-w-md mx-auto">
           <DialogHeader>
             <DialogTitle className="text-foreground">
               Update Profile Picture
@@ -385,24 +534,20 @@ const FacebookDataFetcher: React.FC = () => {
           </DialogHeader>
           <div className="space-y-6">
             <div className="relative flex justify-center">
-              {/* Assign the ternary result to a variable */}
-              {(() => {
-                const imageSrc = selectedImage
-                  ? URL.createObjectURL(selectedImage)
-                  : user?.profilePic || userAvatar;
-                return (
-                  <Image
-                    alt="User Avatar"
-                    src={imageSrc}
-                    width={200}
-                    height={200}
-                    className="w-48 h-48 rounded-full border border-border object-cover shadow-md"
-                  />
-                );
-              })()}
+              <Image
+                alt="User Avatar"
+                src={
+                  selectedImage
+                    ? URL.createObjectURL(selectedImage)
+                    : profile.profilePic || userAvatar
+                }
+                width={200}
+                height={200}
+                className="w-48 h-48 rounded-full border border-border object-cover shadow-md"
+              />
               <label
                 htmlFor="profileImage"
-                className="absolute bottom-4 right-4 bg-secondary text-secondary-foreground p-3 rounded-full cursor-pointer hover:bg-accent hover:text-accent-foreground transition shadow"
+                className="absolute bottom-4 right-4 bg-indigo-500 text-white p-3 rounded-full cursor-pointer hover:bg-indigo-600 transition shadow-md"
               >
                 <CameraIcon className="w-5 h-5" />
                 <input
@@ -426,7 +571,7 @@ const FacebookDataFetcher: React.FC = () => {
                 loading={imageLoading}
                 disabled={!selectedImage}
                 onClick={() => handleImageUpload("profile")}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-gradient-to-r from-indigo-400 to-blue-500 hover:from-indigo-500 hover:to-blue-600 text-white shadow-md hover:shadow-xl transition-all duration-300"
               >
                 Upload
               </LoadingButton>
@@ -437,7 +582,7 @@ const FacebookDataFetcher: React.FC = () => {
 
       {/* Cover Photo Upload Dialog */}
       <Dialog open={isCoverDialogOpen} onOpenChange={setIsCoverDialogOpen}>
-        <DialogContent className="bg-card text-card-foreground border border-border rounded-lg max-w-lg mx-auto">
+        <DialogContent className="bg-gradient-to-br from-card to-muted/20 text-foreground border border-border rounded-2xl max-w-lg mx-auto">
           <DialogHeader>
             <DialogTitle className="text-foreground">
               Update Cover Photo
@@ -445,24 +590,20 @@ const FacebookDataFetcher: React.FC = () => {
           </DialogHeader>
           <div className="space-y-6">
             <div className="relative flex justify-center">
-              {/* Assign the ternary result to a variable */}
-              {(() => {
-                const coverSrc = selectedCover
-                  ? URL.createObjectURL(selectedCover)
-                  : user?.profilePic || coverPlaceholder;
-                return (
-                  <Image
-                    alt="Cover Photo"
-                    src={coverSrc}
-                    width={400}
-                    height={150}
-                    className="w-full h-40 object-cover rounded-md border border-border shadow-md"
-                  />
-                );
-              })()}
+              <Image
+                alt="Cover Photo"
+                src={
+                  selectedCover
+                    ? URL.createObjectURL(selectedCover)
+                    : profile.coverPic || coverPlaceholder
+                }
+                width={400}
+                height={150}
+                className="w-full h-40 object-cover rounded-md border border-border shadow-md"
+              />
               <label
                 htmlFor="coverImage"
-                className="absolute bottom-4 right-4 bg-secondary text-secondary-foreground p-3 rounded-full cursor-pointer hover:bg-accent hover:text-accent-foreground transition shadow"
+                className="absolute bottom-4 right-4 bg-indigo-500 text-white p-3 rounded-full cursor-pointer hover:bg-indigo-600 transition shadow-md"
               >
                 <CameraIcon className="w-5 h-5" />
                 <input
@@ -486,7 +627,7 @@ const FacebookDataFetcher: React.FC = () => {
                 loading={coverLoading}
                 disabled={!selectedCover}
                 onClick={() => handleImageUpload("cover")}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                className="bg-gradient-to-r from-indigo-400 to-blue-500 hover:from-indigo-500 hover:to-blue-600 text-white shadow-md hover:shadow-xl transition-all duration-300"
               >
                 Upload
               </LoadingButton>
@@ -498,4 +639,4 @@ const FacebookDataFetcher: React.FC = () => {
   );
 };
 
-export default FacebookDataFetcher;
+export default ProfilePage;

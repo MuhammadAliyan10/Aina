@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   List,
   Plus,
@@ -12,6 +12,10 @@ import {
   Filter,
   X,
   ChevronDown,
+  Tag,
+  User,
+  Calendar,
+  Download,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -27,17 +31,39 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useSession } from "@/app/(main)/SessionProvider";
 import { toast } from "@/hooks/use-toast";
+import { useDrag, useDrop } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import { DndProvider } from "react-dnd";
 
 interface Task {
   id: string;
   title: string;
   description: string;
   status: "pending" | "in_progress" | "completed";
-  dueDate?: string;
+  dueDate?: string | null;
   createdAt: string;
   updatedAt: string;
+  assignedTo: string;
+  nodeName?: string | null;
+  priority: "low" | "medium" | "high";
+  labels: string[];
 }
 
 const TasksPage = () => {
@@ -47,24 +73,30 @@ const TasksPage = () => {
   const [filterStatus, setFilterStatus] = useState<
     "all" | "pending" | "in_progress" | "completed"
   >("all");
-  const [sortBy, setSortBy] = useState<"title" | "dueDate" | "status">(
-    "dueDate"
-  );
+  const [filterPriority, setFilterPriority] = useState<
+    "all" | "low" | "medium" | "high"
+  >("all");
+  const [sortBy, setSortBy] = useState<
+    "title" | "dueDate" | "status" | "priority"
+  >("dueDate");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [newTask, setNewTask] = useState({
     title: "",
     description: "",
     dueDate: "",
+    priority: "medium",
+    labels: [] as string[],
   });
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const tasksPerPage = 10;
 
-  const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({
+  const { data: tasks, isLoading } = useQuery<Task[]>({
     queryKey: ["tasks", user?.id],
     queryFn: async () => {
-      const response = await fetch(`/api/tasks?userId=${user?.id}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetch(`/api/tasks?userId=${user?.id}`);
       if (!response.ok) throw new Error("Failed to fetch tasks");
       return response.json();
     },
@@ -82,6 +114,8 @@ const TasksPage = () => {
           description: newTask.description,
           dueDate: newTask.dueDate || undefined,
           status: "pending",
+          priority: newTask.priority,
+          labels: newTask.labels,
         }),
       });
       if (!response.ok) throw new Error("Failed to create task");
@@ -89,16 +123,14 @@ const TasksPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
-      setNewTask({ title: "", description: "", dueDate: "" });
-      toast({ title: "Success", description: "Task created successfully" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to create task",
-        variant: "destructive",
+      setNewTask({
+        title: "",
+        description: "",
+        dueDate: "",
+        priority: "medium",
+        labels: [],
       });
+      toast({ title: "Success", description: "Task created successfully" });
     },
   });
 
@@ -113,6 +145,8 @@ const TasksPage = () => {
           description: task.description,
           status: task.status,
           dueDate: task.dueDate,
+          priority: task.priority,
+          labels: task.labels,
         }),
       });
       if (!response.ok) throw new Error("Failed to update task");
@@ -121,15 +155,8 @@ const TasksPage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
       setEditingTask(null);
+      setIsTaskModalOpen(false);
       toast({ title: "Success", description: "Task updated successfully" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to update task",
-        variant: "destructive",
-      });
     },
   });
 
@@ -144,357 +171,618 @@ const TasksPage = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
+      setSelectedTasks(selectedTasks.filter((id) => id !== editingTask?.id));
+      setEditingTask(null);
+      setIsTaskModalOpen(false);
       toast({ title: "Success", description: "Task deleted successfully" });
     },
-    onError: (error) => {
+  });
+
+  const bulkDeleteTasks = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/tasks/${id}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user?.id }),
+          }).then((res) => {
+            if (!res.ok) throw new Error(`Failed to delete task ${id}`);
+          })
+        )
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks", user?.id] });
+      setSelectedTasks([]);
       toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to delete task",
-        variant: "destructive",
+        title: "Success",
+        description: "Selected tasks deleted successfully",
       });
     },
   });
 
-  const filteredTasks = tasks
-    ?.filter((task) => {
-      const matchesSearch = task.title
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase());
-      const matchesStatus =
-        filterStatus === "all" || task.status === filterStatus;
-      return matchesSearch && matchesStatus;
-    })
-    .sort((a, b) => {
-      if (sortBy === "title") {
-        return sortOrder === "asc"
-          ? a.title.localeCompare(b.title)
-          : b.title.localeCompare(a.title);
-      } else if (sortBy === "dueDate") {
-        const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-        const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-        return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
-      } else {
-        return sortOrder === "asc"
-          ? a.status.localeCompare(b.status)
-          : b.status.localeCompare(a.status);
-      }
-    });
+  const filteredTasks = useMemo(() => {
+    return tasks
+      ?.filter((task) => {
+        const matchesSearch =
+          task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          task.description.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus =
+          filterStatus === "all" || task.status === filterStatus;
+        const matchesPriority =
+          filterPriority === "all" || task.priority === filterPriority;
+        return matchesSearch && matchesStatus && matchesPriority;
+      })
+      .sort((a, b) => {
+        if (sortBy === "title")
+          return sortOrder === "asc"
+            ? a.title.localeCompare(b.title)
+            : b.title.localeCompare(a.title);
+        if (sortBy === "dueDate") {
+          const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+          const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+          return sortOrder === "asc" ? dateA - dateB : dateB - dateA;
+        }
+        if (sortBy === "status")
+          return sortOrder === "asc"
+            ? a.status.localeCompare(b.status)
+            : b.status.localeCompare(a.status);
+        if (sortBy === "priority") {
+          const priorityOrder = { low: 1, medium: 2, high: 3 };
+          return sortOrder === "asc"
+            ? priorityOrder[a.priority] - priorityOrder[b.priority]
+            : priorityOrder[b.priority] - priorityOrder[a.priority];
+        }
+        return 0;
+      })
+      .slice((page - 1) * tasksPerPage, page * tasksPerPage);
+  }, [
+    tasks,
+    searchTerm,
+    filterStatus,
+    filterPriority,
+    sortBy,
+    sortOrder,
+    page,
+  ]);
 
-  const handleEdit = (task: Task) => {
-    setEditingTask(task);
-  };
-
-  const handleSave = () => {
-    if (editingTask) {
-      updateTask.mutate(editingTask);
-    }
-  };
-
-  const handleToggleComplete = (task: Task) => {
-    updateTask.mutate({
-      ...task,
-      status: task.status === "completed" ? "pending" : "completed",
-    });
-  };
-
-  const toggleSortOrder = (field: "title" | "dueDate" | "status") => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
+  const toggleSortOrder = (
+    field: "title" | "dueDate" | "status" | "priority"
+  ) => {
+    if (sortBy === field) setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    else {
       setSortBy(field);
       setSortOrder("asc");
     }
   };
 
-  return (
-    <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
-      {/* Header */}
-      <header className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-4">
-        <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
-          <List className="h-9 w-9 text-primary animate-pulse" />
-          Tasks
-        </h1>
-        <div className="flex gap-4 items-center w-full max-w-lg">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              placeholder="Search tasks..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
-            />
-          </div>
-          <select
-            value={filterStatus}
+  const TaskRow = ({ task }: { task: Task }) => {
+    const [{ isDragging }, drag] = useDrag({
+      type: "TASK",
+      item: { id: task.id },
+      collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+    });
+
+    const [, drop] = useDrop({
+      accept: "TASK",
+      hover: (item: { id: string }) => {
+        if (item.id !== task.id) {
+          // Implement reordering logic here if backend supports it
+        }
+      },
+    });
+
+    return (
+      <TableRow
+        ref={(node) => drag(drop(node))}
+        className={cn(
+          "border-border hover:bg-muted",
+          isDragging && "opacity-50"
+        )}
+      >
+        <TableCell>
+          <input
+            type="checkbox"
+            checked={selectedTasks.includes(task.id)}
             onChange={(e) =>
-              setFilterStatus(
-                e.target.value as
-                  | "all"
-                  | "pending"
-                  | "in_progress"
-                  | "completed"
+              setSelectedTasks(
+                e.target.checked
+                  ? [...selectedTasks, task.id]
+                  : selectedTasks.filter((id) => id !== task.id)
               )
             }
-            className="bg-input border-border text-foreground p-2 rounded-lg focus:ring-2 focus:ring-primary"
+            className="mr-2"
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              updateTask.mutate({
+                ...task,
+                status: task.status === "completed" ? "pending" : "completed",
+              })
+            }
           >
-            <option value="all">All</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-          </select>
-        </div>
-      </header>
+            <CheckCircle
+              className={cn(
+                "h-5 w-5",
+                task.status === "completed"
+                  ? "text-success fill-success"
+                  : "text-muted-foreground"
+              )}
+            />
+          </Button>
+        </TableCell>
+        <TableCell
+          className="font-medium cursor-pointer"
+          onClick={() => {
+            setEditingTask(task);
+            setIsTaskModalOpen(true);
+          }}
+        >
+          {task.title}
+        </TableCell>
+        <TableCell className="truncate max-w-[200px]">
+          {task.description || "N/A"}
+        </TableCell>
+        <TableCell>
+          <Badge
+            className={cn(
+              task.priority === "high" &&
+                "bg-destructive text-destructive-foreground",
+              task.priority === "medium" && "bg-accent text-accent-foreground",
+              task.priority === "low" && "bg-muted text-muted-foreground"
+            )}
+          >
+            {task.priority}
+          </Badge>
+        </TableCell>
+        <TableCell>
+          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "N/A"}
+        </TableCell>
+        <TableCell>{task.assignedTo}</TableCell>
+        <TableCell>
+          <div className="flex gap-1 flex-wrap">
+            {task.labels.map((label) => (
+              <Badge key={label} variant="outline">
+                {label}
+              </Badge>
+            ))}
+          </div>
+        </TableCell>
+        <TableCell>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setEditingTask(task);
+              setIsTaskModalOpen(true);
+            }}
+          >
+            <Edit className="h-5 w-5 text-primary" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => deleteTask.mutate(task.id)}
+            disabled={deleteTask.isPending}
+          >
+            <Trash2 className="h-5 w-5 text-destructive" />
+          </Button>
+        </TableCell>
+      </TableRow>
+    );
+  };
 
-      {tasksLoading ? (
-        <div className="flex flex-1 justify-center items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-lg text-muted-foreground">Loading tasks...</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-8">
-          {/* Create New Task */}
-          <Card className="bg-card border border-border rounded-xl shadow-lg">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <Plus className="h-6 w-6 text-primary animate-pulse" />
-              <CardTitle className="text-2xl font-bold text-card-foreground">
-                New Task
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
+  return (
+    <DndProvider backend={HTML5Backend}>
+      <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
+        <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+          <h1 className="text-4xl font-extrabold flex items-center gap-3">
+            <List className="h-9 w-9 text-primary animate-pulse" />
+            Task Manager
+          </h1>
+          <div className="flex gap-4 items-center w-full max-w-2xl">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
-                placeholder="Task Title"
-                value={newTask.title}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, title: e.target.value })
-                }
-                className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
+                placeholder="Search tasks..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-input border-border rounded-lg"
               />
-              <Textarea
-                placeholder="Description"
-                value={newTask.description}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, description: e.target.value })
-                }
-                className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg min-h-[100px]"
-              />
-              <Input
-                type="date"
-                value={newTask.dueDate}
-                onChange={(e) =>
-                  setNewTask({ ...newTask, dueDate: e.target.value })
-                }
-                className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
-              />
-              <Button
-                onClick={() => createTask.mutate()}
-                disabled={createTask.isPending}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-md hover:shadow-xl transition-all duration-300"
-              >
-                {createTask.isPending ? (
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                ) : (
+            </div>
+            <Select
+              value={filterStatus}
+              onValueChange={(val) => setFilterStatus(val as any)}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={filterPriority}
+              onValueChange={(val) => setFilterPriority(val as any)}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priorities</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </header>
+
+        {isLoading ? (
+          <div className="flex flex-1 justify-center items-center gap-4">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            <p className="text-lg text-muted-foreground">Loading tasks...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Task Creation */}
+            <Card className="lg:col-span-1 bg-card border-border shadow-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Plus className="h-6 w-6 text-primary" />
+                  Create Task
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Input
+                  placeholder="Task Title"
+                  value={newTask.title}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, title: e.target.value })
+                  }
+                  className="bg-input border-border"
+                />
+                <Textarea
+                  placeholder="Description"
+                  value={newTask.description}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, description: e.target.value })
+                  }
+                  className="bg-input border-border min-h-[100px]"
+                />
+                <Input
+                  type="date"
+                  value={newTask.dueDate}
+                  onChange={(e) =>
+                    setNewTask({ ...newTask, dueDate: e.target.value })
+                  }
+                  className="bg-input border-border"
+                />
+                <Select
+                  value={newTask.priority}
+                  onValueChange={(val) =>
+                    setNewTask({
+                      ...newTask,
+                      priority: val as "low" | "medium" | "high",
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  placeholder="Add labels (comma-separated)"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === ",") {
+                      e.preventDefault();
+                      const label = e.currentTarget.value.trim();
+                      if (label)
+                        setNewTask({
+                          ...newTask,
+                          labels: [...newTask.labels, label],
+                        });
+                      e.currentTarget.value = "";
+                    }
+                  }}
+                  className="bg-input border-border"
+                />
+                <div className="flex flex-wrap gap-2">
+                  {newTask.labels.map((label) => (
+                    <Badge
+                      key={label}
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
+                      {label}
+                      <X
+                        className="h-3 w-3 cursor-pointer"
+                        onClick={() =>
+                          setNewTask({
+                            ...newTask,
+                            labels: newTask.labels.filter((l) => l !== label),
+                          })
+                        }
+                      />
+                    </Badge>
+                  ))}
+                </div>
+                <Button
+                  onClick={() => createTask.mutate()}
+                  disabled={createTask.isPending || !newTask.title.trim()}
+                  className="w-full bg-primary hover:bg-primary/90"
+                >
                   <Plus className="h-5 w-5 mr-2" />
-                )}
-                Create Task
-              </Button>
-            </CardContent>
-          </Card>
+                  Create Task
+                </Button>
+              </CardContent>
+            </Card>
 
-          {/* Task List */}
-          <Card className="bg-card border border-border rounded-xl shadow-lg">
-            <CardHeader className="flex flex-row items-center gap-3">
-              <Filter className="h-6 w-6 text-primary animate-pulse" />
-              <CardTitle className="text-2xl font-bold text-card-foreground">
-                Tasks
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border hover:bg-muted">
-                    <TableHead className="text-muted-foreground font-medium">
-                      Status
-                    </TableHead>
-                    <TableHead
-                      className="text-muted-foreground font-medium cursor-pointer"
-                      onClick={() => toggleSortOrder("title")}
+            {/* Task List */}
+            <Card className="lg:col-span-2 bg-card border-border shadow-lg">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Filter className="h-6 w-6 text-primary" />
+                  Your Tasks ({filteredTasks?.length || 0})
+                </CardTitle>
+                <div className="flex gap-2">
+                  {selectedTasks.length > 0 && (
+                    <Button
+                      variant="destructive"
+                      onClick={() => bulkDeleteTasks.mutate(selectedTasks)}
+                      disabled={bulkDeleteTasks.isPending}
                     >
-                      Title
-                      {sortBy === "title" && (
-                        <ChevronDown
-                          className={cn(
-                            "h-4 w-4 inline ml-1",
-                            sortOrder === "desc" && "rotate-180"
-                          )}
-                        />
-                      )}
-                    </TableHead>
-                    <TableHead className="text-muted-foreground font-medium">
-                      Description
-                    </TableHead>
-                    <TableHead
-                      className="text-muted-foreground font-medium cursor-pointer"
-                      onClick={() => toggleSortOrder("dueDate")}
-                    >
-                      Due Date
-                      {sortBy === "dueDate" && (
-                        <ChevronDown
-                          className={cn(
-                            "h-4 w-4 inline ml-1",
-                            sortOrder === "desc" && "rotate-180"
-                          )}
-                        />
-                      )}
-                    </TableHead>
-                    <TableHead className="text-muted-foreground font-medium">
-                      Actions
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredTasks && filteredTasks.length > 0 ? (
-                    filteredTasks.map((task) => (
-                      <TableRow
-                        key={task.id}
-                        className="border-border hover:bg-muted transition-colors duration-200"
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Selected ({selectedTasks.length})
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      /* Implement CSV export */
+                    }}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12"></TableHead>
+                      <TableHead
+                        onClick={() => toggleSortOrder("title")}
+                        className="cursor-pointer"
                       >
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleToggleComplete(task)}
+                        Title{" "}
+                        {sortBy === "title" && (
+                          <ChevronDown
                             className={cn(
-                              "text-muted-foreground hover:text-foreground",
-                              task.status === "completed" &&
-                                "text-success hover:text-success/80",
-                              task.status === "in_progress" &&
-                                "text-accent hover:text-accent/80"
+                              "h-4 w-4 inline ml-1",
+                              sortOrder === "desc" && "rotate-180"
                             )}
-                          >
-                            <CheckCircle
-                              className={cn(
-                                "h-5 w-5",
-                                task.status === "completed" && "fill-success",
-                                task.status === "in_progress" && "fill-accent"
-                              )}
-                            />
-                          </Button>
-                        </TableCell>
-                        <TableCell className="text-foreground font-medium">
-                          {editingTask?.id === task.id ? (
-                            <Input
-                              value={editingTask.title}
-                              onChange={(e) =>
-                                setEditingTask({
-                                  ...editingTask,
-                                  title: e.target.value,
-                                })
-                              }
-                              className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
-                            />
-                          ) : (
-                            task.title
-                          )}
-                        </TableCell>
-                        <TableCell className="text-foreground">
-                          {editingTask?.id === task.id ? (
-                            <Textarea
-                              value={editingTask.description}
-                              onChange={(e) =>
-                                setEditingTask({
-                                  ...editingTask,
-                                  description: e.target.value,
-                                })
-                              }
-                              className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg min-h-[80px]"
-                            />
-                          ) : (
-                            task.description || "No description"
-                          )}
-                        </TableCell>
-                        <TableCell className="text-foreground">
-                          {editingTask?.id === task.id ? (
-                            <Input
-                              type="date"
-                              value={editingTask.dueDate || ""}
-                              onChange={(e) =>
-                                setEditingTask({
-                                  ...editingTask,
-                                  dueDate: e.target.value,
-                                })
-                              }
-                              className="bg-input border-border text-foreground focus:ring-2 focus:ring-primary rounded-lg"
-                            />
-                          ) : (
-                            (task.dueDate &&
-                              new Date(task.dueDate).toLocaleDateString()) ||
-                            "N/A"
-                          )}
-                        </TableCell>
-                        <TableCell className="flex gap-2">
-                          {editingTask?.id === task.id ? (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleSave}
-                                disabled={updateTask.isPending}
-                                className="text-primary hover:text-primary-foreground hover:bg-muted rounded-full p-2"
-                              >
-                                <CheckCircle className="h-5 w-5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingTask(null)}
-                                className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-full p-2"
-                              >
-                                <X className="h-5 w-5" />
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(task)}
-                                className="text-primary hover:text-primary-foreground hover:bg-muted rounded-full p-2"
-                              >
-                                <Edit className="h-5 w-5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => deleteTask.mutate(task.id)}
-                                disabled={deleteTask.isPending}
-                                className="text-destructive hover:text-destructive-foreground hover:bg-muted rounded-full p-2"
-                              >
-                                <Trash2 className="h-5 w-5" />
-                              </Button>
-                            </>
-                          )}
+                          />
+                        )}
+                      </TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead
+                        onClick={() => toggleSortOrder("priority")}
+                        className="cursor-pointer"
+                      >
+                        Priority{" "}
+                        {sortBy === "priority" && (
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 inline ml-1",
+                              sortOrder === "desc" && "rotate-180"
+                            )}
+                          />
+                        )}
+                      </TableHead>
+                      <TableHead
+                        onClick={() => toggleSortOrder("dueDate")}
+                        className="cursor-pointer"
+                      >
+                        Due Date{" "}
+                        {sortBy === "dueDate" && (
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 inline ml-1",
+                              sortOrder === "desc" && "rotate-180"
+                            )}
+                          />
+                        )}
+                      </TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Labels</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTasks && filteredTasks.length > 0 ? (
+                      filteredTasks.map((task) => (
+                        <TaskRow key={task.id} task={task} />
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={8}
+                          className="text-center py-6 text-muted-foreground"
+                        >
+                          No tasks found.
+                          <List className="h-10 w-10 mx-auto mt-4 text-primary animate-bounce" />
                         </TableCell>
                       </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={5}
-                        className="text-muted-foreground text-center py-6"
-                      >
-                        No tasks found.
-                        <List className="h-10 w-10 mx-auto mt-4 text-primary animate-bounce" />
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </div>
+                    )}
+                  </TableBody>
+                </Table>
+                <div className="flex justify-between mt-4">
+                  <Button
+                    variant="outline"
+                    disabled={page === 1}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <span>
+                    Page {page} of{" "}
+                    {Math.ceil((tasks?.length || 0) / tasksPerPage)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    disabled={
+                      page >= Math.ceil((tasks?.length || 0) / tasksPerPage)
+                    }
+                    onClick={() => setPage(page + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Task Details Modal */}
+            {editingTask && (
+              <Dialog open={isTaskModalOpen} onOpenChange={setIsTaskModalOpen}>
+                <DialogContent className="sm:max-w-[600px]">
+                  <DialogHeader>
+                    <DialogTitle>Edit Task: {editingTask.title}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <Input
+                      value={editingTask.title}
+                      onChange={(e) =>
+                        setEditingTask({
+                          ...editingTask,
+                          title: e.target.value,
+                        })
+                      }
+                      placeholder="Task Title"
+                    />
+                    <Textarea
+                      value={editingTask.description}
+                      onChange={(e) =>
+                        setEditingTask({
+                          ...editingTask,
+                          description: e.target.value,
+                        })
+                      }
+                      placeholder="Description"
+                      className="min-h-[120px]"
+                    />
+                    <Input
+                      type="date"
+                      value={editingTask.dueDate || ""}
+                      onChange={(e) =>
+                        setEditingTask({
+                          ...editingTask,
+                          dueDate: e.target.value,
+                        })
+                      }
+                    />
+                    <Select
+                      value={editingTask.status}
+                      onValueChange={(val) =>
+                        setEditingTask({ ...editingTask, status: val as any })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={editingTask.priority}
+                      onValueChange={(val) =>
+                        setEditingTask({ ...editingTask, priority: val as any })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Add labels (comma-separated)"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === ",") {
+                          e.preventDefault();
+                          const label = e.currentTarget.value.trim();
+                          if (label && !editingTask.labels.includes(label)) {
+                            setEditingTask({
+                              ...editingTask,
+                              labels: [...editingTask.labels, label],
+                            });
+                          }
+                          e.currentTarget.value = "";
+                        }
+                      }}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      {editingTask.labels.map((label) => (
+                        <Badge
+                          key={label}
+                          variant="secondary"
+                          className="flex items-center gap-1"
+                        >
+                          {label}
+                          <X
+                            className="h-3 w-3 cursor-pointer"
+                            onClick={() =>
+                              setEditingTask({
+                                ...editingTask,
+                                labels: editingTask.labels.filter(
+                                  (l) => l !== label
+                                ),
+                              })
+                            }
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsTaskModalOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => updateTask.mutate(editingTask)}
+                      disabled={updateTask.isPending}
+                    >
+                      Save
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
+        )}
+      </div>
+    </DndProvider>
   );
 };
 

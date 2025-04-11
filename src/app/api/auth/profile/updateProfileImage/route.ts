@@ -1,56 +1,33 @@
-import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server";
 import { validateRequest } from "@/auth";
+import prisma from "@/lib/prisma";
 
-export async function PUT(request: Request) {
-  try {
-    const { user: loggedInUser } = await validateRequest();
-    if (!loggedInUser) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-    }
+export async function PUT(request: NextRequest) {
+  const { user } = await validateRequest();
+  const body = await request.json();
+  const { userId, profilePic } = body;
 
-    const body = await request.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json(
-        { message: "Invalid JSON payload" },
-        { status: 400 }
-      );
-    }
-
-    const { profilePic } = body;
-    console.log(profilePic);
-
-    if (!profilePic || !profilePic.trim()) {
-      return NextResponse.json(
-        { message: "No profile picture provided." },
-        { status: 400 }
-      );
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: loggedInUser.id },
-    });
-    if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
-    }
-
-    await prisma.user.update({
-      where: { id: loggedInUser.id },
-      data: { profilePic: profilePic.trim() },
-    });
-
+  if (!user || user.id !== userId)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!profilePic)
     return NextResponse.json(
-      { message: "Profile picture updated successfully" },
+      { error: "Profile picture is required" },
+      { status: 400 }
+    );
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: { profilePic },
+    });
+    return NextResponse.json(
+      { message: "Profile picture updated successfully", user: updatedUser },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error:", error instanceof Error ? error.message : error);
-
+    console.error("Error updating profile picture:", error);
     return NextResponse.json(
-      {
-        message: "Failed to process request",
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Failed to update profile picture" },
       { status: 500 }
     );
   }
