@@ -16,6 +16,7 @@ import {
   Zap,
   AlertCircle,
   Activity,
+  Loader2,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -221,7 +222,7 @@ const DashboardPage = () => {
       <main className="max-w-7xl mx-auto px-8 py-12 w-full">
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
-            <Server className="h-12 w-12 animate-spin text-primary" />
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="ml-4 text-lg text-muted-foreground">
               Loading your dashboard...
             </p>

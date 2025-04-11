@@ -1,44 +1,62 @@
 "use client";
 
 import { Carousel } from "../ui/Carousel";
+import Intelligence from "../../../public/Home/Intelligent.jpg";
+import Workflow from "../../../public/Home/Workflow.jpg";
+import UI from "../../../public/Home/UI.jpg";
+import Automation from "../../../public/Home/Automation.jpg";
+import Tasks from "../../../public/Home/Tasks.jpg";
+import Privacy from "../../../public/Home/Privacy.jpg";
 
 export function CarouselDemo() {
   const slideData = [
     {
-      title: "AI Automation",
-      button: "Explore Automation",
+      title: "AI-Powered Automation",
+      button: "Discover Automation",
       description:
-        "You can do your office work or school work with automation.",
+        "Streamline your office and educational workflows with intelligent automation tools designed to save time and boost efficiency.",
       href: "/automation-studio",
-      src: "https://images.unsplash.com/photo-1494806812796-244fe51b774d?q=80&w=3534&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      src: Automation,
     },
     {
-      title: "Graph Workflow",
-      button: "Explore Workflow",
-      description: "You can handle you work with simple lines.",
+      title: "Smart Workflow Management",
+      button: "Optimize Workflows",
+      description:
+        "Effortlessly design and manage workflows using intuitive AI-driven prompts, enhancing productivity across teams and projects.",
       href: "/workflows",
-      src: "https://images.unsplash.com/photo-1494806812796-244fe51b774d?q=80&w=3534&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      src: Workflow,
     },
     {
-      title: "AI Assistant",
-      button: "Explore Assistant",
-      description: "Your best assistant is always there for you.",
+      title: "Intelligent AI Assistant",
+      button: "Meet Your Assistant",
+      description:
+        "Your personal AI assistant is always ready to assist, providing real-time insights and task support tailored to your needs.",
       href: "/assistant",
-      src: "https://images.unsplash.com/photo-1518710843675-2540dd79065c?q=80&w=3387&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      src: Intelligence,
     },
     {
-      title: "Hashed Data",
-      button: "Explore Privacy",
-      description: "You all data will be stored in hash too way from hackers.",
-      href: "/",
-      src: "https://images.unsplash.com/photo-1590041794748-2d8eb73a571c?q=80&w=3456&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      title: "Advanced Task Management",
+      button: "Master Your Tasks",
+      description:
+        "Organize and prioritize tasks with precision, leveraging AI to ensure deadlines are met and goals are achieved seamlessly.",
+      href: "/tasks",
+      src: Tasks,
     },
     {
-      title: "Best UI",
-      button: "Explore UI/UX",
-      description: "The UI/UX loved by everyone.",
+      title: "Robust Privacy & Security",
+      button: "Secure Your Data",
+      description:
+        "Protect your data with state-of-the-art encryption and two-factor authentication, ensuring privacy and security at every step.",
+      href: "/settings",
+      src: Privacy,
+    },
+    {
+      title: "Intuitive User Experience",
+      button: "Experience the UI",
+      description:
+        "Enjoy a sleek, user-friendly interface designed for productivity, accessibility, and a seamless experience across devices.",
       href: "/home",
-      src: "https://images.unsplash.com/photo-1679420437432-80cfbf88986c?q=80&w=3540&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+      src: UI,
     },
   ];
   return (

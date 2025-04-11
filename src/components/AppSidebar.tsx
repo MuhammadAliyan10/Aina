@@ -25,8 +25,6 @@ import {
   Users,
   BarChart,
   Zap,
-  Shield,
-  GitBranch,
   BotIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -48,92 +46,73 @@ export function AppSidebar({
     {
       label: "Dashboard",
       href: "/dashboard",
-      icon: (
-        <IconHomeFilled className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
-      ),
+      icon: <IconHomeFilled className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Workflows",
       href: "/workflows",
-      icon: (
-        <Workflow className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
-      ),
+      icon: <Workflow className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Tasks",
       href: "/tasks",
-      icon: <List className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
+      icon: <List className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Team",
       href: "/team",
-      icon: <Users className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
+      icon: <Users className="h-5 w-5 flex-shrink-0" />,
     },
-
     {
       label: "Automation Studio",
       href: "/automation-studio",
-      icon: <Zap className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
+      icon: <Zap className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Calendar",
       href: "/calendar",
-      icon: (
-        <Calendar className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
-      ),
+      icon: <Calendar className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Documents",
       href: "/documents",
-      icon: (
-        <FileText className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
-      ),
+      icon: <FileText className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Integrations",
       href: "/integrations",
-      icon: <Cable className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
+      icon: <Cable className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "AI Assistant",
       href: "/assistant",
-      icon: <Bot className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />,
+      icon: <Bot className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "App Insight",
       href: "/app-insight",
-      icon: (
-        <BarChart className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
-      ),
+      icon: <BarChart className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Billing",
       href: "/billing",
-      icon: (
-        <IconCurrencyDollar className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
-      ),
+      icon: <IconCurrencyDollar className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Support",
       href: "/support",
-      icon: (
-        <IconHelp className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
-      ),
+      icon: <IconHelp className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Settings",
       href: "/settings",
-      icon: (
-        <IconSettings className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
-      ),
+      icon: <IconSettings className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Sign Out",
       href: "#",
       action: logout,
-      icon: (
-        <IconLogout2 className="h-5 w-5 flex-shrink-0 text-sidebar-foreground" />
-      ),
+      icon: <IconLogout2 className="h-5 w-5 flex-shrink-0" />,
     },
   ];
 
@@ -154,17 +133,10 @@ export function AppSidebar({
               {sidebarLinks.map((link, idx) => (
                 <SidebarLink
                   key={idx}
-                  link={{
-                    ...link,
-                    onClick:
-                      link.action ||
-                      (link.href === "#" && link.action
-                        ? link.action
-                        : undefined),
-                  }}
+                  link={link}
                   className={cn(
-                    "flex items-center gap-2 py-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors duration-200 rounded-md",
-                    link.href === "/settings" && "font-semibold" // Optional: highlight active link
+                    "flex items-center gap-2 py-3 rounded-md transition-colors duration-200",
+                    "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   )}
                 />
               ))}
@@ -202,13 +174,12 @@ export const Logo = () => {
       className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal"
     >
       <BotIcon className="h-6 w-6 text-primary" />
-
       <motion.span
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="font-medium whitespace-pre text-sidebar-foreground"
       >
-        quantumTasks
+        Aina
       </motion.span>
     </Link>
   );

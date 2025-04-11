@@ -32,6 +32,7 @@ model User {
   sessions        Session[]
   apiTokens       APIToken[]
   tasks           Task[]
+  activity    Activity[]
   assignments     Assignment[]
   workflows       Workflow[]
   messages        Message[]
@@ -42,6 +43,16 @@ model User {
   billings        Billing[]
   supportTickets   SupportTicket[]
   contactSubmissions ContactSubmission[]
+}
+
+model Activity {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action     String
+  entityType String?
+  entityId   String?
+  timestamp  DateTime @default(now())
 }
 
 // Session Model

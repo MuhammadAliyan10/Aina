@@ -1,3 +1,4 @@
+// src/app/(main)/app-insights/page.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -111,7 +112,7 @@ const AppInsightsPage = () => {
 
   const { data, isLoading } = useQuery<AppInsightsData>({
     queryKey: ["app-insights", user?.id, timeRange],
-    queryFn: () => fetchAppInsights(user?.id),
+    queryFn: () => fetchAppInsights(user?.id, timeRange),
     enabled: !!user?.id,
   });
 
@@ -180,7 +181,7 @@ const AppInsightsPage = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
-                    Active Users (7d)
+                    Active Users ({timeRange})
                   </span>
                   <span className="font-semibold">
                     {data?.userEngagement.activeUsers || 0}

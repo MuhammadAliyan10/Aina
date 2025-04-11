@@ -103,14 +103,18 @@ export const HeroParallax = ({
 
 export const Header = () => {
   return (
-    <div className="max-w-7xl relative mx-auto py-20 md:py-40 px-4 w-full  left-0 top-0">
+    <div className="max-w-7xl relative mx-auto py-20 md:py-40 px-4 w-full left-0 top-0">
       <h1 className="text-2xl md:text-7xl font-bold dark:text-white">
-        The Ultimate <br /> automation AI
+        Meet Aina, <br /> Your Ultimate AI Assistant
       </h1>
+      <p className="uppercase tracking-wide text-sm md:text-base font-semibold text-blue-600 dark:text-blue-400">
+        AI Automation for Students & Professionals
+      </p>
       <p className="max-w-2xl text-base md:text-xl mt-8 dark:text-neutral-200">
-        We do your work with AI Web Automation give you best possible services.
-        Just trust us and enjoy time of your life. Just prompt or align your
-        workflow and relax.
+        Aina automates your daily grind — from task management and calendars to
+        documents, security, and intelligent chat support. Just prompt your
+        workflow, and let Aina handle the rest. It’s time to work smarter, not
+        harder.
       </p>
     </div>
   );

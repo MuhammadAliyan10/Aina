@@ -5,7 +5,7 @@ import { HeroParallax } from "@/components/Global/ConnectParallax";
 import { ContainerScroll } from "@/components/Global/ContainerScrollAnimation";
 import { InfiniteMovingCards } from "@/components/Global/InfiniteMovingCard";
 import { LampComponent } from "@/components/Global/lamp";
-import Navbar from "@/components/Global/Navbar";
+import { NavbarDemo } from "@/components/Global/Navbar";
 import { Button } from "@/components/ui/button";
 import { clients, products } from "@/lib/constants";
 import { CheckIcon } from "lucide-react";
@@ -15,8 +15,8 @@ import Link from "next/link";
 export default function Home() {
   return (
     <div>
-      <Navbar />
-      <section className="flex justify-center items-center h-screen w-full mt-14">
+      <NavbarDemo />
+      <section className="flex justify-center items-center h-screen w-full mt-10">
         <CarouselDemo />
       </section>
 

@@ -12,80 +12,80 @@ export const products = [
   {
     title: "Moonbeam",
     link: "https://gomoonbeam.com",
-    thumbnail: "/Home.png",
+    thumbnail: "/Hero/Dashboard.png",
   },
   {
     title: "Cursor",
     link: "https://cursor.so",
-    thumbnail: "/About.png",
+    thumbnail: "/Hero/Billing.png",
   },
   {
     title: "Rogue",
     link: "https://userogue.com",
-    thumbnail: "/p4.png",
+    thumbnail: "/Hero/Automation.png",
   },
 
   {
     title: "Editorially",
     link: "https://editorially.org",
-    thumbnail: "/FriendsSuggestion.png",
+    thumbnail: "/Hero/Chatbot.png",
   },
   {
     title: "Editrix AI",
     link: "https://editrix.ai",
-    thumbnail: "/SocialLinks.png",
+    thumbnail: "/Hero/Insight.png",
   },
   {
     title: "Pixel Perfect",
     link: "https://app.pixelperfect.quest",
-    thumbnail: "/Home.png",
+    thumbnail: "/Hero/Document.png",
   },
 
   {
     title: "Algochurn",
     link: "https://algochurn.com",
-    thumbnail: "/About.png",
+    thumbnail: "/Hero/Tasks.png",
   },
   {
     title: "Aceternity UI",
     link: "https://ui.aceternity.com",
-    thumbnail: "/p3.png",
+    thumbnail: "/Hero/Team.png",
   },
   {
     title: "Tailwind Master Kit",
     link: "https://tailwindmasterkit.com",
-    thumbnail: "/p1.png",
+    thumbnail: "/Hero/Workflow.png",
   },
   {
     title: "SmartBridge",
     link: "https://smartbridgetech.com",
-    thumbnail: "/FriendsSuggestion.png",
+    thumbnail: "/Hero/Dashboard.png",
   },
   {
     title: "Renderwork Studio",
     link: "https://renderwork.studio",
-    thumbnail: "/SocialLinks.png",
+    thumbnail: "/Hero/Chatbot.png",
   },
 
   {
     title: "Creme Digital",
     link: "https://cremedigital.com",
-    thumbnail: "/p1.png",
+    thumbnail: "/Hero/Tasks.png",
   },
   {
     title: "Golden Bells Academy",
     link: "https://goldenbellsacademy.com",
-    thumbnail: "/FriendsSuggestion.png",
+    thumbnail: "/Hero/Team.png",
   },
   {
     title: "Invoker Labs",
     link: "https://invoker.lol",
-    thumbnail: "/p2.png",
+    thumbnail: "/Hero/Insight.png",
   },
   {
     title: "E Free Invoice",
     link: "https://efreeinvoice.com",
-    thumbnail: "/p1.png",
+    thumbnail: "/Hero/Workflow.png",
   },
 ];
 

@@ -9,10 +9,10 @@ const font = DM_Sans({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | QuantumTask ",
-    default: "QuantumTask",
+    template: "%s | Aina | Automate life ",
+    default: "Aina",
   },
-  description: "The best assistant to ever live.",
+  description: "Automate life, the smart way.",
 };
 
 export default function RootLayout({

@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, Plus, Zap, Search } from "lucide-react";
+import { Loader2, Plus, Zap, Search, Workflow } from "lucide-react";
 import WorkflowCard from "./components/WorkflowCard";
 import {
   fetchUserWorkFlow,
@@ -171,7 +171,7 @@ export default function WorkflowPage() {
       {/* Header */}
       <header className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-6">
         <h1 className="text-4xl font-extrabold flex items-center gap-3 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-          <Zap className="h-9 w-9 text-primary animate-pulse" />
+          <Workflow className="h-9 w-9 text-primary animate-pulse" />
           Workflows
         </h1>
         <div className="flex gap-4 w-full max-w-md">
@@ -277,7 +277,7 @@ export default function WorkflowPage() {
         >
           <DialogContent className="bg-card border border-border rounded-2xl shadow-2xl max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-card-foreground bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              <DialogTitle className="text-2xl font-bold text-card-foreground bg-gradient-to-r from-primary to-primary/70 bg-clip-text">
                 Edit Workflow
               </DialogTitle>
             </DialogHeader>

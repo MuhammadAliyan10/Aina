@@ -1,249 +1,113 @@
+// src/app/api/dashboard/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { validateRequest } from "@/auth";
 import prisma from "@/lib/prisma";
-import { subDays } from "date-fns";
+import { DashboardData } from "../../(main)/dashboard/types"; // Adjust path as needed
+import { validateRequest } from "@/auth";
 
 export async function GET(request: NextRequest) {
   const { user } = await validateRequest();
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
-
-  if (!user || user.id !== userId) {
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const userId = user.id;
+
   try {
-    const now = new Date();
-    const last7Days = subDays(now, 7);
+    // Fetch all required data in parallel
     const [
-      workflowStats,
-      taskStats,
-      completedTasks,
-      recentTasks,
-      aiMessages,
-      integrationStats,
-      documentStats,
-      upcomingEvents,
-      automationStats,
-      billingStats,
-      teamStats,
-      overdueTasks,
-      recentActivity,
+      workflows,
+      tasks,
+      teamMembers,
+      billing,
+      messages,
+      integrations,
+      documents,
+      events,
+      automations,
+      activity,
     ] = await Promise.all([
-      // Workflow Stats
-      prisma.workflow
-        .aggregate({
-          where: { userId: user.id },
-          _count: { id: true },
-        })
-        .then(async (stats) => ({
-          total: stats._count.id,
-          active: await prisma.workflow.count({
-            where: { userId: user.id, status: "ACTIVE" },
-          }),
-        })),
-
-      // Task Stats
-      prisma.task.aggregate({
-        where: { userId: user.id },
-        _count: { id: true },
-      }),
-
-      // Completed Tasks
-      prisma.task.count({
-        where: { userId: user.id, status: "completed" },
-      }),
-
-      // Recent Tasks with Assignee
+      prisma.workflow.findMany({ where: { userId } }),
       prisma.task.findMany({
-        where: { userId: user.id },
-        orderBy: { createdAt: "desc" },
+        where: { userId },
+        orderBy: { updatedAt: "desc" },
         take: 5,
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          dueDate: true,
-          user: { select: { fullName: true } },
-        },
       }),
-
-      // AI Messages
+      prisma.teamMember.findMany({
+        where: { userId },
+        orderBy: { invitedAt: "desc" },
+        take: 5,
+      }),
+      prisma.billing.findFirst({
+        where: { userId },
+        include: { invoices: { take: 1, orderBy: { issuedAt: "desc" } } },
+      }),
       prisma.message.findMany({
-        where: { userId: user.id },
+        where: { userId },
         orderBy: { createdAt: "desc" },
         take: 5,
-        select: { id: true, content: true, sender: true, createdAt: true },
       }),
-
-      // Integration Stats
-      prisma.integration
-        .aggregate({
-          where: { userId: user.id, status: "CONNECTED" },
-          _count: { id: true },
-        })
-        .then(async (stats) => ({
-          connected: stats._count.id,
-          recent: await prisma.integration.findMany({
-            where: { userId: user.id },
-            orderBy: { connectedAt: "desc" },
-            take: 3,
-            select: { name: true, status: true, connectedAt: true },
-          }),
-        })),
-
-      // Document Stats
-      prisma.document
-        .aggregate({
-          where: { userId: user.id },
-          _count: { id: true },
-        })
-        .then(async (stats) => ({
-          total: stats._count.id,
-          recent: await prisma.document.findFirst({
-            where: { userId: user.id },
-            orderBy: { updatedAt: "desc" },
-            select: { title: true, updatedAt: true },
-          }),
-        })),
-
-      // Upcoming Events
+      prisma.integration.findMany({
+        where: { userId },
+        orderBy: { connectedAt: "desc" },
+        take: 5,
+      }),
+      prisma.document.findMany({
+        where: { userId },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
+      }),
       prisma.event.findMany({
-        where: { userId: user.id, start: { gte: now } },
+        where: { userId, start: { gte: new Date() } },
         orderBy: { start: "asc" },
         take: 5,
-        select: {
-          id: true,
-          title: true,
-          start: true,
-          task: { select: { id: true, title: true } },
-        },
+        include: { task: true },
       }),
-
-      // Automation Stats
-      prisma.automation
-        .aggregate({
-          where: { userId: user.id },
-          _count: { id: true },
-        })
-        .then(async (stats) => ({
-          total: stats._count.id,
-          active: await prisma.automation.count({
-            where: { userId: user.id, status: "ACTIVE" },
-          }),
-          recent: await prisma.automation.findFirst({
-            where: { userId: user.id },
-            orderBy: { updatedAt: "desc" },
-            select: { title: true, status: true, updatedAt: true },
-          }),
-        })),
-
-      // Billing Stats
-      prisma.billing.findFirst({
-        where: { userId: user.id },
-        select: {
-          plan: true,
-          billingDate: true,
-          amount: true,
-          invoices: {
-            orderBy: { issuedAt: "desc" },
-            take: 1,
-            select: { id: true, amount: true, status: true, issuedAt: true },
-          },
-        },
+      prisma.automation.findMany({
+        where: { userId },
+        orderBy: { updatedAt: "desc" },
+        take: 1,
       }),
-
-      // Team Stats
-      prisma.teamMember
-        .aggregate({
-          where: { userId: user.id },
-          _count: { id: true },
-        })
-        .then(async (stats) => ({
-          total: stats._count.id,
-          active: await prisma.teamMember.count({
-            where: { userId: user.id, status: "active" },
-          }),
-          recent: await prisma.teamMember.findMany({
-            where: { userId: user.id },
-            orderBy: { invitedAt: "desc" },
-            take: 5,
-            select: { id: true, email: true, role: true, status: true },
-          }),
-        })),
-
-      // Overdue Tasks
-      prisma.task.count({
-        where: {
-          userId: user.id,
-          dueDate: { lt: now },
-          status: { not: "completed" },
-        },
-      }),
-
-      // Recent Activity (from UserActivityLog if available, fallback to tasks/documents)
-      prisma.userActivityLog
-        .findMany({
-          where: { userId: user.id, timestamp: { gte: last7Days } },
-          orderBy: { timestamp: "desc" },
-          take: 5,
-          select: {
-            id: true,
-            action: true,
-            entityType: true,
-            entityId: true,
-            timestamp: true,
-          },
-        })
-        .catch(async () => {
-          // Fallback if UserActivityLog is not populated
-          const tasks = await prisma.task.findMany({
-            where: { userId: user.id, createdAt: { gte: last7Days } },
-            orderBy: { createdAt: "desc" },
-            take: 5,
-            select: {
-              id: true,
-              title: true,
-              createdAt: true,
-            },
-          });
-          return tasks.map((task) => ({
-            id: task.id,
-            action: `Created task: ${task.title}`,
-            entityType: "task",
-            entityId: task.id,
-            timestamp: task.createdAt,
-          }));
-        }),
+      prisma.activity.findMany({
+        where: { userId },
+        orderBy: { timestamp: "desc" },
+        take: 5,
+      }), // Assuming an Activity model
     ]);
 
-    const taskCompletionRate = taskStats._count.id
-      ? (completedTasks / taskStats._count.id) * 100
-      : 0;
-
-    const data = {
+    // Map data to DashboardData structure
+    const dashboardData: DashboardData = {
       overview: {
         workflows: {
-          total: workflowStats.total,
-          active: workflowStats.active,
+          total: workflows.length,
+          active: workflows.filter((w: any) => w.status === "ACTIVE").length,
         },
         tasks: {
-          total: taskStats._count.id,
-          completed: completedTasks,
-          overdue: overdueTasks,
-          completionRate: taskCompletionRate.toFixed(1),
-          recent: recentTasks.map((task) => ({
-            id: task.id,
-            title: task.title,
-            status: task.status,
-            dueDate: task.dueDate?.toISOString(),
-            assignedTo: task.user.fullName,
+          total: tasks.length,
+          completed: tasks.filter((t: any) => t.status === "completed").length,
+          overdue: tasks.filter(
+            (t: any) =>
+              t.dueDate &&
+              new Date(t.dueDate) < new Date() &&
+              t.status !== "completed"
+          ).length,
+          completionRate: (
+            (tasks.filter((t: any) => t.status === "completed").length /
+              tasks.length) *
+              100 || 0
+          ).toFixed(1),
+          recent: tasks.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            status: t.status,
+            dueDate: t.dueDate?.toISOString() || null,
+            assignedTo: t.userId, // Adjust if you have an assigned user field
           })),
         },
         team: {
-          totalMembers: teamStats.total,
-          activeMembers: teamStats.active,
-          recentMembers: teamStats.recent.map((m) => ({
+          totalMembers: teamMembers.length,
+          activeMembers: teamMembers.filter((m: any) => m.status === "active")
+            .length,
+          recentMembers: teamMembers.map((m: any) => ({
             id: m.id,
             email: m.email,
             role: m.role,
@@ -251,75 +115,74 @@ export async function GET(request: NextRequest) {
           })),
         },
         billing: {
-          plan: billingStats?.plan || "Free",
-          nextBillingDate: billingStats?.billingDate?.toISOString() || null,
-          amountDue: billingStats?.amount || 0,
-          recentInvoice: billingStats?.invoices[0]
+          plan: billing?.plan || "Free",
+          nextBillingDate: billing?.billingDate?.toISOString() || null,
+          amountDue: billing?.amount || 0,
+          recentInvoice: billing?.invoices[0]
             ? {
-                id: billingStats.invoices[0].id,
-                amount: billingStats.invoices[0].amount,
-                status: billingStats.invoices[0].status,
-                issuedAt: billingStats.invoices[0].issuedAt.toISOString(),
+                id: billing.invoices[0].id,
+                amount: billing.invoices[0].amount,
+                status: billing.invoices[0].status,
+                issuedAt: billing.invoices[0].issuedAt.toISOString(),
               }
             : null,
         },
       },
       aiAssistant: {
-        recentMessages: aiMessages.map((msg) => ({
-          id: msg.id,
-          content: msg.content,
-          sender: msg.sender,
-          timestamp: msg.createdAt.toISOString(),
+        recentMessages: messages.map((m: any) => ({
+          id: m.id,
+          content: m.content,
+          sender: m.sender,
+          timestamp: m.createdAt.toISOString(),
         })),
       },
       integrations: {
-        connected: integrationStats.connected,
-        recent: integrationStats.recent.map((i) => ({
+        connected: integrations.filter((i: any) => i.status === "CONNECTED")
+          .length,
+        recent: integrations.map((i: any) => ({
           name: i.name,
           status: i.status,
           connectedAt: i.connectedAt.toISOString(),
         })),
       },
       documents: {
-        total: documentStats.total,
-        recent: documentStats.recent
+        total: documents.length,
+        recent: documents[0]
           ? {
-              title: documentStats.recent.title,
-              updatedAt: documentStats.recent.updatedAt.toISOString(),
+              title: documents[0].title,
+              updatedAt: documents[0].updatedAt.toISOString(),
             }
           : null,
       },
       calendar: {
-        upcomingEvents: upcomingEvents.map((event) => ({
-          id: event.id,
-          title: event.title,
-          start: event.start.toISOString(),
-          linkedTask: event.task
-            ? { id: event.task.id, title: event.task.title }
-            : null,
+        upcomingEvents: events.map((e: any) => ({
+          id: e.id,
+          title: e.title,
+          start: e.start.toISOString(),
+          linkedTask: e.task ? { id: e.task.id, title: e.task.title } : null,
         })),
       },
       automations: {
-        total: automationStats.total,
-        active: automationStats.active,
-        recent: automationStats.recent
+        total: automations.length,
+        active: automations.filter((a: any) => a.status === "ACTIVE").length,
+        recent: automations[0]
           ? {
-              title: automationStats.recent.title,
-              status: automationStats.recent.status,
-              updatedAt: automationStats.recent.updatedAt.toISOString(),
+              title: automations[0].title,
+              status: automations[0].status,
+              updatedAt: automations[0].updatedAt.toISOString(),
             }
           : null,
       },
-      activity: recentActivity.map((log) => ({
-        id: log.id,
-        action: log.action,
-        entityType: log.entityType,
-        entityId: log.entityId,
-        timestamp: log.timestamp.toISOString(),
+      activity: activity.map((a: any) => ({
+        id: a.id,
+        action: a.action,
+        entityType: a.entityType,
+        entityId: a.entityId,
+        timestamp: a.timestamp.toISOString(),
       })),
     };
 
-    return NextResponse.json(data, { status: 200 });
+    return NextResponse.json(dashboardData, { status: 200 });
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
     return NextResponse.json(
