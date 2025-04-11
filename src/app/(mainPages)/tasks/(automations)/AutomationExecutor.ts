@@ -13,7 +13,7 @@ const pageMap: Map<string, Page> = new Map();
 
 async function initializeBrowser(): Promise<Browser> {
   if (!browser || !browser.isConnected()) {
-    browser = await chromium.launch({ headless: false }); // Set headless: true for production
+    browser = await chromium.launch({ headless: false });
   }
   return browser;
 }
@@ -662,7 +662,6 @@ export default class AutomationExecutor {
             outputData = { filled: false, reason: "No page found" };
             break;
           }
-          // Use formData instead of formFields
           const formData =
             node.data.config?.formData || effectiveInput?.formData || {};
           if (Object.keys(formData).length === 0) {
@@ -716,6 +715,11 @@ export default class AutomationExecutor {
           }
           const script = node.data.config?.script || "() => 'No script'";
           const jsResult = await pageToUse.evaluate(script);
+          log.info(
+            `JavaScriptCodeNode ${node.id}: Result - ${JSON.stringify(
+              jsResult
+            )}`
+          );
           outputData = { executed: true, result: jsResult };
           break;
 
@@ -732,9 +736,6 @@ export default class AutomationExecutor {
             break;
           }
           const eventSelector = node.data.config?.selectorValue;
-          log.info(
-            `TriggerEventNode ${node.id}: Selector provided - ${eventSelector}`
-          );
           if (!eventSelector || eventSelector.trim() === "") {
             log.warn(
               `TriggerEventNode ${node.id}: No valid selector value provided`
@@ -1047,6 +1048,164 @@ export default class AutomationExecutor {
             break;
           }
           outputData = { break: true };
+          break;
+
+        // User Interaction Nodes
+        case "promptUser":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const promptMessage =
+            node.data.config?.promptMessage || "Please enter a value";
+          if (pageToUse) {
+            // Simulate prompt in browser context
+            const userInput = await pageToUse.evaluate((msg) => {
+              return prompt(msg) || "User cancelled";
+            }, promptMessage);
+            log.info(
+              `PromptUserNode ${node.id}: Prompted user with "${promptMessage}", received: "${userInput}"`
+            );
+            outputData = { input: userInput };
+          } else {
+            // Fallback for non-browser context (e.g., testing)
+            log.warn(
+              `PromptUserNode ${node.id}: No page available, simulating prompt`
+            );
+            outputData = { input: `Simulated input for "${promptMessage}"` };
+          }
+          break;
+
+        case "confirmDialog":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const confirmMessage =
+            node.data.config?.confirmMessage || "Are you sure?";
+          if (pageToUse) {
+            // Simulate confirm dialog in browser context
+            const userResponse = await pageToUse.evaluate((msg) => {
+              return confirm(msg);
+            }, confirmMessage);
+            log.info(
+              `ConfirmDialogNode ${node.id}: Confirmed "${confirmMessage}", response: ${userResponse}`
+            );
+            outputData = { confirmed: userResponse };
+          } else {
+            // Fallback for non-browser context
+            log.warn(
+              `ConfirmDialogNode ${node.id}: No page available, simulating confirm`
+            );
+            outputData = { confirmed: true }; // Default to true for simulation
+          }
+          break;
+
+        case "alertUser":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const alertMessage =
+            node.data.config?.alertMessage ||
+            effectiveInput?.message ||
+            "Alert!";
+          if (pageToUse) {
+            // Simulate alert in browser context
+            await pageToUse.evaluate((msg) => {
+              alert(msg);
+            }, alertMessage);
+            log.info(
+              `AlertUserNode ${node.id}: Displayed alert with "${alertMessage}"`
+            );
+            outputData = { alerted: true, message: alertMessage };
+          } else {
+            // Fallback for non-browser context
+            log.info(
+              `AlertUserNode ${node.id}: No page available, logged alert "${alertMessage}"`
+            );
+            outputData = { alerted: true, message: alertMessage };
+          }
+          break;
+
+        case "userProfile":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const source = node.data.config?.source || "browser";
+          let profileData;
+          if (source === "browser" && pageToUse) {
+            // Simulate fetching profile from browser (e.g., localStorage or navigator)
+            profileData = await pageToUse.evaluate(() => {
+              return {
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                timestamp: new Date().toISOString(),
+              };
+            });
+            log.info(
+              `UserProfileNode ${
+                node.id
+              }: Retrieved profile from browser - ${JSON.stringify(
+                profileData
+              )}`
+            );
+          } else if (source === "system") {
+            // Simulate system-level profile (mock data)
+            profileData = {
+              username: "simulated_user",
+              id: "12345",
+              timestamp: new Date().toISOString(),
+            };
+            log.info(
+              `UserProfileNode ${
+                node.id
+              }: Retrieved profile from system - ${JSON.stringify(profileData)}`
+            );
+          } else {
+            log.warn(
+              `UserProfileNode ${node.id}: No page available for browser source, using mock data`
+            );
+            profileData = {
+              source: "mock",
+              data: "No real profile available",
+            };
+          }
+          outputData = { profile: profileData };
+          break;
+
+        case "sendEmail":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const emailData = {
+            recipient:
+              node.data.config?.recipient || effectiveInput?.recipient || "",
+            subject: node.data.config?.subject || effectiveInput?.subject || "",
+            body: node.data.config?.body || effectiveInput?.body || "",
+          };
+          if (!emailData.recipient || !emailData.subject || !emailData.body) {
+            throw new Error(
+              "Recipient, subject, and body are required for sending email"
+            );
+          }
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailData.recipient)) {
+            throw new Error(`Invalid email address: ${emailData.recipient}`);
+          }
+
+          log.info(
+            `SendEmailNode ${node.id}: Simulated sending email - To: ${emailData.recipient}, Subject: ${emailData.subject}, Body: ${emailData.body}`
+          );
+          outputData = {
+            sent: true,
+            email: {
+              to: emailData.recipient,
+              subject: emailData.subject,
+              body: emailData.body,
+            },
+          };
           break;
 
         default:

@@ -12,6 +12,7 @@ export const fetchUserWorkFlow = async () => {
     }
     const workFlows = await prisma.workflow.findMany({
       where: { userId: user.id },
+      include: { nodes: true },
     });
     if (!workFlows) {
       return {

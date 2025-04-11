@@ -113,12 +113,11 @@ export const MobileSidebar = ({
   ...props
 }: React.ComponentProps<"div">) => {
   const { open, setOpen } = useSidebar();
-
   return (
     <>
       <div
         className={cn(
-          "h-10 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-background w-full sticky top-0 z-20"
+          "h-10 px-4 py-4 flex flex-row md:hidden  items-center justify-between bg-neutral-100 dark:bg-neutral-800 w-full"
         )}
         {...props}
       >
@@ -128,10 +127,8 @@ export const MobileSidebar = ({
             onClick={() => setOpen(!open)}
           />
         </div>
-      </div>
-      <AnimatePresence>
-        {open && (
-          <>
+        <AnimatePresence>
+          {open && (
             <motion.div
               initial={{ x: "-100%", opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
@@ -141,30 +138,21 @@ export const MobileSidebar = ({
                 ease: "easeInOut",
               }}
               className={cn(
-                "fixed overflow-auto h-full w-[75%] max-w-[300px] top-0 left-0 bg-card p-6 z-50 flex flex-col justify-between border-r border-sidebar-border",
+                "fixed h-full w-full inset-0 bg-white dark:bg-neutral-900 p-10 z-[100] flex flex-col justify-between",
                 className
               )}
             >
               <div
-                className="absolute right-4 top-4 z-50 text-neutral-800 dark:text-neutral-200"
-                onClick={() => setOpen(false)}
+                className="absolute right-10 top-10 z-50 text-neutral-800 dark:text-neutral-200"
+                onClick={() => setOpen(!open)}
               >
                 <IconX />
               </div>
               {children}
             </motion.div>
-            {/* Overlay for closing sidebar when clicking outside */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black z-40 md:hidden"
-              onClick={() => setOpen(false)}
-            />
-          </>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
     </>
   );
 };

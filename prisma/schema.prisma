@@ -93,6 +93,7 @@ model Node {
   type          String     // "trigger", "action", "condition"
   positionX     Float
   positionY     Float
+  description   String?
   config        Json       // Configuration details (e.g., trigger conditions, action params)
   workflowId    String
   workflow      Workflow   @relation(fields: [workflowId], references: [id], onDelete: Cascade)

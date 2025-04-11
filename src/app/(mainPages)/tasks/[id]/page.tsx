@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   ReactFlow,
   useEdgesState,
@@ -24,6 +24,7 @@ import {
   Zap,
   Circle,
   Undo2,
+  Redo2,
   Save,
   Play,
   ZoomIn,
@@ -34,7 +35,22 @@ import {
   Minus,
   Plus,
   AlertCircle,
+  X,
+  CheckCircle,
+  AlertTriangle,
+  Check,
+  Download,
+  Upload,
 } from "lucide-react";
+import { debounce } from "lodash";
+import axios from "axios";
+import axiosRetry from "axios-retry";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   GENERAL,
   BROWSER,
@@ -87,9 +103,6 @@ import { WhileLoopNode } from "../Node/Control Flow/WhileLoppNode";
 import { LoopDataNode } from "../Node/Control Flow/LoopDataNode";
 import { LoopElementNode } from "../Node/Control Flow/LoopElementNode";
 import { LoopBreakNode } from "../Node/Control Flow/LoopBreakNode";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ErrorHandlerNode } from "../Node/General/ErrorHandlerNode";
 import { LogEventNode } from "../Node/General/LogEventNode";
 import { SetVariableNode } from "../Node/General/SetVariableNode";
@@ -97,6 +110,10 @@ import { ScheduleTimerNode } from "../Node/General/ScheduleTimmerNode";
 import { BrowserAuthenticationNode } from "../Node/Browser/BrowserAuthenticationNode";
 import { ClearCookiesNode } from "../Node/Browser/ClearCookiesNode";
 import { SetUserAgentNode } from "../Node/Browser/SetUserAgentNode";
+import { CustomScriptNode } from "../Node/Advance/CustomScriptNode";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useParams } from "next/navigation";
 import { useSession } from "@/app/(main)/SessionProvider";
 import {
@@ -104,20 +121,38 @@ import {
   QueryClientProvider,
   useQuery,
 } from "@tanstack/react-query";
+import { DebugBreakpointNode } from "../Node/Advance/DebugBreakpointNode";
+import { ConsoleCommandNode } from "../Node/Advance/ConsoleCommandNode";
+import { SystemMonitorNode } from "../Node/Advance/SystemMonitorNode";
+import { CloudSyncNode } from "../Node/Advance/CloudSyncNode";
+import { DatabaseQueryNode } from "../Node/Data/DatabaseQueryNode";
+import { FileInputNode } from "../Node/Data/FileInputNode";
+import { FileOutputNode } from "../Node/Data/FileOutputNode";
+import { DataTransformNode } from "../Node/Data/DataTransformNode";
+import { DataFilterNode } from "../Node/Data/DataFilterNode";
+import { DataAggregateNode } from "../Node/Data/DataAggregateNode";
+import { PromptUserNode } from "../Node/User Interaction/PromptUserNode";
+import { ConfirmDialogNode } from "../Node/User Interaction/ConfirmDialogNode";
+import { AlertUserNode } from "../Node/User Interaction/AlertUserNode";
+import { SendEmailNode } from "../Node/User Interaction/SendEmailNode";
+import { UserProfileNode } from "../Node/User Interaction/UserProfileNode";
 
 // Define types
 interface NodeData {
   label: string;
+  description?: string;
   output?: any;
   error?: string;
   config?: Record<string, any>;
 }
 
-// Correct CustomNode to extend Node with NodeData
 interface CustomNode extends Node<NodeData> {
+  label: string;
   data: NodeData;
+  description: string;
 }
 
+// Node types mapping
 const nodeTypes = {
   customTriggerNode: TriggerNode,
   customWorkFlow: WorkflowNode,
@@ -169,9 +204,30 @@ const nodeTypes = {
   authentication: BrowserAuthenticationNode,
   clearCookies: ClearCookiesNode,
   setUserAgent: SetUserAgentNode,
+  debug: DebugBreakpointNode,
+  consoleCommand: ConsoleCommandNode,
+  systemMonitor: SystemMonitorNode,
+  cloudSync: CloudSyncNode,
+  customScript: CustomScriptNode,
+  databaseQuery: DatabaseQueryNode,
+  fileInput: FileInputNode,
+  fileOutput: FileOutputNode,
+  dataTransform: DataTransformNode,
+  dataFilter: DataFilterNode,
+  dataAggregate: DataAggregateNode,
+  promptUser: PromptUserNode,
+  confirmDialog: ConfirmDialogNode,
+  alertUser: AlertUserNode,
+  sendEmail: SendEmailNode,
+  userProfile: UserProfileNode,
 };
 
-// Create a QueryClient instance
+// Configure axios with retries
+axiosRetry(axios, {
+  retries: 3,
+  retryDelay: (retryCount) => retryCount * 1000,
+});
+
 const queryClient = new QueryClient();
 
 const PageWithProvider = () => (
@@ -187,19 +243,46 @@ export default PageWithProvider;
 function Page() {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]); // Correct typing
+  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [executionResult, setExecutionResult] = useState<any>(null);
   const [workflowTitle, setWorkflowTitle] = useState("New Workflow");
   const [isDirty, setIsDirty] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [appError, setAppError] = useState<{
+    type: string;
+    message: string;
+  } | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [history, setHistory] = useState<
+    { nodes: CustomNode[]; edges: Edge[] }[]
+  >([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const params = useParams();
   const workflowId = params.id as string;
   const { user } = useSession();
 
+  // Use refs to track state changes without triggering re-renders
+  const nodesRef = useRef(nodes);
+  const edgesRef = useRef(edges);
+  const historyIndexRef = useRef(historyIndex);
+
+  // Update refs when state changes
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  useEffect(() => {
+    edgesRef.current = edges;
+  }, [edges]);
+
+  useEffect(() => {
+    historyIndexRef.current = historyIndex;
+  }, [historyIndex]);
+
+  // UUID generator
   const uuidv4 = (): string => {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
@@ -208,6 +291,86 @@ function Page() {
     });
   };
 
+  // History management - now using refs to avoid infinite update loops
+  const saveHistory = useCallback(
+    debounce(() => {
+      const currentNodes = nodesRef.current;
+      const currentEdges = edgesRef.current;
+      const currentHistoryIndex = historyIndexRef.current;
+
+      const currentState = {
+        nodes: [...currentNodes],
+        edges: [...currentEdges],
+      };
+
+      setHistory((prev) => {
+        const newHistory = [...prev.slice(0, currentHistoryIndex + 1)];
+
+        // Check if we should add new history item
+        const lastState = newHistory[currentHistoryIndex];
+        if (
+          !lastState ||
+          JSON.stringify(lastState.nodes) !==
+            JSON.stringify(currentState.nodes) ||
+          JSON.stringify(lastState.edges) !== JSON.stringify(currentState.edges)
+        ) {
+          newHistory.push({
+            nodes: currentState.nodes.map((node) => ({
+              ...node,
+              data: {
+                ...node.data,
+                label: node.data.label || "Unnamed Node",
+              },
+            })) as CustomNode[],
+            edges: currentState.edges,
+          });
+
+          // Update history index outside the setState call
+          setTimeout(() => {
+            setHistoryIndex(newHistory.length - 1);
+          }, 0);
+        }
+
+        return newHistory;
+      });
+    }, 300),
+    [] // No dependencies to avoid re-creating the debounced function
+  );
+
+  // Initialize history when component first loads
+  useEffect(() => {
+    if (nodes.length > 0 || edges.length > 0) {
+      if (history.length === 0) {
+        saveHistory();
+      }
+    }
+  }, [nodes.length, edges.length, history.length, saveHistory]);
+
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setNodes(
+        history[newIndex].nodes as Node<CustomNode, string | undefined>[]
+      );
+      setEdges(history[newIndex].edges);
+      setIsDirty(true);
+    }
+  }, [history, historyIndex, setNodes, setEdges]);
+
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setNodes(
+        history[newIndex].nodes as Node<CustomNode, string | undefined>[]
+      );
+      setEdges(history[newIndex].edges);
+      setIsDirty(true);
+    }
+  }, [history, historyIndex, setNodes, setEdges]);
+
+  // Drag and drop handlers
   const onDragOver = useCallback((event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -231,12 +394,18 @@ function Page() {
         data: { label: `${type}` },
       };
 
-      setNodes((nds) => [...nds, newNode]); // Type matches now
+      setNodes((nds) => {
+        const updatedNodes = [...nds, newNode];
+        return updatedNodes;
+      });
       setIsDirty(true);
+      // Call saveHistory after the state updates
+      setTimeout(() => saveHistory(), 0);
     },
-    [reactFlowInstance, setNodes]
+    [reactFlowInstance, setNodes, saveHistory]
   );
 
+  // Connection handlers
   const onConnect = useCallback<OnConnect>(
     (connection) => {
       const edge: Edge = {
@@ -246,146 +415,216 @@ function Page() {
         type: "smoothstep",
         markerEnd: { type: MarkerType.Arrow },
       };
-      setEdges((eds) => addEdge(edge, eds));
+      setEdges((eds) => {
+        const updatedEdges = addEdge(edge, eds);
+        return updatedEdges;
+      });
       setIsDirty(true);
+      // Call saveHistory after the state updates
+      setTimeout(() => saveHistory(), 0);
     },
-    [setEdges]
+    [setEdges, saveHistory]
   );
 
   const onEdgeDoubleClick = useCallback(
     (event: React.MouseEvent, edge: Edge) => {
-      setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+      setEdges((eds) => {
+        const updatedEdges = eds.filter((e) => e.id !== edge.id);
+        return updatedEdges;
+      });
       setIsDirty(true);
+      // Call saveHistory after the state updates
+      setTimeout(() => saveHistory(), 0);
     },
-    [setEdges]
+    [setEdges, saveHistory]
   );
 
   const handleNodesChange: OnNodesChange = useCallback(
     (changes) => {
       onNodesChange(changes);
       setIsDirty(true);
+      // Use a timeout to ensure state is updated before calling saveHistory
+      setTimeout(() => saveHistory(), 0);
     },
-    [onNodesChange]
+    [onNodesChange, saveHistory]
   );
 
   const handleEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
       onEdgesChange(changes);
       setIsDirty(true);
+      // Use a timeout to ensure state is updated before calling saveHistory
+      setTimeout(() => saveHistory(), 0);
     },
-    [onEdgesChange]
+    [onEdgesChange, saveHistory]
   );
 
-  const runAutomation = useCallback(async () => {
-    setIsRunning(true);
-    setExecutionResult(null);
-
-    try {
-      const response = await fetch("/api/execute", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ nodes, edges }),
+  // Workflow validation
+  const validateWorkflow = useCallback(() => {
+    if (nodes.length === 0) {
+      setAppError({
+        type: "execution",
+        message: "Add at least one node to run the workflow",
       });
+      return false;
+    }
+    if (edges.length === 0 && nodes.length > 1) {
+      setAppError({
+        type: "execution",
+        message: "Connect your nodes to define the workflow",
+      });
+      return false;
+    }
+    return true;
+  }, [nodes, edges]);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+  // Automation execution
+  const runAutomation = useCallback(
+    debounce(async () => {
+      if (!validateWorkflow()) {
+        setIsRunning(false);
+        return;
       }
+      setIsRunning(true);
+      setExecutionResult(null);
+      setShowDetails(false);
 
-      const result = await response.json();
-      setExecutionResult(result);
-
-      setNodes((nds) =>
-        nds.map((node) => ({
-          ...node,
-          data: {
-            ...node.data,
-            output: result.data?.[node.id],
-            error:
-              result.data?.[node.id]?.error ||
-              (result.error && node.id === "1" ? result.error : undefined),
-          },
-        }))
-      );
-    } catch (error) {
-      setExecutionResult({
-        error: error instanceof Error ? error.message : "Execution failed",
-      });
-    } finally {
-      setIsRunning(false);
-    }
-  }, [nodes, edges, setNodes]);
-
-  const saveWorkflow = useCallback(async () => {
-    if (!user) {
-      setError("Please log in to save workflows");
-      return;
-    }
-
-    if (isSaving) {
-      console.log("Save already in progress, skipping");
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-
-    try {
-      const payload = {
-        workflowId: workflowId || uuidv4(),
-        title: workflowTitle || "Untitled Workflow",
-        description: "Auto-generated workflow",
-        nodes: nodes.map((node) => ({
-          id: node.id,
-          name: node.data.label,
-          type: node.type,
-          positionX: node.position.x,
-          positionY: node.position.y,
-          config: node.data.config || {},
-        })),
-        edges: edges.map((edge) => ({
-          id: edge.id,
-          sourceId: edge.source,
-          targetId: edge.target,
-        })),
-      };
-
-      console.log(
-        "Sending save request with payload:",
-        JSON.stringify(payload)
-      );
-
-      const response = await fetch("/api/workflows/save", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Workflow-Save": "true",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Failed to save workflow: ${response.status} - ${errorText}`
+      try {
+        const response = await axios.post(
+          "/api/execute",
+          { nodes, edges },
+          {
+            headers: { "Content-Type": "application/json" },
+          }
         );
+        const result = response.data;
+        setExecutionResult(result);
+        setNodes((nds) =>
+          nds.map((node) => ({
+            ...node,
+            data: {
+              ...node.data,
+              output: result.data?.[node.id],
+              error:
+                result.data?.[node.id]?.error ||
+                (result.error && node.id === "1" ? result.error : undefined),
+            },
+          }))
+        );
+      } catch (error) {
+        setExecutionResult({
+          error: error instanceof Error ? error.message : "Execution failed",
+        });
+      } finally {
+        setIsRunning(false);
       }
+    }, 300),
+    [nodes, edges, setNodes, validateWorkflow]
+  );
 
-      const result = await response.json();
-      console.log("Workflow saved successfully:", result);
+  // Workflow save
+  const saveWorkflow = useCallback(
+    debounce(async () => {
+      if (!user) {
+        setAppError({
+          type: "save",
+          message: "Please log in to save workflows",
+        });
+        return;
+      }
+      setIsSaving(true);
+      setAppError(null);
+      const previousState = { nodes, edges, workflowTitle };
       setIsDirty(false);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Failed to save workflow"
-      );
-      console.error("Save workflow error:", error);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [nodes, edges, workflowTitle, workflowId, user, isSaving]);
 
-  // Fetch workflow data using Tanstack Query
+      try {
+        const payload = {
+          workflowId: workflowId || uuidv4(),
+          title: workflowTitle || "Untitled Workflow",
+          description: "Auto-generated workflow",
+          nodes: nodes.map((node) => ({
+            id: node.id,
+            name: node.data.label,
+            description: node.data?.description || null,
+            type: node.type,
+            positionX: node.position.x,
+            positionY: node.position.y,
+            config: node.data.config || {},
+          })),
+          edges: edges.map((edge) => ({
+            id: edge.id,
+            sourceId: edge.source,
+            targetId: edge.target,
+          })),
+        };
+
+        const response = await axios.post("/api/workflows/save", payload, {
+          headers: {
+            "Content-Type": "application/json",
+            "X-Workflow-Save": "true",
+          },
+        });
+
+        if (!response.status.toString().startsWith("2")) {
+          throw new Error(`Failed to save workflow: ${response.statusText}`);
+        }
+      } catch (error) {
+        setNodes(previousState.nodes);
+        setEdges(previousState.edges);
+        setWorkflowTitle(previousState.workflowTitle);
+        setIsDirty(true);
+        setAppError({
+          type: "save",
+          message:
+            error instanceof Error ? error.message : "Failed to save workflow",
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    }, 300),
+    [nodes, edges, workflowTitle, workflowId, user]
+  );
+
+  // Export/Import workflows
+  const exportWorkflow = useCallback(() => {
+    const data = JSON.stringify({ nodes, edges, workflowTitle });
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${workflowTitle}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [nodes, edges, workflowTitle]);
+
+  const importWorkflow = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = JSON.parse(e.target?.result as string);
+            setNodes(data.nodes);
+            setEdges(data.edges);
+            setWorkflowTitle(data.workflowTitle);
+            setIsDirty(true);
+            // Call saveHistory after states are updated
+            setTimeout(() => saveHistory(), 0);
+          } catch (error) {
+            setAppError({
+              type: "import",
+              message: "Invalid workflow file format",
+            });
+          }
+        };
+        reader.readAsText(file);
+      }
+    },
+    [setNodes, setEdges, saveHistory]
+  );
+
+  // Fetch workflow data
   const {
     data: workflowData,
     error: fetchError,
@@ -393,12 +632,10 @@ function Page() {
   } = useQuery({
     queryKey: ["workflow", workflowId],
     queryFn: async () => {
-      const response = await fetch(`/api/workflows/${workflowId}`, {
-        method: "GET",
+      const response = await axios.get(`/api/workflows/${workflowId}`, {
         headers: { "Content-Type": "application/json" },
       });
-      if (!response.ok) throw new Error("Failed to load workflow");
-      return response.json();
+      return response.data;
     },
     enabled: !!workflowId && !!user,
   });
@@ -406,41 +643,52 @@ function Page() {
   useEffect(() => {
     if (workflowData && !isLoading) {
       const { workflow } = workflowData;
-      setNodes(
-        (workflow.nodes || []).map((node: any) => ({
-          id: node.id,
-          type: node.type,
-          position: { x: node.positionX ?? 0, y: node.positionY ?? 0 },
-          data: {
-            label: node.name || "Unnamed Node",
-            config: node.config || {},
-          },
-        }))
-      );
-      setEdges(
-        (workflow.edges || []).map((edge: any) => ({
-          id: edge.id,
-          source: edge.sourceId,
-          target: edge.targetId,
-          type: "smoothstep",
-          markerEnd: { type: MarkerType.Arrow },
-        }))
-      );
+
+      // Set nodes and edges in a way that won't trigger the history save
+      const workflowNodes = (workflow.nodes || []).map((node: any) => ({
+        id: node.id,
+        type: node.type,
+        position: { x: node.positionX ?? 0, y: node.positionY ?? 0 },
+        data: {
+          label: node.name || "Unnamed Node",
+          config: node.config || {},
+        },
+      }));
+
+      const workflowEdges = (workflow.edges || []).map((edge: any) => ({
+        id: edge.id,
+        source: edge.sourceId,
+        target: edge.targetId,
+        type: "smoothstep",
+        markerEnd: { type: MarkerType.Arrow },
+      }));
+
+      setNodes(workflowNodes);
+      setEdges(workflowEdges);
       setWorkflowTitle(workflow.title || "New Workflow");
       setIsDirty(false);
+
+      // Add initial state to history after a delay to ensure states are updated
+      setTimeout(() => {
+        setHistory([{ nodes: workflowNodes, edges: workflowEdges }]);
+        setHistoryIndex(0);
+      }, 100);
     }
   }, [workflowData, isLoading, setNodes, setEdges]);
 
   useEffect(() => {
     if (fetchError) {
-      setError(
-        fetchError instanceof Error
-          ? fetchError.message
-          : "Failed to load workflow"
-      );
+      setAppError({
+        type: "fetch",
+        message:
+          fetchError instanceof Error
+            ? fetchError.message
+            : "Failed to load workflow",
+      });
     }
   }, [fetchError]);
 
+  // MiniMap node color
   const nodeColor = (node: CustomNode): string => {
     switch (node.type) {
       case "customTriggerNode":
@@ -456,40 +704,102 @@ function Page() {
     <div className="h-screen w-full bg-card text-white flex">
       <NodesPanel />
       <div className="flex-1 flex flex-col relative">
+        {/* Top Bar */}
         <div className="absolute top-4 right-4 flex gap-2 z-10">
-          <div className="relative">
-            <Button
-              variant="outline"
-              className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-lg transition-all duration-300 hover:text-primary-foreground"
-              onClick={saveWorkflow}
-              disabled={isSaving || !user}
-            >
-              {isSaving ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4 mr-2" />
-              )}
-              Save
-              {isDirty && !isSaving && (
-                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
-              )}
-            </Button>
-          </div>
-          <Button
-            variant="ghost"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-lg shadow-lg transition-all duration-300 hover:text-primary-foreground"
-            onClick={runAutomation}
-            disabled={isRunning}
-          >
-            {isRunning ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Play className="w-4 h-4 mr-2" />
-            )}
-            {isRunning ? "Running..." : "Run Automation"}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={undo}
+                  disabled={historyIndex <= 0}
+                >
+                  <Undo2 className="w-4 h-4 mr-2" /> Undo
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Undo last change</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  onClick={redo}
+                  disabled={historyIndex >= history.length - 1}
+                >
+                  <Redo2 className="w-4 h-4 mr-2" /> Redo
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Redo last change</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    onClick={saveWorkflow}
+                    disabled={isSaving || !user}
+                  >
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4 mr-2" />
+                    )}
+                    Save
+                    {isDirty && !isSaving && (
+                      <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full" />
+                    )}
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>Save workflow</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" onClick={exportWorkflow}>
+                  <Download className="w-4 h-4 mr-2" /> Export
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Export workflow as JSON</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <label className="cursor-pointer">
+                  <Button variant="outline" asChild>
+                    <span>
+                      <Upload className="w-4 h-4 mr-2" /> Import
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={importWorkflow}
+                        className="hidden"
+                      />
+                    </span>
+                  </Button>
+                </label>
+              </TooltipTrigger>
+              <TooltipContent>Import workflow from JSON</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  onClick={runAutomation}
+                  disabled={isRunning}
+                >
+                  {isRunning ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="w-4 h-4 mr-2" />
+                  )}
+                  {isRunning ? "Running..." : "Run Automation"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Run the workflow</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
+        {/* Workflow Title */}
         <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
           <Input
             value={workflowTitle}
@@ -502,6 +812,7 @@ function Page() {
           />
         </div>
 
+        {/* React Flow Canvas */}
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -516,36 +827,58 @@ function Page() {
           nodeTypes={nodeTypes}
         >
           <Background />
-          <div className="absolute bottom-4 left-4 flex z-10 gap-3 p-3 rounded-lg shadow-lg">
-            <Button
-              variant="ghost"
-              className="text-white border-white bg-primary"
-              onClick={() => zoomIn()}
-            >
-              <ZoomIn size={20} />
-            </Button>
-            <Button
-              variant="ghost"
-              className="text-white border-white bg-primary"
-              onClick={() => zoomOut()}
-            >
-              <ZoomOut size={20} />
-            </Button>
-            <Button
-              variant="ghost"
-              className="text-white border-white bg-primary"
-              onClick={() => fitView()}
-            >
-              <RefreshCw size={20} />
-            </Button>
-            <Button
-              variant="ghost"
-              className="text-white border-white bg-primary"
-              onClick={() => fitView({ duration: 800 })}
-            >
-              <Crosshair size={20} />
-            </Button>
-          </div>
+          <TooltipProvider>
+            <div className="absolute bottom-4 left-4 flex z-10 gap-3 p-3 rounded-lg shadow-lg">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="text-white border-white bg-primary"
+                    onClick={() => zoomIn()}
+                  >
+                    <ZoomIn size={20} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Zoom In</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="text-white border-white bg-primary"
+                    onClick={() => zoomOut()}
+                  >
+                    <ZoomOut size={20} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Zoom Out</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="text-white border-white bg-primary"
+                    onClick={() => fitView()}
+                  >
+                    <RefreshCw size={20} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Reset View</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="text-white border-white bg-primary"
+                    onClick={() => fitView({ duration: 800 })}
+                  >
+                    <Crosshair size={20} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Center View</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
           <MiniMap
             nodeStrokeWidth={3}
             nodeColor={nodeColor}
@@ -553,31 +886,101 @@ function Page() {
             style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
           />
           {executionResult && (
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-1/2 bg-gray-800 p-4 rounded-lg shadow-lg z-20">
-              <h3 className="text-lg font-semibold mb-2">Execution Result</h3>
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-3/4 max-w-md bg-gray-800 p-6 rounded-lg shadow-lg z-20 border border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">
+                  Automation Result
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExecutionResult(null)}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X size={16} />
+                </Button>
+              </div>
               {executionResult.error ? (
-                <div className="text-red-400">
-                  Error: {executionResult.error}
+                <div className="flex items-start gap-3">
+                  <AlertCircle
+                    size={24}
+                    className="text-red-400 flex-shrink-0"
+                  />
+                  <div>
+                    <p className="text-red-400 font-medium">
+                      Something Went Wrong
+                    </p>
+                    <p className="text-sm text-gray-300 mt-1">
+                      {executionResult.error === "Execution failed"
+                        ? "We couldn’t complete the task. Please check your setup and try again."
+                        : executionResult.error}
+                    </p>
+                  </div>
                 </div>
               ) : (
-                <pre className="text-sm overflow-auto max-h-40">
-                  {JSON.stringify(executionResult, null, 2)}
-                </pre>
+                <div className="flex items-start gap-3">
+                  <CheckCircle
+                    size={24}
+                    className="text-green-400 flex-shrink-0"
+                  />
+                  <div>
+                    <p className="text-green-400 font-medium">Success!</p>
+                    <p className="text-sm text-gray-300 mt-1">
+                      The automation ran successfully. Here’s what happened:
+                    </p>
+                    <ul className="mt-2 space-y-2 text-sm text-gray-200">
+                      {Object.entries(executionResult.data || {}).map(
+                        ([nodeId, result]: [string, any]) => (
+                          <li key={nodeId} className="flex items-center gap-2">
+                            {result.error ? (
+                              <AlertTriangle
+                                size={16}
+                                className="text-yellow-400"
+                              />
+                            ) : (
+                              <Check size={16} className="text-green-400" />
+                            )}
+                            <span>
+                              {nodes.find((n) => n.id === nodeId)?.data
+                                .description || `Node ${nodeId}`}
+                              :{" "}
+                              {result.error
+                                ? `Failed - ${result.error}`
+                                : result.skipped
+                                ? "Skipped"
+                                : "Completed"}
+                            </span>
+                          </li>
+                        )
+                      )}
+                    </ul>
+                  </div>
+                </div>
               )}
-              <Button
-                variant="ghost"
-                className="mt-2"
-                onClick={() => setExecutionResult(null)}
-              >
-                Close
-              </Button>
+              {!executionResult.error && (
+                <div className="mt-4">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowDetails((prev) => !prev)}
+                    className="text-blue-400 hover:text-blue-300 p-0"
+                  >
+                    {showDetails ? "Hide Details" : "Show Details"}
+                  </Button>
+                  {showDetails && (
+                    <pre className="mt-2 text-xs text-gray-400 bg-gray-900 p-2 rounded-md overflow-auto max-h-40">
+                      {JSON.stringify(executionResult, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              )}
             </div>
           )}
-          {error && (
+          {appError && (
             <div className="absolute top-16 left-1/2 transform -translate-x-1/2 bg-red-800 p-4 rounded-lg shadow-lg z-20 flex items-center gap-2">
               <AlertCircle size={20} />
-              <span>{error}</span>
-              <Button variant="ghost" onClick={() => setError(null)}>
+              <span>{appError.message}</span>
+              <Button variant="ghost" onClick={() => setAppError(null)}>
                 Close
               </Button>
             </div>
@@ -594,7 +997,7 @@ function Page() {
   );
 }
 
-// NodesPanel, PanelSection, and DraggableNode remain unchanged
+// NodesPanel, PanelSection, and DraggableNode
 const NodesPanel = () => {
   const [searchKeyWords, setSearchKeyWords] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -615,7 +1018,7 @@ const NodesPanel = () => {
     <div className="w-80 h-screen overflow-auto bg-background p-4 border-r border-border flex flex-col gap-6 shadow-lg">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
-          <Zap size={20} className=" text-primary animate-pulse" />
+          <Zap size={20} className="text-primary animate-pulse" />
           <h2 className="text-lg font-semibold text-foreground tracking-wide">
             Workflow Components
           </h2>
