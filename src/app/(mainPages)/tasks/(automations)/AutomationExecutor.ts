@@ -13,7 +13,7 @@ const pageMap: Map<string, Page> = new Map();
 
 async function initializeBrowser(): Promise<Browser> {
   if (!browser || !browser.isConnected()) {
-    browser = await chromium.launch({ headless: false });
+    browser = await chromium.launch({ headless: true });
   }
   return browser;
 }
