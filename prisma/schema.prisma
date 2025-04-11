@@ -21,6 +21,11 @@ model User {
   lastLogin       DateTime?
   plan         String    @default("Free") // "Free", "Premium", "Enterprise"
   socialLinks  Json?
+  twoFAEnabled  Boolean   @default(false)
+  phoneNumber   String?
+  sessionTimeout Int      @default(30)
+  theme         String    @default("dark")
+  fontSize      String    @default("16")
   activityLogs    UserActivityLog[]
   analyticsEvents AnalyticsEvent[]
   automations     Automation[]

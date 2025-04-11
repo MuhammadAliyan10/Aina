@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
-import { Zap, Save, CircleAlert, Loader2, CameraIcon } from "lucide-react";
+
+import { useState, useEffect } from "react";
+import { Zap, Save, CircleAlert, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch"; // Ensure you have this component
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useSession } from "@/app/(main)/SessionProvider";
 import { useToast } from "@/hooks/use-toast";
@@ -13,14 +14,28 @@ import { motion } from "framer-motion";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 
+interface SettingsForm {
+  fullName: string;
+  bio: string;
+  instagram: string;
+  twitter: string;
+  website: string;
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+  twoFAEnabled: boolean;
+  phoneNumber: string;
+  sessionTimeout: string;
+  theme: "light" | "dark" | "system";
+  fontSize: string;
+}
+
 const SettingsPage = () => {
   const { user } = useSession();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("account");
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Account Settings
+  const [activeTab, setActiveTab] = useState<
+    "account" | "security" | "appearance"
+  >("account");
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [coverPic, setCoverPic] = useState<File | null>(null);
 
@@ -29,80 +44,67 @@ const SettingsPage = () => {
     handleSubmit,
     formState: { errors, isDirty },
     reset,
-  } = useForm({
+  } = useForm<SettingsForm>({
     defaultValues: {
       fullName: user?.fullName || "",
       bio: user?.bio || "",
-      instagram: "",
-      twitter: "",
-      website: "",
+      instagram: user?.socialLinks?.instagram || "",
+      twitter: user?.socialLinks?.twitter || "",
+      website: user?.socialLinks?.website || "",
       currentPassword: "",
       newPassword: "",
       confirmPassword: "",
-      twoFAEnabled: false,
-      phoneNumber: "",
-      sessionTimeout: "30",
-      autoLock: false,
-      theme: "dark",
-      fontSize: "16",
+      twoFAEnabled: user?.twoFAEnabled || false,
+      phoneNumber: user?.phoneNumber || "",
+      sessionTimeout: user?.sessionTimeout || "30",
+      theme: (user?.theme as "light" | "dark" | "system") || "dark",
+      fontSize: user?.fontSize || "16",
     },
   });
 
-  const tabs = [
-    "account",
-    "security",
-    "appearance",
-    "notifications",
-    "integrations",
-  ];
+  useEffect(() => {
+    reset({
+      fullName: user?.fullName || "",
+      bio: user?.bio || "",
+      instagram: user?.socialLinks?.instagram || "",
+      twitter: user?.socialLinks?.twitter || "",
+      website: user?.socialLinks?.website || "",
+      twoFAEnabled: user?.twoFAEnabled || false,
+      phoneNumber: user?.phoneNumber || "",
+      sessionTimeout: user?.sessionTimeout || "30",
+      theme: (user?.theme as "light" | "dark" | "system") || "dark",
+      fontSize: user?.fontSize || "16",
+    });
+  }, [user, reset]);
 
-  const onSubmit = async (data: any) => {
-    setIsSaving(true);
-    setError(null);
+  const tabs = ["account", "security", "appearance"];
 
+  const onSubmit = async (data: SettingsForm) => {
     try {
       const formData = new FormData();
+      formData.append("userId", user?.id || "");
       formData.append("fullName", data.fullName);
-      formData.append("bio", data.bio);
-      formData.append("instagram", data.instagram);
-      formData.append("twitter", data.twitter);
-      formData.append("website", data.website);
-      formData.append("theme", data.theme);
-      formData.append("fontSize", data.fontSize);
+      formData.append("bio", data.bio || "");
+      formData.append("instagram", data.instagram || "");
+      formData.append("twitter", data.twitter || "");
+      formData.append("website", data.website || "");
       formData.append("twoFAEnabled", String(data.twoFAEnabled));
       formData.append("phoneNumber", data.twoFAEnabled ? data.phoneNumber : "");
       formData.append("sessionTimeout", data.sessionTimeout);
-      formData.append("autoLock", String(data.autoLock));
+      formData.append("theme", data.theme);
+      formData.append("fontSize", data.fontSize);
 
       if (data.currentPassword && data.newPassword) {
-        if (data.newPassword !== data.confirmPassword) {
-          throw new Error("New password and confirmation do not match.");
-        }
+        if (data.newPassword !== data.confirmPassword)
+          throw new Error("Passwords do not match.");
+        if (data.newPassword.length < 8)
+          throw new Error("New password must be at least 8 characters.");
         formData.append("currentPassword", data.currentPassword);
         formData.append("newPassword", data.newPassword);
       }
 
-      if (profilePic) {
-        const toBase64 = (file: File): Promise<string> =>
-          new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-        formData.append("profilePic", await toBase64(profilePic));
-      }
-
-      if (coverPic) {
-        const toBase64 = (file: File): Promise<string> =>
-          new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          });
-        formData.append("coverPic", await toBase64(coverPic));
-      }
+      if (profilePic) formData.append("profilePic", profilePic);
+      if (coverPic) formData.append("coverPic", coverPic);
 
       const response = await axios.post("/api/settings", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -111,23 +113,20 @@ const SettingsPage = () => {
       if (response.status === 200) {
         toast({
           title: "Settings Saved",
-          description: "Your settings have been updated successfully.",
-          variant: "default",
+          description: "Your settings have been updated.",
         });
-        reset(data); // Reset form state to new values
-      } else {
-        throw new Error(response.data.message || "Failed to save settings.");
+        reset(data);
+        if (data.theme !== user?.theme || data.fontSize !== user?.fontSize) {
+          window.location.reload();
+        }
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save settings");
+    } catch (error) {
       toast({
         title: "Error",
         description:
-          err instanceof Error ? err.message : "Failed to save settings",
+          error instanceof Error ? error.message : "Failed to save settings.",
         variant: "destructive",
       });
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -138,17 +137,14 @@ const SettingsPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const validTypes = ["image/png", "image/jpg", "image/jpeg"];
-    if (!validTypes.includes(file.type)) {
+    if (!["image/png", "image/jpg", "image/jpeg"].includes(file.type)) {
       toast({
         description: "Please select a PNG, JPG, or JPEG file.",
         variant: "destructive",
       });
       return;
     }
-
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > 5 * 1024 * 1024) {
       toast({
         description: "File size exceeds 5MB limit.",
         variant: "destructive",
@@ -161,15 +157,17 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background text-foreground">
       {/* Navbar */}
-      <nav className="bg-card border-b border-border shadow-sm">
+      <nav className="bg-card border-b border-border shadow-lg sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Zap className="w-6 h-6 text-primary" />
-            <h1 className="text-xl font-semibold text-foreground">Settings</h1>
+            <Zap className="w-6 h-6 text-indigo-400 animate-pulse" />
+            <h1 className="text-xl font-semibold bg-gradient-to-r from-indigo-400 to-blue-500 text-transparent bg-clip-text">
+              Settings
+            </h1>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-2">
             {tabs.map((tab) => (
               <Button
                 key={tab}
@@ -177,12 +175,14 @@ const SettingsPage = () => {
                 className={cn(
                   "capitalize",
                   activeTab === tab
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-gradient-to-r from-indigo-400 to-blue-500 text-white"
                     : "text-foreground hover:bg-muted"
                 )}
-                onClick={() => setActiveTab(tab)}
+                onClick={() =>
+                  setActiveTab(tab as "account" | "security" | "appearance")
+                }
               >
-                {tab.replace("-", " ")}
+                {tab}
               </Button>
             ))}
           </div>
@@ -194,12 +194,12 @@ const SettingsPage = () => {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           {activeTab === "account" && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-card rounded-lg shadow-lg border border-border p-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-br from-card to-muted/20 rounded-2xl shadow-lg border border-border p-6"
             >
-              <h2 className="text-2xl font-bold text-foreground mb-6">
-                Account
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-blue-500 text-transparent bg-clip-text mb-6">
+                Account Settings
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Controller
@@ -211,8 +211,8 @@ const SettingsPage = () => {
                       <Label className="text-foreground">Full Name</Label>
                       <Input
                         {...field}
-                        placeholder="Enter your full name"
-                        className="bg-input border-border text-foreground placeholder-muted-foreground"
+                        placeholder="Your full name"
+                        className="bg-input border-border text-foreground shadow-inner"
                       />
                       {errors.fullName && (
                         <p className="text-destructive text-sm mt-1">
@@ -230,43 +230,41 @@ const SettingsPage = () => {
                       <Label className="text-foreground">Bio</Label>
                       <Input
                         {...field}
-                        placeholder="Tell us about yourself"
-                        className="bg-input border-border text-foreground placeholder-muted-foreground"
+                        placeholder="About you"
+                        className="bg-input border-border text-foreground shadow-inner"
                       />
                     </div>
                   )}
                 />
                 <div>
                   <Label className="text-foreground">Profile Picture</Label>
-                  <div className="relative">
+                  <label className="flex items-center gap-2 bg-input border border-border rounded-lg p-2 cursor-pointer hover:bg-muted transition">
+                    <Camera className="w-5 h-5 text-indigo-400" />
+                    <span className="text-foreground">
+                      {profilePic ? profilePic.name : "Choose file"}
+                    </span>
                     <Input
                       type="file"
                       accept="image/png, image/jpeg, image/jpg"
                       onChange={(e) => handleImageChange(e, "profile")}
-                      className="bg-input border-border text-foreground"
+                      className="hidden"
                     />
-                    {profilePic && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {profilePic.name}
-                      </p>
-                    )}
-                  </div>
+                  </label>
                 </div>
                 <div>
                   <Label className="text-foreground">Cover Photo</Label>
-                  <div className="relative">
+                  <label className="flex items-center gap-2 bg-input border border-border rounded-lg p-2 cursor-pointer hover:bg-muted transition">
+                    <Camera className="w-5 h-5 text-indigo-400" />
+                    <span className="text-foreground">
+                      {coverPic ? coverPic.name : "Choose file"}
+                    </span>
                     <Input
                       type="file"
                       accept="image/png, image/jpeg, image/jpg"
                       onChange={(e) => handleImageChange(e, "cover")}
-                      className="bg-input border-border text-foreground"
+                      className="hidden"
                     />
-                    {coverPic && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {coverPic.name}
-                      </p>
-                    )}
-                  </div>
+                  </label>
                 </div>
                 <Controller
                   name="instagram"
@@ -276,8 +274,8 @@ const SettingsPage = () => {
                       <Label className="text-foreground">Instagram</Label>
                       <Input
                         {...field}
-                        placeholder="https://instagram.com/username"
-                        className="bg-input border-border text-foreground placeholder-muted-foreground"
+                        placeholder="Instagram handle"
+                        className="bg-input border-border text-foreground shadow-inner"
                       />
                     </div>
                   )}
@@ -290,8 +288,8 @@ const SettingsPage = () => {
                       <Label className="text-foreground">Twitter</Label>
                       <Input
                         {...field}
-                        placeholder="https://twitter.com/username"
-                        className="bg-input border-border text-foreground placeholder-muted-foreground"
+                        placeholder="Twitter handle"
+                        className="bg-input border-border text-foreground shadow-inner"
                       />
                     </div>
                   )}
@@ -304,8 +302,8 @@ const SettingsPage = () => {
                       <Label className="text-foreground">Website</Label>
                       <Input
                         {...field}
-                        placeholder="https://yourwebsite.com"
-                        className="bg-input border-border text-foreground placeholder-muted-foreground"
+                        placeholder="Your website"
+                        className="bg-input border-border text-foreground shadow-inner"
                       />
                     </div>
                   )}
@@ -316,12 +314,12 @@ const SettingsPage = () => {
 
           {activeTab === "security" && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-card rounded-lg shadow-lg border border-border p-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-br from-card to-muted/20 rounded-2xl shadow-lg border border-border p-6"
             >
-              <h2 className="text-2xl font-bold text-foreground mb-6">
-                Security
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-blue-500 text-transparent bg-clip-text mb-6">
+                Security Settings
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Controller
@@ -335,8 +333,8 @@ const SettingsPage = () => {
                       <Input
                         {...field}
                         type="password"
-                        placeholder="Enter current password"
-                        className="bg-input border-border text-foreground placeholder-muted-foreground"
+                        placeholder="Current password"
+                        className="bg-input border-border text-foreground shadow-inner"
                       />
                     </div>
                   )}
@@ -344,20 +342,14 @@ const SettingsPage = () => {
                 <Controller
                   name="newPassword"
                   control={control}
-                  rules={{
-                    minLength: {
-                      value: 8,
-                      message: "Password must be at least 8 characters",
-                    },
-                  }}
                   render={({ field }) => (
                     <div>
                       <Label className="text-foreground">New Password</Label>
                       <Input
                         {...field}
                         type="password"
-                        placeholder="Enter new password"
-                        className="bg-input border-border text-foreground placeholder-muted-foreground"
+                        placeholder="New password"
+                        className="bg-input border-border text-foreground shadow-inner"
                       />
                       {errors.newPassword && (
                         <p className="text-destructive text-sm mt-1">
@@ -378,8 +370,8 @@ const SettingsPage = () => {
                       <Input
                         {...field}
                         type="password"
-                        placeholder="Confirm new password"
-                        className="bg-input border-border text-foreground placeholder-muted-foreground"
+                        placeholder="Confirm password"
+                        className="bg-input border-border text-foreground shadow-inner"
                       />
                     </div>
                   )}
@@ -392,10 +384,10 @@ const SettingsPage = () => {
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
-                        className="data-[state=checked]:bg-primary"
+                        className="data-[state=checked]:bg-indigo-400"
                       />
                       <Label className="text-foreground">
-                        Enable Two-Factor Authentication
+                        Two-Factor Authentication
                       </Label>
                     </div>
                   )}
@@ -412,7 +404,7 @@ const SettingsPage = () => {
                           {...field}
                           type="tel"
                           placeholder="+1234567890"
-                          className="bg-input border-border text-foreground placeholder-muted-foreground"
+                          className="bg-input border-border text-foreground shadow-inner"
                         />
                         {errors.phoneNumber && (
                           <p className="text-destructive text-sm mt-1">
@@ -434,24 +426,10 @@ const SettingsPage = () => {
                       <Input
                         {...field}
                         type="number"
-                        className="bg-input border-border text-foreground placeholder-muted-foreground"
+                        min="5"
+                        max="120"
+                        className="bg-input border-border text-foreground shadow-inner"
                       />
-                    </div>
-                  )}
-                />
-                <Controller
-                  name="autoLock"
-                  control={control}
-                  render={({ field }) => (
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        className="data-[state=checked]:bg-primary"
-                      />
-                      <Label className="text-foreground">
-                        Auto-Lock After Inactivity
-                      </Label>
                     </div>
                   )}
                 />
@@ -461,12 +439,12 @@ const SettingsPage = () => {
 
           {activeTab === "appearance" && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-card rounded-lg shadow-lg border border-border p-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-gradient-to-br from-card to-muted/20 rounded-2xl shadow-lg border border-border p-6"
             >
-              <h2 className="text-2xl font-bold text-foreground mb-6">
-                Appearance
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-blue-500 text-transparent bg-clip-text mb-6">
+                Appearance Settings
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Controller
@@ -477,7 +455,7 @@ const SettingsPage = () => {
                       <Label className="text-foreground">Theme</Label>
                       <select
                         {...field}
-                        className="w-full p-2 mt-1 bg-input border border-border rounded text-foreground"
+                        className="w-full p-2 mt-1 bg-input border border-border rounded-lg text-foreground focus:ring-2 focus:ring-indigo-400 shadow-inner"
                       >
                         <option value="light">Light</option>
                         <option value="dark">Dark</option>
@@ -497,7 +475,7 @@ const SettingsPage = () => {
                         min="12"
                         max="20"
                         {...field}
-                        className="w-full mt-1"
+                        className="w-full mt-1 accent-indigo-400"
                       />
                       <span className="text-sm text-muted-foreground">
                         {field.value}px
@@ -509,90 +487,18 @@ const SettingsPage = () => {
             </motion.div>
           )}
 
-          {activeTab === "notifications" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-card rounded-lg shadow-lg border border-border p-6"
-            >
-              <h2 className="text-2xl font-bold text-foreground mb-6">
-                Notifications
-              </h2>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={true} // Placeholder; add state if needed
-                    onCheckedChange={() => {}}
-                    className="data-[state=checked]:bg-primary"
-                  />
-                  <Label className="text-foreground">Email Notifications</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={true} // Placeholder
-                    onCheckedChange={() => {}}
-                    className="data-[state=checked]:bg-primary"
-                  />
-                  <Label className="text-foreground">
-                    In-App Notifications
-                  </Label>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === "integrations" && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-card rounded-lg shadow-lg border border-border p-6"
-            >
-              <h2 className="text-2xl font-bold text-foreground mb-6">
-                Integrations
-              </h2>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={true} // Placeholder
-                    onCheckedChange={() => {}}
-                    className="data-[state=checked]:bg-primary"
-                  />
-                  <Label className="text-foreground">Enable Data Export</Label>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
           <div className="flex justify-end">
             <LoadingButton
-              loading={isSaving}
+              loading={false}
               disabled={!isDirty && !profilePic && !coverPic}
               type="submit"
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
+              className="bg-gradient-to-r from-indigo-400 to-blue-500 hover:from-indigo-500 hover:to-blue-600 text-white shadow-md hover:shadow-xl transition-all duration-300"
             >
               <Save className="w-4 h-4 mr-2" />
               Save Changes
             </LoadingButton>
           </div>
         </form>
-
-        {error && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-destructive text-destructive-foreground p-4 rounded-lg shadow-lg flex items-center gap-2"
-          >
-            <CircleAlert className="w-5 h-5" />
-            <span>{error}</span>
-            <Button
-              variant="ghost"
-              onClick={() => setError(null)}
-              className="text-destructive-foreground"
-            >
-              Close
-            </Button>
-          </motion.div>
-        )}
       </main>
     </div>
   );

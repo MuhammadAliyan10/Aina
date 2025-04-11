@@ -1,6 +1,24 @@
 "use client";
-import { User } from "lucia";
 import React, { createContext, useContext } from "react";
+
+interface User {
+  id: string;
+  fullName: string;
+  bio?: string;
+  profilePic: string;
+  createdAt: Date;
+  updatedAt: Date;
+  socialLinks?: {
+    instagram?: string;
+    twitter?: string;
+    website?: string;
+  };
+  twoFAEnabled?: boolean;
+  phoneNumber?: string;
+  sessionTimeout?: string;
+  fontSize?: string;
+  theme?: "light" | "dark" | "system"; // Added theme property
+}
 
 interface SessionContext {
   user: User | null;
