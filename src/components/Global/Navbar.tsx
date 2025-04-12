@@ -42,9 +42,9 @@ export function NavbarDemo() {
           <NavbarLogo />
           <NavItems items={navItems} />
 
-          <Link href={"/login"}>
-            <NavbarButton variant="primary">Get Started</NavbarButton>
-          </Link>
+          <NavbarButton variant="primary" href="/login">
+            Get Started
+          </NavbarButton>
         </NavBody>
 
         <MobileNav>
@@ -75,13 +75,7 @@ export function NavbarDemo() {
                 onClick={() => setIsMobileMenuOpen(false)}
                 variant="primary"
                 className="w-full"
-              >
-                Login
-              </NavbarButton>
-              <NavbarButton
-                onClick={() => setIsMobileMenuOpen(false)}
-                variant="primary"
-                className="w-full"
+                href="/login"
               >
                 Get Started
               </NavbarButton>

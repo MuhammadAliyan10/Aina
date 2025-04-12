@@ -9,6 +9,12 @@ module.exports = {
   ],
   theme: {
     extend: {
+      transitionDuration: {
+        "var(--duration)": "var(--duration)",
+      },
+      transitionTimingFunction: {
+        "var(--easing)": "var(--easing)",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
