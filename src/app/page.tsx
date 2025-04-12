@@ -178,7 +178,7 @@ export default function Home() {
                 Start Free
               </Link>
               <Link
-                href="https://github.com/aina-io/aina"
+                href="https://github.com/MuhamamdAliyan10/Aina"
                 className="px-6 py-3 border border-gray-300 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
               >
                 View on GitHub
@@ -491,7 +491,7 @@ export default function Home() {
               </li>
               <li>
                 <Link
-                  href="https://github.com/aina-io/aina"
+                  href="https://github.com/MuhamamdAliyan10/Aina"
                   className="hover:text-white transition-colors"
                 >
                   GitHub

@@ -122,3 +122,12 @@ a {
     @apply border-border outline-ring/50;
   }
 }
+
+@keyframes dashFlow {
+  0% {
+    strokedashoffset: 10;
+  }
+  100% {
+    strokedashoffset: 0;
+  }
+}

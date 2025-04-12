@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   ReactFlow,
   useEdgesState,
@@ -59,7 +59,7 @@ import {
   DATA,
   ADVANCED,
   USER_INTERACTION,
-} from "../data/Data";
+} from "../data/NodeDefinitions";
 import { TriggerNode } from "../Node/General/TriggerNode";
 import { WorkflowNode } from "../Node/General/WorkflowNode";
 import { DelayNode } from "../Node/General/DelayNode";
@@ -264,12 +264,12 @@ function Page() {
   const workflowId = params.id as string;
   const { user } = useSession();
 
-  //! Use refs to track state changes without triggering re-renders
+  // Use refs to track state changes without triggering re-renders
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
   const historyIndexRef = useRef(historyIndex);
 
-  //! Update refs when state changes
+  // Update refs when state changes
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
@@ -282,7 +282,7 @@ function Page() {
     historyIndexRef.current = historyIndex;
   }, [historyIndex]);
 
-  //? UUID generator
+  // UUID generator
   const uuidv4 = (): string => {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
@@ -291,7 +291,39 @@ function Page() {
     });
   };
 
-  //! History management - now using refs to avoid infinite update loops
+  // Helper function to get node category and color
+  const getNodeCategoryAndColor = (
+    nodeType: string
+  ): { category: string; color: string } => {
+    const allNodes = [
+      ...GENERAL,
+      ...BROWSER,
+      ...INTERACTION,
+      ...CONTROL_FLOW,
+      ...DATA,
+      ...ADVANCED,
+      ...USER_INTERACTION,
+    ];
+    const nodeDef = allNodes.find((node) => node.type === nodeType);
+    const category = nodeDef?.category || "General";
+    const categoryColors: Record<string, string> = {
+      General: "#6ede87", // Green
+      Browser: "#FDE047", // Yellow
+      "Web Interaction": "#87EFAC", // Light Green
+      "Control Flow": "#92C5FD", // Light Blue
+      Data: "#F472B6", // Pink
+      Advanced: "#A78BFA", // Purple
+      "User Interaction": "#FBBF24", // Amber
+    };
+    return { category, color: categoryColors[category] || "#6ede87" };
+  };
+
+  // Node color function for MiniMap
+  const nodeColor = (node: CustomNode): string => {
+    return getNodeCategoryAndColor(node.type).color;
+  };
+
+  // History management - using refs to avoid infinite update loops
   const saveHistory = useCallback(
     debounce(() => {
       const currentNodes = nodesRef.current;
@@ -396,7 +428,6 @@ function Page() {
         return updatedNodes;
       });
       setIsDirty(true);
-      // Call saveHistory after the state updates
       setTimeout(() => saveHistory(), 0);
     },
     [reactFlowInstance, setNodes, saveHistory]
@@ -405,22 +436,37 @@ function Page() {
   // Connection handlers
   const onConnect = useCallback<OnConnect>(
     (connection) => {
+      const sourceNode = nodes.find((node) => node.id === connection.source);
+      const { color } = getNodeCategoryAndColor(
+        sourceNode?.type || "customTriggerNode"
+      );
       const edge: Edge = {
         id: `edge-${connection.source}-${connection.target}`,
         source: connection.source!,
         target: connection.target!,
         type: "smoothstep",
-        markerEnd: { type: MarkerType.Arrow },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          width: 20,
+          height: 20,
+          color,
+        },
+        style: {
+          stroke: color,
+          strokeWidth: 2,
+          strokeDasharray: "5,5",
+          animation: "dash 1.5s linear infinite",
+        },
+        animated: true,
       };
       setEdges((eds) => {
         const updatedEdges = addEdge(edge, eds);
         return updatedEdges;
       });
       setIsDirty(true);
-      // Call saveHistory after the state updates
       setTimeout(() => saveHistory(), 0);
     },
-    [setEdges, saveHistory]
+    [setEdges, saveHistory, nodes]
   );
 
   const onEdgeDoubleClick = useCallback(
@@ -596,7 +642,33 @@ function Page() {
           try {
             const data = JSON.parse(e.target?.result as string);
             setNodes(data.nodes);
-            setEdges(data.edges);
+            setEdges(
+              data.edges.map((edge: Edge) => {
+                const sourceNode = data.nodes.find(
+                  (node: CustomNode) => node.id === edge.source
+                );
+                const { color } = getNodeCategoryAndColor(
+                  sourceNode?.type || "customTriggerNode"
+                );
+                return {
+                  ...edge,
+                  type: "smoothstep",
+                  markerEnd: {
+                    type: MarkerType.ArrowClosed,
+                    width: 20,
+                    height: 20,
+                    color,
+                  },
+                  style: {
+                    stroke: color,
+                    strokeWidth: 2,
+                    strokeDasharray: "5,5",
+                    animation: "dash 1.5s linear infinite",
+                  },
+                  animated: true,
+                };
+              })
+            );
             setWorkflowTitle(data.workflowTitle);
             setIsDirty(true);
             setTimeout(() => saveHistory(), 0);
@@ -641,13 +713,33 @@ function Page() {
         },
       }));
 
-      const workflowEdges = (workflow.edges || []).map((edge: any) => ({
-        id: edge.id,
-        source: edge.sourceId,
-        target: edge.targetId,
-        type: "smoothstep",
-        markerEnd: { type: MarkerType.Arrow },
-      }));
+      const workflowEdges = (workflow.edges || []).map((edge: any) => {
+        const sourceNode = workflowNodes.find(
+          (node: CustomNode) => node.id === edge.sourceId
+        );
+        const { color } = getNodeCategoryAndColor(
+          sourceNode?.type || "customTriggerNode"
+        );
+        return {
+          id: edge.id,
+          source: edge.sourceId,
+          target: edge.targetId,
+          type: "smoothstep",
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            width: 4,
+            height: 4,
+            color,
+          },
+          style: {
+            stroke: color,
+            strokeWidth: 2,
+            strokeDasharray: "5,5",
+            animation: "dash 1.5s linear infinite",
+          },
+          animated: true,
+        };
+      });
 
       setNodes(workflowNodes);
       setEdges(workflowEdges);
@@ -673,19 +765,15 @@ function Page() {
     }
   }, [fetchError]);
 
-  const nodeColor = (node: CustomNode): string => {
-    switch (node.type) {
-      case "customTriggerNode":
-        return "#6ede87";
-      case "customDelay":
-        return "#6865A5";
-      default:
-        return "#ff0072";
-    }
-  };
-
   return (
     <div className="h-screen w-full bg-card text-white flex">
+      <style jsx global>{`
+        @keyframes dash {
+          to {
+            stroke-dashoffset: -20;
+          }
+        }
+      `}</style>
       <NodesPanel />
       <div className="flex-1 flex flex-col relative">
         {/* Top Bar */}
@@ -1045,12 +1133,18 @@ const NodesPanel = () => {
                     size={13}
                     className={`${
                       title === "General"
-                        ? "fill-[#000000] stroke-[#000000]"
+                        ? "fill-[#6ede87] stroke-[#6ede87]"
                         : title === "Browser"
                         ? "fill-[#FDE047] stroke-[#FDE047]"
                         : title === "Web Interactions"
                         ? "fill-[#87EFAC] stroke-[#87EFAC]"
-                        : "fill-[#92C5FD] stroke-[#92C5FD]"
+                        : title === "Control Flow"
+                        ? "fill-[#92C5FD] stroke-[#92C5FD]"
+                        : title === "Data"
+                        ? "fill-[#F472B6] stroke-[#F472B6]"
+                        : title === "Advance"
+                        ? "fill-[#A78BFA] stroke-[#A78BFA]"
+                        : "fill-[#FBBF24] stroke-[#FBBF24]"
                     } drop-shadow-sm`}
                   />
                 }
