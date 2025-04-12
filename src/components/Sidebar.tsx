@@ -161,7 +161,6 @@ export const MobileSidebar = ({
     </div>
   );
 };
-
 export const SidebarLink = ({
   link,
   className,
@@ -175,6 +174,13 @@ export const SidebarLink = ({
   const pathname = usePathname();
   const isActive = pathname === link.href;
 
+  const handleClick = async (e: React.MouseEvent) => {
+    if (link.action) {
+      e.preventDefault();
+      link.action();
+    }
+  };
+
   return (
     <Link
       href={link.href}
@@ -185,14 +191,7 @@ export const SidebarLink = ({
           : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         className
       )}
-      onClick={
-        link.action
-          ? (e) => {
-              e.preventDefault();
-              link.action?.();
-            }
-          : undefined
-      }
+      onClick={handleClick}
       {...props}
     >
       {React.cloneElement(link.icon as React.ReactElement, {

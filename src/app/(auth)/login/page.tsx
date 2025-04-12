@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 };
 const page = () => {
   return (
-    <main className="flex h-screen items-center justify-center p-5">
-      <div className="flex h-full max-h-[40rem] w-full max-w-[64rem] overflow-hidden rounded-2xl bg-card shadow-2xl">
+    <main className="flex h-screen items-center justify-center p-5 bg-card/50">
+      <div className="flex h-full max-h-[40rem] w-full max-w-[64rem] overflow-hidden rounded-2xl bg-card border border-border shadow-2xl">
         <Image
           src={logInImage}
           alt="Login image"

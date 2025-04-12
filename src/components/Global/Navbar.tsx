@@ -16,19 +16,19 @@ import { useState } from "react";
 export function NavbarDemo() {
   const navItems = [
     {
-      name: "Documentation",
-      link: "/documentation",
+      name: "Features",
+      link: "#features",
     },
     {
-      name: "Services",
-      link: "#services",
+      name: "How It Works",
+      link: "#how-it-works",
     },
     {
-      name: "Team",
-      link: "#team",
+      name: "Testimonials",
+      link: "#testimonials",
     },
     {
-      name: "Enterprise",
+      name: "Pricing",
       link: "#pricing",
     },
   ];

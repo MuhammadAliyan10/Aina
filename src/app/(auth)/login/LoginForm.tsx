@@ -68,14 +68,6 @@ export default function LoginForm() {
         <LoadingButton loading={isPending} className="w-full" type="submit">
           Log In
         </LoadingButton>
-        <LoadingButton
-          loading={false}
-          className="w-full text-foreground bg-input hover:bg-card/80 border border-border"
-          type="submit"
-        >
-          <IconBrandGoogle className="text-yellow-400" />
-          Log In with Google
-        </LoadingButton>
       </form>
     </Form>
   );
