@@ -8,7 +8,6 @@ import { InfiniteMovingCards } from "@/components/Global/InfiniteMovingCard";
 import { LampComponent } from "@/components/Global/lamp";
 import { MacbookScrollDemo } from "@/components/Global/MacbookScrollDemo";
 import { NavbarDemo } from "@/components/Global/Navbar";
-import { Button } from "@/components/ui/button";
 import { clients, products } from "@/lib/constants";
 import { CheckIcon } from "lucide-react";
 import Link from "next/link";
