@@ -22,7 +22,7 @@ export default class AutomationExecutor {
   private nodes: NodeProps[];
   private edges: any[];
   private nodeOutputs: Map<string, any>;
-  private currentPage: Page | null = null; // Track the current page across nodes
+  private currentPage: Page | null = null;
 
   constructor(nodes: NodeProps[], edges: any[]) {
     this.nodes = nodes;
@@ -60,19 +60,17 @@ export default class AutomationExecutor {
       const effectiveInput = inputs.length > 0 ? inputs[0] : inputData;
 
       let outputData: any;
-      let pageToUse: Page | null = this.currentPage; // Default to the current page
+      let pageToUse: Page | null = this.currentPage;
 
-      // Check if the previous node provided a page
       const prevNodeId = incomingEdges[0]?.source;
       if (prevNodeId) {
         const prevPage = pageMap.get(prevNodeId);
         if (prevPage) {
-          pageToUse = prevPage; // Use the previous node's page if available
+          pageToUse = prevPage;
         }
       }
 
       switch (node.type) {
-        // General Nodes
         case "customTriggerNode":
           outputData = { started: true, timestamp: new Date().toISOString() };
           break;
@@ -87,7 +85,6 @@ export default class AutomationExecutor {
             subWorkflow: node.data.config?.subWorkflowId || "none",
           };
           break;
-
         case "customDelay":
           if (!node.data.config?.isEnabled) {
             outputData = { skipped: true };

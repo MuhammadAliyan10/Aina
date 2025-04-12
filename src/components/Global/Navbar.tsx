@@ -20,12 +20,16 @@ export function NavbarDemo() {
       link: "/documentation",
     },
     {
-      name: "Pricing",
-      link: "/pricing",
+      name: "Services",
+      link: "#services",
+    },
+    {
+      name: "Team",
+      link: "#team",
     },
     {
       name: "Enterprise",
-      link: "/enterprise",
+      link: "#pricing",
     },
   ];
 
@@ -34,22 +38,15 @@ export function NavbarDemo() {
   return (
     <div className="fixed top-6 z-50 w-full">
       <Navbar>
-        {/* Desktop Navigation */}
         <NavBody>
           <NavbarLogo />
           <NavItems items={navItems} />
-          <div className="flex items-center gap-4">
-            <NavbarButton variant="primary">
-              <Link href={"/login"}>Login</Link>
-            </NavbarButton>
-            <NavbarButton variant="secondary">
-              {" "}
-              <Link href={"/signup"}>Get Started</Link>
-            </NavbarButton>
-          </div>
+
+          <Link href={"/login"}>
+            <NavbarButton variant="primary">Get Started</NavbarButton>
+          </Link>
         </NavBody>
 
-        {/* Mobile Navigation */}
         <MobileNav>
           <MobileNavHeader>
             <NavbarLogo />

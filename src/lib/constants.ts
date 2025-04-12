@@ -38,7 +38,7 @@ export const products = [
   {
     title: "Pixel Perfect",
     link: "https://app.pixelperfect.quest",
-    thumbnail: "/Hero/Document.png",
+    thumbnail: "/Hero/Documents.png",
   },
 
   {

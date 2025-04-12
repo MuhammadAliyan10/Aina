@@ -59,7 +59,7 @@ const SupportPage = () => {
 
   const faqs: FAQ[] = [
     {
-      question: "How do I get an overview of my QuantumTask usage?",
+      question: "How do I get an overview of my Aina usage?",
       answer:
         "The Dashboard provides a snapshot of key metrics like workflows, tasks, and billing. Use the 'Explore' buttons for detailed views.",
     },
@@ -124,16 +124,16 @@ const SupportPage = () => {
     {
       title: "Getting Started Guide",
       url: "/docs/getting-started",
-      description: "Learn the basics of QuantumTask.",
+      description: "Learn the basics of Aina.",
     },
     {
       title: "API Documentation",
       url: "/docs/api",
-      description: "Integrate QuantumTask with your apps.",
+      description: "Integrate Aina with your apps.",
     },
     {
       title: "Community Forum",
-      url: "https://forum.quantumtask.com",
+      url: "https://forum.aina.com",
       description: "Join discussions and get help from peers.",
     },
   ];
@@ -196,7 +196,7 @@ const SupportPage = () => {
             className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-blue-500 text-transparent bg-clip-text flex items-center gap-2"
           >
             <HelpCircle className="h-6 w-6 text-indigo-400" />
-            QuantumTask Support
+            Aina Support
           </Link>
           <div className="hidden md:flex gap-6 items-center">
             <Link
@@ -443,11 +443,11 @@ const SupportPage = () => {
               </p>
               <div className="flex items-center gap-3 text-foreground">
                 <Phone className="h-5 w-5 text-indigo-400" />
-                <span>+1-800-QUANTUM (800-782-6886)</span>
+                <span>+1-800-aina (800-782-6886)</span>
               </div>
               <div className="flex items-center gap-3 text-foreground">
                 <Mail className="h-5 w-5 text-indigo-400" />
-                <span>support@quantumtask.com</span>
+                <span>aliyannadeem10@gmail.com</span>
               </div>
               <Separator className="bg-border my-4" />
               <Input

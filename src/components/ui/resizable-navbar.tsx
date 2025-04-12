@@ -242,7 +242,7 @@ export const NavbarLogo = () => {
         width={30}
         height={30}
       />
-      <span className="font-medium text-black dark:text-white">Aina</span>
+      <span className="font-medium text-black dark:text-white">A i N a</span>
     </Link>
   );
 };

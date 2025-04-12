@@ -134,8 +134,8 @@ const IntegrationsPage = () => {
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background via-muted/20 to-background text-foreground p-8">
       {/* Header */}
       <header className="flex flex-col sm:flex-row justify-between items-center mb-10 gap-6">
-        <h1 className="text-4xl font-extrabold flex items-center gap-3 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-          <Cable className="h-9 w-9 text-primary animate-pulse" />
+        <h1 className="md:text-4xl text-2xl font-extrabold flex items-center gap-3 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+          <Cable className="h-6 w-6 md:h-9 md:w-9 text-primary animate-pulse" />
           Integrations
         </h1>
         <div className="flex gap-4 items-center w-full max-w-2xl">
@@ -166,8 +166,8 @@ const IntegrationsPage = () => {
 
       {integrationsLoading ? (
         <div className="flex flex-1 justify-center items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-xl font-medium text-muted-foreground animate-pulse">
+          <Loader2 className="h-6 w-6 md:h-9 md:w-9 animate-spin text-primary" />
+          <p className="md:text-xl text-md font-medium text-muted-foreground animate-pulse">
             Loading integrations...
           </p>
         </div>
@@ -265,8 +265,8 @@ const IntegrationsPage = () => {
             ))
           ) : (
             <div className="col-span-full flex flex-col items-center justify-center text-muted-foreground py-12 bg-muted/10 rounded-2xl border border-border">
-              <AlertCircle className="h-12 w-12 mb-4 text-primary animate-bounce" />
-              <p className="text-xl font-medium">
+              <AlertCircle className="h-6 w-6 md:h-9 md:w-9 mb-4 text-primary animate-bounce" />
+              <p className="md:text-xl text-center text-md p-4 font-medium">
                 No integrations found matching your search.
               </p>
             </div>

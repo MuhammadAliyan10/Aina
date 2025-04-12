@@ -1,10 +1,12 @@
 import { AnimatedTooltip } from "@/components/AnimatedTooltip";
 import { CardBody, CardContainer, CardItem } from "@/components/Global/3d-card";
+import { BentoGridDemo } from "@/components/Global/BentoGridDemo";
 import { CarouselDemo } from "@/components/Global/CarouselDemo";
 import { HeroParallax } from "@/components/Global/ConnectParallax";
 import { ContainerScroll } from "@/components/Global/ContainerScrollAnimation";
 import { InfiniteMovingCards } from "@/components/Global/InfiniteMovingCard";
 import { LampComponent } from "@/components/Global/lamp";
+import { MacbookScrollDemo } from "@/components/Global/MacbookScrollDemo";
 import { NavbarDemo } from "@/components/Global/Navbar";
 import { Button } from "@/components/ui/button";
 import { clients, products } from "@/lib/constants";
@@ -16,21 +18,20 @@ export default function Home() {
   return (
     <div>
       <NavbarDemo />
-      <section className="flex justify-center items-center h-screen w-full mt-10">
-        <CarouselDemo />
-      </section>
 
-      {/* <InfiniteMovingCards
-        className="md:mt-[2rem] mt-[-100px]"
-        items={clients}
-        direction="right"
-        speed="slow"
-      /> */}
+      <MacbookScrollDemo />
+      <section
+        className="mx-5 my-20 md:mx-10 lg:mx-20 text-center"
+        id="services"
+      >
+        <h2 className="text-4xl md:text-5xl font-bold my-8">Services</h2>
+        <BentoGridDemo />
+      </section>
 
       <section>
         <HeroParallax products={products}></HeroParallax>
       </section>
-      <section className="mx-5 my-20 md:mx-10 lg:mx-20">
+      <section className="mx-5 my-20 md:mx-10 lg:mx-20" id="team">
         <h2 className="text-4xl md:text-5xl font-bold my-6 text-center md:text-left">
           Meet My Team
         </h2>
@@ -41,7 +42,7 @@ export default function Home() {
         </p>
         <AnimatedTooltip />
       </section>
-      <section>
+      <section id="pricing">
         <LampComponent text1={"Plans that are"} text2={"fit to you"} />
         <div className="flex flex-wrap items-center justify-center flex-col md:flex-row gap-8 -mt-72">
           <CardContainer className="inter-var ">

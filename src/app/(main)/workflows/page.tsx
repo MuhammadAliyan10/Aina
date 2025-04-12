@@ -236,8 +236,8 @@ export default function WorkflowPage() {
 
       {isLoading ? (
         <div className="flex flex-1 justify-center items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <p className="text-xl font-medium text-muted-foreground animate-pulse">
+          <Loader2 className="h-8 w-8 md:h-12 md:w-12 animate-spin text-primary" />
+          <p className="md:text-xl text-md font-medium text-muted-foreground animate-pulse">
             Loading your workflows...
           </p>
         </div>

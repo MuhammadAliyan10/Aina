@@ -206,8 +206,8 @@ const AIAssistantPage = () => {
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-background via-muted/20 to-background text-foreground p-8">
       {/* Header */}
       <header className="flex justify-between items-center mb-10">
-        <h1 className="text-4xl font-extrabold flex items-center gap-3 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-          <Bot className="h-9 w-9 text-primary animate-pulse" />
+        <h1 className="md:text-4xl text-2xl font-extrabold flex items-center gap-3 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+          <Bot className="h-6 w-6 md:h-9 md:w-9 text-primary animate-pulse" />
           AI Assistant
         </h1>
       </header>

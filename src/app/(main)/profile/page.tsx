@@ -228,7 +228,7 @@ const ProfilePage = () => {
               src={profile.profilePic || userAvatar}
               width={160}
               height={160}
-              className="w-40 h-40 rounded-full border-4 border-background object-cover cursor-pointer transition-transform group-hover:scale-105 shadow-xl"
+              className="w-40 h-40 rounded-full border-4 border-border object-cover cursor-pointer transition-transform group-hover:scale-105 shadow-xl"
               onClick={() => setIsImageDialogOpen(true)}
             />
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded-full">
@@ -393,7 +393,7 @@ const ProfilePage = () => {
           <h2 className="text-2xl font-semibold bg-gradient-to-r from-indigo-400 to-blue-500 text-transparent bg-clip-text mb-4">
             Recent Activity
           </h2>
-          <div className="space-y-4">
+          <div className="space-y-4 sm:my-10">
             <p className="text-muted-foreground">
               Completed 5 tasks today -{" "}
               <span className="text-foreground">+25 points</span>

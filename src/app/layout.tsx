@@ -9,7 +9,7 @@ const font = DM_Sans({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | Aina | Automate life ",
+    template: "%s | Aina  ",
     default: "Aina",
   },
   description: "Automate life, the smart way.",

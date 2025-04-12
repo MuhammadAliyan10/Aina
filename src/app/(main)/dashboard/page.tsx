@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Activity,
   Loader2,
+  LayoutDashboard,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -186,11 +187,11 @@ const DashboardPage = () => {
       <header className="bg-gradient-to-r from-primary/10 to-muted/10 py-12 px-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
           <div>
-            <h1 className="text-4xl font-extrabold text-foreground flex items-center gap-3">
-              <Server className="h-10 w-10 text-primary animate-pulse" />
+            <h1 className="text-1xl md:text-4xl font-extrabold text-foreground flex items-center gap-3">
+              <LayoutDashboard className="h-6 w-6 md:h-10 md:w-10 text-primary animate-pulse" />
               Welcome, {user?.fullName || "User"}!
             </h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="text-muted-foreground mt-2 sm:text-[12px]">
               Your command center for tasks, automations, and team
               collaboration.
             </p>
@@ -222,8 +223,8 @@ const DashboardPage = () => {
       <main className="max-w-7xl mx-auto px-8 py-12 w-full">
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="ml-4 text-lg text-muted-foreground">
+            <Loader2 className="h-8 w-8 md:h-12 md:w-12 animate-spin text-primary" />
+            <p className="ml-4 md:text-lg text-md text-muted-foreground">
               Loading your dashboard...
             </p>
           </div>
@@ -232,13 +233,13 @@ const DashboardPage = () => {
             {/* Quick Stats */}
             <Card className="bg-card border-border shadow-lg lg:col-span-3">
               <CardHeader>
-                <CardTitle className="text-2xl font-bold flex items-center gap-2">
+                <CardTitle className="text-1xl md:text-2xl font-bold flex items-center gap-2">
                   <BarChart2 className="h-6 w-6 text-primary" />
                   At a Glance
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
                   <div className="p-4 bg-muted/50 rounded-lg">
                     <p className="text-muted-foreground text-sm">
                       Pending Tasks
@@ -259,7 +260,7 @@ const DashboardPage = () => {
                     <CheckCircle className="h-5 w-5 text-success mt-2" />
                   </div>
                   <div className="p-4 bg-muted/50 rounded-lg">
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground text-sm whitespace-nowrap">
                       Active Automations
                     </p>
                     <p className="text-2xl font-semibold text-foreground">

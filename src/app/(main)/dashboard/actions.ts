@@ -3,6 +3,11 @@
 
 import prisma from "@/lib/prisma";
 import { DashboardData } from "./types";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
 
 export async function fetchDashboardData(
   userId?: string

@@ -264,12 +264,12 @@ function Page() {
   const workflowId = params.id as string;
   const { user } = useSession();
 
-  // Use refs to track state changes without triggering re-renders
+  //! Use refs to track state changes without triggering re-renders
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
   const historyIndexRef = useRef(historyIndex);
 
-  // Update refs when state changes
+  //! Update refs when state changes
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
@@ -282,7 +282,7 @@ function Page() {
     historyIndexRef.current = historyIndex;
   }, [historyIndex]);
 
-  // UUID generator
+  //? UUID generator
   const uuidv4 = (): string => {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
@@ -291,7 +291,7 @@ function Page() {
     });
   };
 
-  // History management - now using refs to avoid infinite update loops
+  //! History management - now using refs to avoid infinite update loops
   const saveHistory = useCallback(
     debounce(() => {
       const currentNodes = nodesRef.current;
@@ -306,7 +306,6 @@ function Page() {
       setHistory((prev) => {
         const newHistory = [...prev.slice(0, currentHistoryIndex + 1)];
 
-        // Check if we should add new history item
         const lastState = newHistory[currentHistoryIndex];
         if (
           !lastState ||
@@ -325,7 +324,6 @@ function Page() {
             edges: currentState.edges,
           });
 
-          // Update history index outside the setState call
           setTimeout(() => {
             setHistoryIndex(newHistory.length - 1);
           }, 0);
@@ -334,10 +332,9 @@ function Page() {
         return newHistory;
       });
     }, 300),
-    [] // No dependencies to avoid re-creating the debounced function
+    []
   );
 
-  // Initialize history when component first loads
   useEffect(() => {
     if (nodes.length > 0 || edges.length > 0) {
       if (history.length === 0) {
@@ -387,7 +384,7 @@ function Page() {
         y: event.clientY,
       });
 
-      const newNode: CustomNode = {
+      const newNode: any = {
         id: uuidv4(),
         type,
         position,
@@ -433,7 +430,6 @@ function Page() {
         return updatedEdges;
       });
       setIsDirty(true);
-      // Call saveHistory after the state updates
       setTimeout(() => saveHistory(), 0);
     },
     [setEdges, saveHistory]
@@ -443,7 +439,6 @@ function Page() {
     (changes) => {
       onNodesChange(changes);
       setIsDirty(true);
-      // Use a timeout to ensure state is updated before calling saveHistory
       setTimeout(() => saveHistory(), 0);
     },
     [onNodesChange, saveHistory]
@@ -453,13 +448,11 @@ function Page() {
     (changes) => {
       onEdgesChange(changes);
       setIsDirty(true);
-      // Use a timeout to ensure state is updated before calling saveHistory
       setTimeout(() => saveHistory(), 0);
     },
     [onEdgesChange, saveHistory]
   );
 
-  // Workflow validation
   const validateWorkflow = useCallback(() => {
     if (nodes.length === 0) {
       setAppError({
@@ -478,7 +471,6 @@ function Page() {
     return true;
   }, [nodes, edges]);
 
-  // Automation execution
   const runAutomation = useCallback(
     debounce(async () => {
       if (!validateWorkflow()) {
@@ -522,7 +514,6 @@ function Page() {
     [nodes, edges, setNodes, validateWorkflow]
   );
 
-  // Workflow save
   const saveWorkflow = useCallback(
     debounce(async () => {
       if (!user) {
@@ -585,7 +576,6 @@ function Page() {
     [nodes, edges, workflowTitle, workflowId, user]
   );
 
-  // Export/Import workflows
   const exportWorkflow = useCallback(() => {
     const data = JSON.stringify({ nodes, edges, workflowTitle });
     const blob = new Blob([data], { type: "application/json" });
@@ -609,7 +599,6 @@ function Page() {
             setEdges(data.edges);
             setWorkflowTitle(data.workflowTitle);
             setIsDirty(true);
-            // Call saveHistory after states are updated
             setTimeout(() => saveHistory(), 0);
           } catch (error) {
             setAppError({
@@ -624,7 +613,6 @@ function Page() {
     [setNodes, setEdges, saveHistory]
   );
 
-  // Fetch workflow data
   const {
     data: workflowData,
     error: fetchError,
@@ -643,8 +631,6 @@ function Page() {
   useEffect(() => {
     if (workflowData && !isLoading) {
       const { workflow } = workflowData;
-
-      // Set nodes and edges in a way that won't trigger the history save
       const workflowNodes = (workflow.nodes || []).map((node: any) => ({
         id: node.id,
         type: node.type,
@@ -668,7 +654,6 @@ function Page() {
       setWorkflowTitle(workflow.title || "New Workflow");
       setIsDirty(false);
 
-      // Add initial state to history after a delay to ensure states are updated
       setTimeout(() => {
         setHistory([{ nodes: workflowNodes, edges: workflowEdges }]);
         setHistoryIndex(0);
@@ -688,7 +673,6 @@ function Page() {
     }
   }, [fetchError]);
 
-  // MiniMap node color
   const nodeColor = (node: CustomNode): string => {
     switch (node.type) {
       case "customTriggerNode":

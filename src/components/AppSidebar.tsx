@@ -122,11 +122,13 @@ export function AppSidebar({
   return (
     <div
       className={cn(
-        "flex w-full flex-1 max-w-full mx-auto h-screen bg-sidebar"
+        // Apply bg-sidebar only for md and above to avoid mobile interference
+        "w-full max-w-full mx-auto h-screen",
+        "block md:flex md:flex-1 md:bg-sidebar"
       )}
     >
       <Sidebar open={open} setOpen={setOpen}>
-        <SidebarBody className="justify-between gap-10 bg-sidebar-background border-r border-sidebar-border">
+        <SidebarBody className="justify-between gap-10 bg-sidebar border-r border-sidebar-border">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             {open ? <Logo /> : <LogoIcon />}
             <div className="mt-8 flex flex-col gap-1">
@@ -171,15 +173,20 @@ export const Logo = () => {
   return (
     <Link
       href="/"
-      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal"
+      className="relative z-20 flex items-center justify-center space-x-2 py-1 text-sm font-normal"
     >
-      <BotIcon className="h-6 w-6 text-primary" />
+      <Image
+        src="https://assets.aceternity.com/logo-dark.png"
+        alt="logo"
+        width={30}
+        height={30}
+      />
       <motion.span
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="font-medium whitespace-pre text-sidebar-foreground"
+        className="font-bold whitespace-pre text-sidebar-foreground"
       >
-        Aina
+        A <span className="text-primary">i</span> N a
       </motion.span>
     </Link>
   );
@@ -188,10 +195,15 @@ export const Logo = () => {
 export const LogoIcon = () => {
   return (
     <Link
-      href="/"
-      className="relative z-20 flex items-center space-x-2 py-1 text-sm font-normal"
+      href="/dashboard"
+      className="relative z-20 flex items-center ml-2 space-x-2 py-1 text-sm font-normal"
     >
-      <BotIcon className="h-6 w-6 text-primary" />
+      <Image
+        src="https://assets.aceternity.com/logo-dark.png"
+        alt="logo"
+        width={30}
+        height={30}
+      />
     </Link>
   );
 };

@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 import Link, { LinkProps } from "next/link";
 import React, { useState, createContext, useContext } from "react";
-import { AnimatePresence, motion } from "framer-motion"; // Corrected import
+import { AnimatePresence, motion } from "framer-motion";
 import { IconMenu2, IconX } from "@tabler/icons-react";
 import { usePathname } from "next/navigation";
 
@@ -92,7 +92,7 @@ export const DesktopSidebar = ({
   return (
     <motion.div
       className={cn(
-        "h-full px-2 py-4 hidden md:flex md:flex-col w-[300px] shrink-0 bg-sidebar-background",
+        "h-full px-2 py-4 hidden md:flex md:flex-col w-[300px] shrink-0 bg-sidebar",
         className
       )}
       animate={{
@@ -138,17 +138,23 @@ export const MobileSidebar = ({
               ease: "easeInOut",
             }}
             className={cn(
-              "fixed h-full w-full inset-0 bg-sidebar-background p-10 z-[100] flex flex-col justify-between",
+              // Ensure solid background with high z-index
+              "fixed h-full w-full inset-0 bg-sidebar p-4 z-[1000] flex flex-col",
+              // Fallback background for debugging
+              "bg-opacity-100 backdrop-blur-none",
               className
             )}
           >
             <div
-              className="absolute right-10 top-10 z-50 text-sidebar-foreground"
+              className="absolute right-4 top-4 z-50 text-sidebar-foreground"
               onClick={() => setOpen(!open)}
             >
               <IconX />
             </div>
-            {children}
+            {/* Content container with scroll */}
+            <div className="flex flex-col flex-1 overflow-y-auto mt-12">
+              {children}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
