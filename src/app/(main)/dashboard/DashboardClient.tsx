@@ -201,7 +201,7 @@ const DashboardPage = () => {
               asChild
               className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg shadow-md"
             >
-              <Link href="/tasks/new">
+              <Link href="/tasks">
                 <Plus className="h-5 w-5 mr-2" />
                 New Task
               </Link>
@@ -493,7 +493,7 @@ const DashboardPage = () => {
                   variant="outline"
                   className="text-primary border-primary/20"
                 >
-                  <Link href="/automations">View All</Link>
+                  <Link href="/automation-studio">View All</Link>
                 </Button>
               </CardHeader>
               <CardContent>

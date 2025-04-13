@@ -48,9 +48,6 @@ import {
 } from "@/components/ui/dialog";
 import { useSession } from "@/app/(main)/SessionProvider";
 import { toast } from "@/hooks/use-toast";
-import { useDrag, useDrop } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
-import { DndProvider } from "react-dnd";
 
 interface Task {
   id: string;
@@ -247,6 +244,57 @@ const TasksPage = () => {
     page,
   ]);
 
+  const exportTasksToCSV = () => {
+    if (!filteredTasks || filteredTasks.length === 0) {
+      toast({
+        title: "No Tasks",
+        description: "There are no tasks to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = [
+      "Title",
+      "Description",
+      "Status",
+      "Priority",
+      "Due Date",
+      "Assigned To",
+      "Labels",
+    ];
+
+    const rows = filteredTasks.map((task) => [
+      `"${task.title.replace(/"/g, '""')}"`,
+      `"${task.description.replace(/"/g, '""')}"`,
+      task.status,
+      task.priority,
+      task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "N/A",
+      task.assignedTo,
+      `"${task.labels.join(", ")}"`,
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `tasks_${new Date().toISOString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Success",
+      description: "Tasks exported successfully.",
+    });
+  };
+
   const toggleSortOrder = (
     field: "title" | "dueDate" | "status" | "priority"
   ) => {
@@ -258,29 +306,8 @@ const TasksPage = () => {
   };
 
   const TaskRow = ({ task }: { task: Task }) => {
-    const [{ isDragging }, drag] = useDrag({
-      type: "TASK",
-      item: { id: task.id },
-      collect: (monitor) => ({ isDragging: monitor.isDragging() }),
-    });
-
-    const [, drop] = useDrop({
-      accept: "TASK",
-      hover: (item: { id: string }) => {
-        if (item.id !== task.id) {
-          // Implement reordering logic here if backend supports it
-        }
-      },
-    });
-
     return (
-      <TableRow
-        ref={(node) => drag(drop(node))}
-        className={cn(
-          "border-border hover:bg-muted",
-          isDragging && "opacity-50"
-        )}
-      >
+      <TableRow className="border-border hover:bg-muted">
         <TableCell>
           <input
             type="checkbox"
@@ -376,413 +403,422 @@ const TasksPage = () => {
   };
 
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
-        <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
-          <h1 className="text-4xl font-extrabold flex items-center gap-3">
-            <List className="h-9 w-9 text-primary animate-pulse" />
-            Task Manager
-          </h1>
-          <div className="flex gap-4 items-center w-full max-w-2xl">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                placeholder="Search tasks..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-input border-border rounded-lg"
-              />
-            </div>
-            <Select
-              value={filterStatus}
-              onValueChange={(val) => setFilterStatus(val as any)}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={filterPriority}
-              onValueChange={(val) => setFilterPriority(val as any)}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priorities</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-              </SelectContent>
-            </Select>
+    <div className="flex flex-col min-h-screen bg-background text-foreground p-8">
+      <header className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+        <h1 className="text-4xl font-extrabold flex items-center gap-3">
+          <List className="h-9 w-9 text-primary animate-pulse" />
+          Task Manager
+        </h1>
+        <div className="flex gap-4 items-center w-full max-w-2xl">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Input
+              placeholder="Search tasks..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-input border-border rounded-lg"
+            />
           </div>
-        </header>
+          <Select
+            value={filterStatus}
+            onValueChange={(val) => setFilterStatus(val as any)}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={filterPriority}
+            onValueChange={(val) => setFilterPriority(val as any)}
+          >
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </header>
 
-        {isLoading ? (
-          <div className="flex flex-1 justify-center items-center gap-4">
-            <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            <p className="text-lg text-muted-foreground">Loading tasks...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Task Creation */}
-            <Card className="lg:col-span-1 bg-card border-border shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Plus className="h-6 w-6 text-primary" />
-                  Create Task
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  placeholder="Task Title"
-                  value={newTask.title}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, title: e.target.value })
+      {isLoading ? (
+        <div className="flex flex-1 justify-center items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">Loading tasks...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Task Creation */}
+          <Card className="lg:col-span-1 bg-card border-border shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Plus className="h-6 w-6 text-primary" />
+                Create Task
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Task Title"
+                value={newTask.title}
+                onChange={(e) =>
+                  setNewTask({ ...newTask, title: e.target.value })
+                }
+                className="bg-input border-border"
+              />
+              <Textarea
+                placeholder="Description"
+                value={newTask.description}
+                onChange={(e) =>
+                  setNewTask({ ...newTask, description: e.target.value })
+                }
+                className="bg-input border-border min-h-[100px]"
+              />
+              <Input
+                type="date"
+                value={newTask.dueDate}
+                onChange={(e) =>
+                  setNewTask({ ...newTask, dueDate: e.target.value })
+                }
+                className="bg-input border-border"
+              />
+              <Select
+                value={newTask.priority}
+                onValueChange={(val) =>
+                  setNewTask({
+                    ...newTask,
+                    priority: val as "low" | "medium" | "high",
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Add labels (comma-separated)"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    const label = e.currentTarget.value.trim();
+                    if (label)
+                      setNewTask({
+                        ...newTask,
+                        labels: [...newTask.labels, label],
+                      });
+                    e.currentTarget.value = "";
                   }
-                  className="bg-input border-border"
-                />
-                <Textarea
-                  placeholder="Description"
-                  value={newTask.description}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, description: e.target.value })
-                  }
-                  className="bg-input border-border min-h-[100px]"
-                />
-                <Input
-                  type="date"
-                  value={newTask.dueDate}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, dueDate: e.target.value })
-                  }
-                  className="bg-input border-border"
-                />
-                <Select
-                  value={newTask.priority}
-                  onValueChange={(val) =>
-                    setNewTask({
-                      ...newTask,
-                      priority: val as "low" | "medium" | "high",
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input
-                  placeholder="Add labels (comma-separated)"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === ",") {
-                      e.preventDefault();
-                      const label = e.currentTarget.value.trim();
-                      if (label)
+                }}
+                className="bg-input border-border"
+              />
+              <div className="flex flex-wrap gap-2">
+                {newTask.labels.map((label) => (
+                  <Badge
+                    key={label}
+                    variant="secondary"
+                    className="flex items-center gap-1"
+                  >
+                    {label}
+                    <X
+                      className="h-3 w-3 cursor-pointer"
+                      onClick={() =>
                         setNewTask({
                           ...newTask,
-                          labels: [...newTask.labels, label],
-                        });
-                      e.currentTarget.value = "";
-                    }
-                  }}
-                  className="bg-input border-border"
-                />
-                <div className="flex flex-wrap gap-2">
-                  {newTask.labels.map((label) => (
-                    <Badge
-                      key={label}
-                      variant="secondary"
-                      className="flex items-center gap-1"
-                    >
-                      {label}
-                      <X
-                        className="h-3 w-3 cursor-pointer"
-                        onClick={() =>
-                          setNewTask({
-                            ...newTask,
-                            labels: newTask.labels.filter((l) => l !== label),
-                          })
-                        }
-                      />
-                    </Badge>
-                  ))}
-                </div>
-                <Button
-                  onClick={() => createTask.mutate()}
-                  disabled={createTask.isPending || !newTask.title.trim()}
-                  className="w-full bg-primary hover:bg-primary/90"
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Create Task
+                          labels: newTask.labels.filter((l) => l !== label),
+                        })
+                      }
+                    />
+                  </Badge>
+                ))}
+              </div>
+              <Button
+                onClick={() => createTask.mutate()}
+                disabled={createTask.isPending || !newTask.title.trim()}
+                className="w-full bg-primary hover:bg-primary/90"
+              >
+                {createTask.isPending ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-5 w-5 mr-2" />
+                    Create Task
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Task List */}
+          <Card className="lg:col-span-2 bg-card border-border shadow-lg">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Filter className="h-6 w-6 text-primary" />
+                Your Tasks ({filteredTasks?.length || 0})
+              </CardTitle>
+              <div className="flex gap-2">
+                {selectedTasks.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => bulkDeleteTasks.mutate(selectedTasks)}
+                    disabled={bulkDeleteTasks.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Selected ({selectedTasks.length})
+                  </Button>
+                )}
+                <Button variant="outline" onClick={exportTasksToCSV}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
                 </Button>
-              </CardContent>
-            </Card>
-
-            {/* Task List */}
-            <Card className="lg:col-span-2 bg-card border-border shadow-lg">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Filter className="h-6 w-6 text-primary" />
-                  Your Tasks ({filteredTasks?.length || 0})
-                </CardTitle>
-                <div className="flex gap-2">
-                  {selectedTasks.length > 0 && (
-                    <Button
-                      variant="destructive"
-                      onClick={() => bulkDeleteTasks.mutate(selectedTasks)}
-                      disabled={bulkDeleteTasks.isPending}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead
+                      onClick={() => toggleSortOrder("title")}
+                      className="cursor-pointer"
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Selected ({selectedTasks.length})
-                    </Button>
-                  )}
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      /* Implement CSV export */
-                    }}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
+                      Title{" "}
+                      {sortBy === "title" && (
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 inline ml-1",
+                            sortOrder === "desc" && "rotate-180"
+                          )}
+                        />
+                      )}
+                    </TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead
+                      onClick={() => toggleSortOrder("priority")}
+                      className="cursor-pointer"
+                    >
+                      Priority{" "}
+                      {sortBy === "priority" && (
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 inline ml-1",
+                            sortOrder === "desc" && "rotate-180"
+                          )}
+                        />
+                      )}
+                    </TableHead>
+                    <TableHead
+                      onClick={() => toggleSortOrder("dueDate")}
+                      className="cursor-pointer"
+                    >
+                      Due Date{" "}
+                      {sortBy === "dueDate" && (
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 inline ml-1",
+                            sortOrder === "desc" && "rotate-180"
+                          )}
+                        />
+                      )}
+                    </TableHead>
+                    <TableHead>Assigned To</TableHead>
+                    <TableHead>Labels</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTasks && filteredTasks.length > 0 ? (
+                    filteredTasks.map((task) => (
+                      <TaskRow key={task.id} task={task} />
+                    ))
+                  ) : (
                     <TableRow>
-                      <TableHead className="w-12"></TableHead>
-                      <TableHead
-                        onClick={() => toggleSortOrder("title")}
-                        className="cursor-pointer"
+                      <TableCell
+                        colSpan={8}
+                        className="text-center py-6 text-muted-foreground"
                       >
-                        Title{" "}
-                        {sortBy === "title" && (
-                          <ChevronDown
-                            className={cn(
-                              "h-4 w-4 inline ml-1",
-                              sortOrder === "desc" && "rotate-180"
-                            )}
-                          />
-                        )}
-                      </TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead
-                        onClick={() => toggleSortOrder("priority")}
-                        className="cursor-pointer"
-                      >
-                        Priority{" "}
-                        {sortBy === "priority" && (
-                          <ChevronDown
-                            className={cn(
-                              "h-4 w-4 inline ml-1",
-                              sortOrder === "desc" && "rotate-180"
-                            )}
-                          />
-                        )}
-                      </TableHead>
-                      <TableHead
-                        onClick={() => toggleSortOrder("dueDate")}
-                        className="cursor-pointer"
-                      >
-                        Due Date{" "}
-                        {sortBy === "dueDate" && (
-                          <ChevronDown
-                            className={cn(
-                              "h-4 w-4 inline ml-1",
-                              sortOrder === "desc" && "rotate-180"
-                            )}
-                          />
-                        )}
-                      </TableHead>
-                      <TableHead>Assigned To</TableHead>
-                      <TableHead>Labels</TableHead>
-                      <TableHead>Actions</TableHead>
+                        No tasks found.
+                        <List className="h-10 w-10 mx-auto mt-4 text-primary animate-bounce" />
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredTasks && filteredTasks.length > 0 ? (
-                      filteredTasks.map((task) => (
-                        <TaskRow key={task.id} task={task} />
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={8}
-                          className="text-center py-6 text-muted-foreground"
-                        >
-                          No tasks found.
-                          <List className="h-10 w-10 mx-auto mt-4 text-primary animate-bounce" />
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-                <div className="flex justify-between mt-4">
-                  <Button
-                    variant="outline"
-                    disabled={page === 1}
-                    onClick={() => setPage(page - 1)}
-                  >
-                    Previous
-                  </Button>
-                  <span>
-                    Page {page} of{" "}
-                    {Math.ceil((tasks?.length || 0) / tasksPerPage)}
-                  </span>
-                  <Button
-                    variant="outline"
-                    disabled={
-                      page >= Math.ceil((tasks?.length || 0) / tasksPerPage)
-                    }
-                    onClick={() => setPage(page + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                  )}
+                </TableBody>
+              </Table>
+              <div className="flex justify-between mt-4">
+                <Button
+                  variant="outline"
+                  disabled={page === 1}
+                  onClick={() => setPage(page - 1)}
+                >
+                  Previous
+                </Button>
+                <span>
+                  Page {page} of{" "}
+                  {Math.ceil((tasks?.length || 0) / tasksPerPage)}
+                </span>
+                <Button
+                  variant="outline"
+                  disabled={
+                    page >= Math.ceil((tasks?.length || 0) / tasksPerPage)
+                  }
+                  onClick={() => setPage(page + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Task Details Modal */}
-            {editingTask && (
-              <Dialog open={isTaskModalOpen} onOpenChange={setIsTaskModalOpen}>
-                <DialogContent className="sm:max-w-[600px]">
-                  <DialogHeader>
-                    <DialogTitle>Edit Task: {editingTask.title}</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <Input
-                      value={editingTask.title}
-                      onChange={(e) =>
-                        setEditingTask({
-                          ...editingTask,
-                          title: e.target.value,
-                        })
+          {/* Task Details Modal */}
+          {editingTask && (
+            <Dialog open={isTaskModalOpen} onOpenChange={setIsTaskModalOpen}>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Edit Task: {editingTask.title}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Input
+                    value={editingTask.title}
+                    onChange={(e) =>
+                      setEditingTask({
+                        ...editingTask,
+                        title: e.target.value,
+                      })
+                    }
+                    placeholder="Task Title"
+                  />
+                  <Textarea
+                    value={editingTask.description}
+                    onChange={(e) =>
+                      setEditingTask({
+                        ...editingTask,
+                        description: e.target.value,
+                      })
+                    }
+                    placeholder="Description"
+                    className="min-h-[120px]"
+                  />
+                  <Input
+                    type="date"
+                    value={editingTask.dueDate || ""}
+                    onChange={(e) =>
+                      setEditingTask({
+                        ...editingTask,
+                        dueDate: e.target.value,
+                      })
+                    }
+                  />
+                  <Select
+                    value={editingTask.status}
+                    onValueChange={(val) =>
+                      setEditingTask({ ...editingTask, status: val as any })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={editingTask.priority}
+                    onValueChange={(val) =>
+                      setEditingTask({ ...editingTask, priority: val as any })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder="Add labels (comma-separated)"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        const label = e.currentTarget.value.trim();
+                        if (label && !editingTask.labels.includes(label)) {
+                          setEditingTask({
+                            ...editingTask,
+                            labels: [...editingTask.labels, label],
+                          });
+                        }
+                        e.currentTarget.value = "";
                       }
-                      placeholder="Task Title"
-                    />
-                    <Textarea
-                      value={editingTask.description}
-                      onChange={(e) =>
-                        setEditingTask({
-                          ...editingTask,
-                          description: e.target.value,
-                        })
-                      }
-                      placeholder="Description"
-                      className="min-h-[120px]"
-                    />
-                    <Input
-                      type="date"
-                      value={editingTask.dueDate || ""}
-                      onChange={(e) =>
-                        setEditingTask({
-                          ...editingTask,
-                          dueDate: e.target.value,
-                        })
-                      }
-                    />
-                    <Select
-                      value={editingTask.status}
-                      onValueChange={(val) =>
-                        setEditingTask({ ...editingTask, status: val as any })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={editingTask.priority}
-                      onValueChange={(val) =>
-                        setEditingTask({ ...editingTask, priority: val as any })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      placeholder="Add labels (comma-separated)"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === ",") {
-                          e.preventDefault();
-                          const label = e.currentTarget.value.trim();
-                          if (label && !editingTask.labels.includes(label)) {
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {editingTask.labels.map((label) => (
+                      <Badge
+                        key={label}
+                        variant="secondary"
+                        className="flex items-center gap-1"
+                      >
+                        {label}
+                        <X
+                          className="h-3 w-3 cursor-pointer"
+                          onClick={() =>
                             setEditingTask({
                               ...editingTask,
-                              labels: [...editingTask.labels, label],
-                            });
+                              labels: editingTask.labels.filter(
+                                (l) => l !== label
+                              ),
+                            })
                           }
-                          e.currentTarget.value = "";
-                        }
-                      }}
-                    />
-                    <div className="flex flex-wrap gap-2">
-                      {editingTask.labels.map((label) => (
-                        <Badge
-                          key={label}
-                          variant="secondary"
-                          className="flex items-center gap-1"
-                        >
-                          {label}
-                          <X
-                            className="h-3 w-3 cursor-pointer"
-                            onClick={() =>
-                              setEditingTask({
-                                ...editingTask,
-                                labels: editingTask.labels.filter(
-                                  (l) => l !== label
-                                ),
-                              })
-                            }
-                          />
-                        </Badge>
-                      ))}
-                    </div>
+                        />
+                      </Badge>
+                    ))}
                   </div>
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsTaskModalOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={() => updateTask.mutate(editingTask)}
-                      disabled={updateTask.isPending}
-                    >
-                      Save
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
-          </div>
-        )}
-      </div>
-    </DndProvider>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsTaskModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => updateTask.mutate(editingTask)}
+                    disabled={updateTask.isPending}
+                  >
+                    {updateTask.isPending ? (
+                      <>
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 

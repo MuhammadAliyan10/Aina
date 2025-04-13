@@ -1,7 +1,8 @@
 // app/page.tsx
 "use client";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   CheckCircle,
   ArrowRight,
@@ -14,19 +15,44 @@ import {
   DollarSign,
   Cable,
   Workflow,
+  WifiOff,
+  Loader2,
 } from "lucide-react";
 import { NavbarDemo } from "@/components/Global/Navbar";
 
-// Inline Navbar
-
 export default function Home() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
+
+  useEffect(() => {
+    // Simulate loading time
+    const loadingTimer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    // Check online status
+    const handleOnlineStatus = () => {
+      setIsOnline(navigator.onLine);
+    };
+
+    window.addEventListener("online", handleOnlineStatus);
+    window.addEventListener("offline", handleOnlineStatus);
+    setIsOnline(navigator.onLine);
+
+    return () => {
+      clearTimeout(loadingTimer);
+      window.removeEventListener("online", handleOnlineStatus);
+      window.removeEventListener("offline", handleOnlineStatus);
+    };
+  }, []);
+
   // Features data
   const features = [
     {
       icon: <Workflow className="w-10 h-10 text-[#6B48FF]" />,
       title: "AI-Powered Web Automation",
       description:
-        "Automate web tasks like data scraping, form filling, and content updates with Aina’s advanced AI, delivering speed and precision for any workflow.",
+        "Automate web tasks like data scraping, form filling, and content updates with Aina's advanced AI, delivering speed and precision for any workflow.",
     },
     {
       icon: <Layout className="w-10 h-10 text-[#00DDEB]" />,
@@ -38,13 +64,13 @@ export default function Home() {
       icon: <Cable className="w-10 h-10 text-[#00DDEB]" />,
       title: "Integration",
       description:
-        "Plan, track, and manage tasks effortlessly with Aina’s integrated manager, perfect for students and office workers juggling multiple projects.",
+        "Connect seamlessly with your favorite tools and platforms through our robust API and pre-built integrations.",
     },
     {
       icon: <CheckCircle className="w-10 h-10 text-[#6B48FF]" />,
       title: "Task Manager",
       description:
-        "Plan, track, and manage tasks effortlessly with Aina’s integrated manager, perfect for students and office workers juggling multiple projects.",
+        "Plan, track, and manage tasks effortlessly with Aina's integrated manager, perfect for students and office workers juggling multiple projects.",
     },
     {
       icon: <Users className="w-10 h-10 text-[#00DDEB]" />,
@@ -66,6 +92,25 @@ export default function Home() {
     },
   ];
 
+  // New feature categories for enhanced UI
+  const featureCategories = [
+    {
+      title: "Productivity",
+      description: "Tools to supercharge your workflow",
+      features: [features[0], features[3], features[6]],
+    },
+    {
+      title: "Collaboration",
+      description: "Work together seamlessly",
+      features: [features[4], features[2]],
+    },
+    {
+      title: "Management",
+      description: "Control every aspect of your work",
+      features: [features[1], features[5]],
+    },
+  ];
+
   // How It Works steps
   const steps = [
     {
@@ -76,12 +121,12 @@ export default function Home() {
     {
       title: "Build Workflows",
       description:
-        "Use Aina’s no-code editor to create AI-driven automation flows, customizing tasks to fit your goals.",
+        "Use Aina's no-code editor to create AI-driven automation flows, customizing tasks to fit your goals.",
     },
     {
       title: "Monitor & Optimize",
       description:
-        "Track performance with real-time analytics and let Aina’s AI suggest optimizations for maximum efficiency.",
+        "Track performance with real-time analytics and let Aina's AI suggest optimizations for maximum efficiency.",
     },
   ];
 
@@ -146,9 +191,72 @@ export default function Home() {
     },
   ];
 
+  // New use cases section
+  const useCases = [
+    {
+      title: "For Students",
+      description:
+        "Automate research collection, organize study materials, and manage assignment deadlines with ease.",
+      icon: <FileText className="w-8 h-8 text-[#00DDEB]" />,
+    },
+    {
+      title: "For Professionals",
+      description:
+        "Streamline client communications, automate reporting, and keep project stakeholders informed automatically.",
+      icon: <Shield className="w-8 h-8 text-[#6B48FF]" />,
+    },
+    {
+      title: "For Teams",
+      description:
+        "Coordinate workflows, share resources, and maintain transparency with customizable team dashboards.",
+      icon: <Users className="w-8 h-8 text-[#00DDEB]" />,
+    },
+    {
+      title: "For Enterprises",
+      description:
+        "Scale operations, enforce compliance, and gain insights with enterprise-grade security and analytics.",
+      icon: <DollarSign className="w-8 h-8 text-[#6B48FF]" />,
+    },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
+        <div className="text-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+            className="mb-6"
+          >
+            <Loader2 className="w-16 h-16 text-[#6B48FF]" />
+          </motion.div>
+          <h2 className="text-2xl font-bold text-white">Loading Aina</h2>
+          <p className="text-gray-400 mt-2">
+            Preparing your AI automation experience...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-gray-900 text-white dark:bg-gray-950">
+    <div className="bg-gray-900 text-white dark:bg-gray-950 relative">
       <NavbarDemo />
+
+      {/* Offline notification */}
+      <AnimatePresence>
+        {!isOnline && (
+          <motion.div
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="fixed top-0 left-0 right-0 bg-red-600 text-white py-3 px-5 z-50 flex items-center justify-center"
+          >
+            <WifiOff className="w-5 h-5 mr-2" />
+            <p>You are currently offline. Some features may be unavailable.</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* About Section */}
       <section className="relative min-h-screen flex items-center pt-24 pb-20 overflow-hidden">
@@ -211,15 +319,132 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="mx-5 my-20 md:mx-10 lg:mx-20" id="features">
+      {/* Features Section - Redesigned */}
+      <section className="py-20 relative overflow-hidden" id="features">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,rgba(0,221,235,0.2)_0%,transparent_70%)] z-0" />
+        <div className="container mx-auto px-5 md:px-10 lg:px-20 z-10 relative">
+          <motion.h2
+            className="text-4xl sm:text-5xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-[#6B48FF] to-[#00DDEB]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+          >
+            Everything You Need to Succeed
+          </motion.h2>
+          <motion.p
+            className="text-lg text-gray-400 text-center mb-12 max-w-3xl mx-auto"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            Aina equips you with powerful tools to automate, organize, and
+            collaborate, tailored for productivity and innovation.
+          </motion.p>
+
+          {/* Feature Categories */}
+          <div className="space-y-24">
+            {featureCategories.map((category, categoryIndex) => (
+              <div key={categoryIndex} className="mb-16">
+                <motion.div
+                  className="text-center mb-12"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: categoryIndex * 0.1 }}
+                >
+                  <h3 className="text-3xl font-bold text-white mb-3">
+                    {category.title}
+                  </h3>
+                  <p className="text-gray-400">{category.description}</p>
+                </motion.div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {category.features.map((feature, featureIndex) => (
+                    <motion.div
+                      key={featureIndex}
+                      className="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-xl p-8 hover:bg-opacity-70 transition-all duration-300 transform hover:-translate-y-2 border border-gray-700 hover:border-[#6B48FF]/50"
+                      initial={{ opacity: 0, y: 50 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        duration: 0.5,
+                        delay: featureIndex * 0.1 + categoryIndex * 0.2,
+                      }}
+                    >
+                      <div className="bg-gray-900 rounded-full p-4 inline-block mb-6">
+                        {feature.icon}
+                      </div>
+                      <h4 className="text-xl font-bold text-white mb-3">
+                        {feature.title}
+                      </h4>
+                      <p className="text-gray-300">{feature.description}</p>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Feature Showcase */}
+          <motion.div
+            className="mt-24 bg-gray-800 rounded-2xl p-8 overflow-hidden relative"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-[#6B48FF]/10 to-[#00DDEB]/10" />
+            <div className="relative z-10">
+              <div className="flex flex-col lg:flex-row items-center gap-12">
+                <div className="lg:w-1/2">
+                  <h3 className="text-3xl font-bold text-white mb-6">
+                    Seamless Experience Across Devices
+                  </h3>
+                  <p className="text-gray-300 mb-8">
+                    Whether you're on desktop, tablet, or mobile, Aina delivers
+                    a consistent, powerful experience. Your automations, tasks,
+                    and documents sync instantly across all your devices.
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    {[
+                      "Real-time sync",
+                      "Responsive design",
+                      "Offline capabilities",
+                      "Cross-platform",
+                    ].map((item, i) => (
+                      <span
+                        key={i}
+                        className="px-4 py-2 bg-gray-700 rounded-full text-sm font-medium text-gray-300"
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="lg:w-1/2">
+                  <div className="relative">
+                    <div className="bg-gray-900 rounded-xl p-4 shadow-2xl">
+                      <div className="h-64 bg-gradient-to-br from-[#6B48FF]/20 to-[#00DDEB]/20 rounded-lg flex items-center justify-center">
+                        <p className="text-xl text-gray-400">
+                          Feature visualization
+                        </p>
+                      </div>
+                    </div>
+                    <div className="absolute -bottom-4 -right-4 w-32 h-32 bg-[#00DDEB]/20 rounded-full blur-3xl" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* New Use Cases Section */}
+      <section className="mx-5 my-20 md:mx-10 lg:mx-20">
         <motion.h2
           className="text-4xl sm:text-5xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-[#6B48FF] to-[#00DDEB]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8 }}
         >
-          Everything You Need to Succeed
+          Designed for Everyone
         </motion.h2>
         <motion.p
           className="text-lg text-gray-400 text-center mb-12 max-w-3xl mx-auto"
@@ -227,32 +452,26 @@ export default function Home() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          Aina equips you with powerful tools to automate, organize, and
-          collaborate, tailored for productivity and innovation.
+          From individual students to large enterprises, Aina adapts to your
+          unique needs
         </motion.p>
-        <div className="space-y-16">
-          {features.map((feature, index) => (
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {useCases.map((useCase, index) => (
             <motion.div
               key={index}
-              className={`flex flex-col ${
-                index % 2 === 0 ? "lg:flex-row" : "lg:flex-row-reverse"
-              } items-center gap-8`}
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: index * 0.2 }}
+              className="bg-gray-800 rounded-xl p-8 border border-gray-700"
+              initial={{ opacity: 0, x: index % 2 === 0 ? -30 : 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
             >
-              <div className="flex-1 text-center lg:text-left">
-                <div className="inline-block p-4 bg-gray-800 rounded-full mb-4">
-                  {feature.icon}
-                </div>
-                <h3 className="text-2xl font-semibold text-white mb-2">
-                  {feature.title}
+              <div className="flex items-start mb-4 gap-4">
+                <div className="bg-gray-900 p-3 rounded-lg">{useCase.icon}</div>
+                <h3 className="text-2xl font-bold text-white">
+                  {useCase.title}
                 </h3>
-                <p className="text-gray-300">{feature.description}</p>
               </div>
-              <div className="flex-1">
-                <div className="bg-gray-800 rounded-2xl h-64 sm:h-80 w-full bg-gradient-to-r from-[#6B48FF]/20 to-[#00DDEB]/20" />
-              </div>
+              <p className="text-gray-300">{useCase.description}</p>
             </motion.div>
           ))}
         </div>
@@ -274,7 +493,7 @@ export default function Home() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          Aina’s intuitive process makes web automation accessible to everyone,
+          Aina's intuitive process makes web automation accessible to everyone,
           from students to professionals.
         </motion.p>
         <div className="relative">
@@ -332,7 +551,7 @@ export default function Home() {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5, delay: index * 0.2 }}
             >
-              <p className="text-gray-300 mb-4">“{testimonial.quote}”</p>
+              <p className="text-gray-300 mb-4">"{testimonial.quote}"</p>
               <p className="text-white font-semibold">{testimonial.name}</p>
               <p className="text-gray-400 text-sm">{testimonial.role}</p>
             </motion.div>
@@ -356,7 +575,7 @@ export default function Home() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          Whether you’re a student, professional, or enterprise, Aina has a plan
+          Whether you're a student, professional, or enterprise, Aina has a plan
           to fit your automation needs.
         </motion.p>
         <div className="flex flex-col lg:flex-row gap-8">
@@ -421,7 +640,7 @@ export default function Home() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          Experience the power of Aina’s AI-driven automation. Start free and
+          Experience the power of Aina's AI-driven automation. Start free and
           unlock productivity for you and your team.
         </motion.p>
         <motion.div
