@@ -7,13 +7,14 @@ import {
   PowerOff,
   AlertCircle,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   Dialog,
   DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -32,14 +33,36 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import DOMPurify from "dompurify";
+import { ErrorBoundary } from "react-error-boundary";
 
-// Placeholder for logging (integrate with your production logging system)
+interface ClipboardConfig {
+  operation: string;
+  content?: string;
+  isEnabled: boolean;
+}
+
+interface ClipboardNodeData {
+  description?: string;
+  config?: ClipboardConfig;
+  error?: string;
+  output?: { timestamp: string };
+}
+
 const log = {
   info: (message: string) => console.log(`[INFO] ${message}`),
   error: (message: string) => console.error(`[ERROR] ${message}`),
 };
 
-// Request clipboard permission
+const ErrorFallback = ({ error }: { error: Error }) => {
+  log.error(`ClipboardNode Error: ${error.message}`);
+  return (
+    <div className="p-4 bg-red-100 border border-red-400 rounded-md text-red-700">
+      <p>Error: {error.message}</p>
+    </div>
+  );
+};
+
 const requestClipboardPermission = async (): Promise<boolean> => {
   try {
     const permissionStatus = await navigator.permissions.query({
@@ -59,39 +82,87 @@ const requestClipboardPermission = async (): Promise<boolean> => {
   }
 };
 
-const ClipBoardNode = ({ id, data }: NodeProps) => {
+const ClipboardNode = ({ id, data }: NodeProps<ClipboardNodeData>) => {
   const [description, setDescription] = useState(data.description || "");
-  const [operation, setOperation] = useState(data.config?.operation || "read"); // read or write
-  const [content, setContent] = useState(data.config?.content || ""); // For write operation
-  const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false); // Default to enabled
+  const [operation, setOperation] = useState(data.config?.operation || "read");
+  const [content, setContent] = useState(data.config?.content || "");
+  const [isEnabled, setIsEnabled] = useState(data.config?.isEnabled !== false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "running" | "error">("idle"); // Execution status
+  const [status, setStatus] = useState<"idle" | "running" | "error">(
+    data.error ? "error" : data.output ? "running" : "idle"
+  );
   const { setNodes } = useReactFlow();
 
-  // Sync status with data from AutomationExecutor (log output/error instead of displaying)
-  useEffect(() => {
-    if (data.error) {
-      setStatus("error");
-      log.error(`ClipBoardNode ${id}: ${data.error}`);
-    } else if (data.output) {
-      setStatus("running");
-      log.info(
-        `ClipBoardNode ${id}: Operation ${operation} - ${JSON.stringify(
-          data.output
-        )}`
-      );
-    } else {
-      setStatus("idle");
+  const validateInputs = useCallback(async () => {
+    if (!description.trim()) {
+      setError("Description is required");
+      return false;
     }
-  }, [data.error, data.output, id, operation]);
+    if (!["read", "write"].includes(operation)) {
+      setError("Invalid operation");
+      return false;
+    }
+    if (operation === "write" && !content.trim()) {
+      setError("Content is required for write operation");
+      return false;
+    }
+    const hasPermission = await requestClipboardPermission();
+    if (!hasPermission) {
+      setError("Clipboard permission not granted");
+      return false;
+    }
+    setError(null);
+    return true;
+  }, [description, operation, content]);
 
-  const handleDelete = () => {
+  const handleSave = useCallback(async () => {
+    if (!(await validateInputs())) return;
+
+    const sanitizedDescription = DOMPurify.sanitize(description);
+    const sanitizedContent =
+      operation === "write" ? DOMPurify.sanitize(content) : undefined;
+
+    setNodes((nodes) =>
+      nodes.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                description: sanitizedDescription,
+                config: {
+                  operation,
+                  content: sanitizedContent,
+                  isEnabled,
+                },
+              },
+            }
+          : node
+      )
+    );
+
+    setIsDialogOpen(false);
+    setError(null);
+    log.info(
+      `ClipboardNode ${id}: Configuration saved - ${sanitizedDescription}, Operation: ${operation}`
+    );
+  }, [
+    id,
+    description,
+    operation,
+    content,
+    isEnabled,
+    validateInputs,
+    setNodes,
+  ]);
+
+  const handleDelete = useCallback(() => {
     setNodes((nodes) => nodes.filter((node) => node.id !== id));
-    log.info(`ClipBoardNode ${id}: Deleted`);
-  };
+    log.info(`ClipboardNode ${id}: Deleted`);
+  }, [id, setNodes]);
 
-  const handleToggleEnable = () => {
+  const handleToggleEnable = useCallback(() => {
     const newEnabledState = !isEnabled;
     setIsEnabled(newEnabledState);
     setNodes((nodes) =>
@@ -108,243 +179,220 @@ const ClipBoardNode = ({ id, data }: NodeProps) => {
       )
     );
     log.info(
-      `ClipBoardNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`
+      `ClipboardNode ${id}: ${newEnabledState ? "Enabled" : "Disabled"}`
     );
-  };
-
-  const validateInputs = async () => {
-    if (!description.trim()) {
-      setError("Description is required");
-      return false;
-    }
-    if (operation === "write" && !content.trim()) {
-      setError("Content is required for write operation");
-      return false;
-    }
-    const hasPermission = await requestClipboardPermission();
-    if (!hasPermission) {
-      setError("Clipboard permission not granted");
-      return false;
-    }
-    setError(null);
-    return true;
-  };
-
-  const handleSave = async () => {
-    if (!(await validateInputs())) return;
-
-    setNodes((nodes) =>
-      nodes.map((node) =>
-        node.id === id
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                description,
-                config: {
-                  ...node.data.config,
-                  operation,
-                  content: operation === "write" ? content : undefined,
-                  isEnabled,
-                },
-              },
-            }
-          : node
-      )
-    );
-    setIsDialogOpen(false);
-    log.info(
-      `ClipBoardNode ${id}: Configuration saved - ${description}, Operation: ${operation}`
-    );
-  };
+  }, [id, isEnabled, setNodes]);
 
   return (
-    <div
-      className={`relative min-w-[12rem] text-white p-3 rounded-xl shadow-md border border-gray-600 group bg-gray-900 transition-all hover:shadow-lg ${
-        !isEnabled ? "opacity-50" : ""
-      }`}
-    >
-      {/* Action buttons, visible on hover */}
-      <div className="absolute -top-[44px] left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md p-2 flex justify-between items-center gap-x-3 opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Edit
-                    size={18}
-                    className="cursor-pointer text-gray-400 hover:text-blue-400 transition-colors"
-                    onClick={() => setIsDialogOpen(true)}
-                  />
-                </DialogTrigger>
-                <DialogContent className="bg-gray-800 text-white rounded-lg shadow-xl p-6">
-                  <DialogHeader>
-                    <DialogTitle className="text-lg font-semibold">
-                      Configure Clipboard
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="description" className="text-gray-300">
-                        Description
-                      </Label>
-                      <Input
-                        id="description"
-                        type="text"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="e.g., Copy user ID to clipboard"
-                        className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="operation" className="text-gray-300">
-                        Operation
-                      </Label>
-                      <Select value={operation} onValueChange={setOperation}>
-                        <SelectTrigger
-                          id="operation"
-                          className="bg-gray-700 border-none text-white"
-                        >
-                          <SelectValue placeholder="Select operation" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-gray-700 text-white">
-                          <SelectItem value="read">Read</SelectItem>
-                          <SelectItem value="write">Write</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {operation === "write" && (
-                      <div>
-                        <Label htmlFor="content" className="text-gray-300">
-                          Content to Write
-                        </Label>
-                        <Input
-                          id="content"
-                          type="text"
-                          value={content}
-                          onChange={(e) => setContent(e.target.value)}
-                          placeholder="e.g., Example text"
-                          className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    )}
-                    {error && (
-                      <div className="flex items-center gap-2 text-red-400">
-                        <AlertCircle size={16} />
-                        <span className="text-sm">{error}</span>
-                      </div>
-                    )}
-                  </div>
-                  <DialogFooter className="mt-4 flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      className="text-white border-gray-600 hover:bg-gray-700"
-                      onClick={() => setIsDialogOpen(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleSave}
-                      className="bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded-md"
-                    >
-                      Save
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </TooltipTrigger>
-            <TooltipContent className="bg-gray-700 text-white">
-              <p>Edit Clipboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <span className="border border-r-white h-[15px]"></span>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Trash
-                size={18}
-                className="cursor-pointer text-gray-400 hover:text-red-500 transition-colors"
-                onClick={handleDelete}
-              />
-            </TooltipTrigger>
-            <TooltipContent className="bg-gray-700 text-white">
-              <p>Delete Clipboard</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
-
-      {/* Node Display */}
-      <div className="flex flex-col items-start gap-3">
-        <div className="flex items-center gap-2">
-          {(isEnabled && (
-            <span className="p-3 bg-black text-white rounded-lg shadow-md">
-              <Clipboard size={20} />
-            </span>
-          )) || (
-            <span className="p-3 bg-black text-white rounded-lg shadow-md opacity-50">
-              <Clipboard size={20} />
-            </span>
-          )}
-          <span className="text-sm font-semibold">Clipboard</span>
-          {/* Status Indicator */}
-          <span
-            className={`ml-2 w-2 h-2 rounded-full ${
-              status === "running"
-                ? "bg-green-500 animate-pulse"
-                : status === "error"
-                ? "bg-red-500"
-                : "bg-gray-500"
-            }`}
-          />
-          {/* Enable/Disable Button */}
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <div
+        className={`relative min-w-[12rem] text-foreground p-3 rounded-xl shadow-md border border-border group bg-card transition-all hover:shadow-lg ${
+          !isEnabled ? "opacity-50" : ""
+        }`}
+        role="region"
+        aria-label={`Clipboard Node ${id}`}
+      >
+        <div className="absolute -top-[44px] left-1/2 transform -translate-x-1/2 bg-card rounded-md p-2 flex justify-between items-center gap-x-3 opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-2 p-1 text-gray-400 hover:text-white"
-                  onClick={handleToggleEnable}
-                >
-                  {isEnabled ? (
-                    <Power size={16} className="text-green-500" />
-                  ) : (
-                    <PowerOff size={16} className="text-red-500" />
-                  )}
-                </Button>
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <button aria-label="Edit Clipboard">
+                      <Edit
+                        size={18}
+                        className="cursor-pointer text-gray-400 hover:text-blue-400 transition-colors"
+                      />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent
+                    className="bg-gray-800 text-white rounded-lg shadow-xl p-6"
+                    aria-describedby="dialog-description"
+                  >
+                    <DialogHeader>
+                      <DialogTitle className="text-lg font-semibold">
+                        Configure Clipboard
+                      </DialogTitle>
+                      <DialogDescription id="dialog-description">
+                        Set up the clipboard operation for the workflow.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="description" className="text-gray-300">
+                          Description
+                        </Label>
+                        <Input
+                          id="description"
+                          type="text"
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="e.g., Copy user ID to clipboard"
+                          className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                          aria-required="true"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="operation" className="text-gray-300">
+                          Operation
+                        </Label>
+                        <Select value={operation} onValueChange={setOperation}>
+                          <SelectTrigger
+                            id="operation"
+                            className="bg-gray-700 border-none text-white"
+                            aria-label="Select operation"
+                          >
+                            <SelectValue placeholder="Select operation" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-gray-700 text-white">
+                            <SelectItem value="read">Read</SelectItem>
+                            <SelectItem value="write">Write</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {operation === "write" && (
+                        <div>
+                          <Label htmlFor="content" className="text-gray-300">
+                            Content to Write
+                          </Label>
+                          <Input
+                            id="content"
+                            type="text"
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            placeholder="e.g., Example text"
+                            className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                            aria-required="true"
+                          />
+                        </div>
+                      )}
+                      {error && (
+                        <div
+                          className="flex items-center gap-2 text-red-400"
+                          role="alert"
+                        >
+                          <AlertCircle size={16} />
+                          <span className="text-sm">{error}</span>
+                        </div>
+                      )}
+                    </div>
+                    <DialogFooter className="mt-4 flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        className="text-white border-gray-600 hover:bg-gray-700"
+                        onClick={() => {
+                          setIsDialogOpen(false);
+                          setError(null);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleSave}
+                        className="bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded-md"
+                      >
+                        Save
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </TooltipTrigger>
               <TooltipContent className="bg-gray-700 text-white">
-                <p>{isEnabled ? "Disable Clipboard" : "Enable Clipboard"}</p>
+                <p>Edit Clipboard</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <span
+            className="border border-r border-border h-[15px]"
+            aria-hidden="true"
+          />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button aria-label="Delete Clipboard" onClick={handleDelete}>
+                  <Trash
+                    size={18}
+                    className="cursor-pointer text-gray-400 hover:text-red-500 transition-colors"
+                  />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="bg-gray-700 text-white">
+                <p>Delete Clipboard</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
-        {description && (
-          <p className="text-xs text-gray-400 italic max-w-[10rem] truncate">
-            {description}
-          </p>
-        )}
-        <p className="text-xs text-gray-300">
-          {operation === "read" ? "Read" : "Write"}
-        </p>
-      </div>
 
-      {/* Handles */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#ff0072" }} // Default color
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        style={{ width: "0.6rem", height: "0.6rem", background: "#ff0072" }}
-      />
-    </div>
+        <div className="flex flex-col items-start gap-3">
+          <div className="flex items-center gap-2">
+            <span
+              className={`p-3 bg-black text-white rounded-lg shadow-md ${
+                !isEnabled ? "opacity-50" : ""
+              }`}
+              aria-hidden="true"
+            >
+              <Clipboard size={20} />
+            </span>
+            <span className="text-sm font-semibold">Clipboard</span>
+            <span
+              className={`ml-2 w-2 h-2 rounded-full ${
+                status === "running"
+                  ? "bg-green-500 animate-pulse"
+                  : status === "error"
+                  ? "bg-red-500"
+                  : "bg-gray-500"
+              }`}
+              aria-live="polite"
+              aria-label={`Status: ${status}`}
+            />
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-2 p-1 text-gray-400 hover:text-white"
+                    onClick={handleToggleEnable}
+                    aria-label={
+                      isEnabled ? "Disable Clipboard" : "Enable Clipboard"
+                    }
+                  >
+                    {isEnabled ? (
+                      <Power size={16} className="text-green-500" />
+                    ) : (
+                      <PowerOff size={16} className="text-red-500" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-gray-700 text-white">
+                  <p>{isEnabled ? "Disable Clipboard" : "Enable Clipboard"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          {description && (
+            <p className="text-xs text-gray-400 italic max-w-[10rem] truncate">
+              {description}
+            </p>
+          )}
+          <p className="text-xs text-gray-400">
+            {operation === "read" ? "Read" : "Write"}
+          </p>
+        </div>
+
+        <Handle
+          type="target"
+          position={Position.Left}
+          style={{ width: "0.6rem", height: "0.6rem", background: "#6ede87" }}
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          style={{ width: "0.6rem", height: "0.6rem", background: "#6ede87" }}
+        />
+      </div>
+    </ErrorBoundary>
   );
 };
 
-export { ClipBoardNode };
+export { ClipboardNode };

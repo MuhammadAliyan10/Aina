@@ -13,6 +13,7 @@ import {
   Layout,
   DollarSign,
   Cable,
+  Workflow,
 } from "lucide-react";
 import { NavbarDemo } from "@/components/Global/Navbar";
 
@@ -22,7 +23,7 @@ export default function Home() {
   // Features data
   const features = [
     {
-      icon: <Star className="w-10 h-10 text-[#6B48FF]" />,
+      icon: <Workflow className="w-10 h-10 text-[#6B48FF]" />,
       title: "AI-Powered Web Automation",
       description:
         "Automate web tasks like data scraping, form filling, and content updates with Aina’s advanced AI, delivering speed and precision for any workflow.",
@@ -87,21 +88,19 @@ export default function Home() {
   // Testimonials data
   const testimonials = [
     {
-      quote:
-        "Aina’s AI automation saved our team hours of manual data entry, letting us focus on strategy.",
-      name: "Emily R.",
-      role: "Operations Lead",
+      quote: "System phar day ga, phir automation par laga day ga",
+      name: "Hashir Abd.",
+      role: "Class Cr",
     },
     {
-      quote:
-        "The customizable dashboard is a lifesaver for managing my coursework and side projects!",
-      name: "Liam S.",
+      quote: "Ab link pana hova asana, bas automation par laga do meri jan",
+      name: "Usama Zul.",
       role: "Computer Science Student",
     },
     {
       quote:
-        "Secure billing and team support make Aina perfect for our growing startup.",
-      name: "Ava M.",
+        "Suiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii",
+      name: "Muhammad Aliyan",
       role: "Founder",
     },
   ];
@@ -178,7 +177,7 @@ export default function Home() {
                 Start Free
               </Link>
               <Link
-                href="https://github.com/MuhamamdAliyan10/Aina"
+                href="https://github.com/MuhammadAliyan10/Aina"
                 className="px-6 py-3 border border-gray-300 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
               >
                 View on GitHub
@@ -279,7 +278,7 @@ export default function Home() {
           from students to professionals.
         </motion.p>
         <div className="relative">
-          <div className="absolute left-1/2 -translate-x-1/2 w-1 bg-gray-700 h-full hidden md:block" />
+          <div className="absolute left-1/2 top-5 -translate-x-1/2 w-1 bg-gray-700 h-[80%] hidden md:block" />
           {steps.map((step, index) => (
             <motion.div
               key={index}
@@ -296,7 +295,7 @@ export default function Home() {
                 </h3>
                 <p className="text-gray-300">{step.description}</p>
               </div>
-              <div className="w-12 h-12 bg-[#6B48FF] rounded-full flex items-center justify-center text-white font-bold">
+              <div className="w-12 h-12 bg-[#6B48FF] rounded-full flex items-center justify-center text-white font-bold z-50">
                 {index + 1}
               </div>
               <div className="flex-1 hidden md:block" />
@@ -491,7 +490,7 @@ export default function Home() {
               </li>
               <li>
                 <Link
-                  href="https://github.com/MuhamamdAliyan10/Aina"
+                  href="https://github.com/MuhammadAliyan10/Aina"
                   className="hover:text-white transition-colors"
                 >
                   GitHub

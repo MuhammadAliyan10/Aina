@@ -65,7 +65,7 @@ import { WorkflowNode } from "../Node/General/WorkflowNode";
 import { DelayNode } from "../Node/General/DelayNode";
 import { ExportDataNode } from "../Node/General/ExportDataNode";
 import { HTTPRequestNode } from "../Node/General/HTTPRequestNode";
-import { ClipBoardNode } from "../Node/General/ClipBoardNode";
+import { ClipboardNode } from "../Node/General/ClipBoardNode";
 import { WaitConnectionNode } from "../Node/General/WaitConnectionNode";
 import { NotificationNode } from "../Node/General/NotificationNode";
 import { NoteNode } from "../Node/General/NoteNode";
@@ -159,7 +159,7 @@ const nodeTypes = {
   customDelay: DelayNode,
   customExport: ExportDataNode,
   customRequest: HTTPRequestNode,
-  customClipBoard: ClipBoardNode,
+  customClipBoard: ClipboardNode,
   customWaitConnections: WaitConnectionNode,
   customNotifications: NotificationNode,
   customNotes: NoteNode,
@@ -268,6 +268,11 @@ function Page() {
   const nodesRef = useRef(nodes);
   const edgesRef = useRef(edges);
   const historyIndexRef = useRef(historyIndex);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen((prev) => !prev);
+  };
 
   // Update refs when state changes
   useEffect(() => {
@@ -447,12 +452,12 @@ function Page() {
         type: "smoothstep",
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          width: 20,
-          height: 20,
-          color,
+          width: 10,
+          height: 10,
+          // color: "#1F2937",
         },
         style: {
-          stroke: color,
+          // stroke: "#1F2937",
           strokeWidth: 2,
           strokeDasharray: "5,5",
           animation: "dash 1.5s linear infinite",
@@ -655,12 +660,12 @@ function Page() {
                   type: "smoothstep",
                   markerEnd: {
                     type: MarkerType.ArrowClosed,
-                    width: 20,
-                    height: 20,
-                    color,
+                    width: 10,
+                    height: 10,
+                    // color: "#1F2937",
                   },
                   style: {
-                    stroke: color,
+                    // stroke: "#1F2937",
                     strokeWidth: 2,
                     strokeDasharray: "5,5",
                     animation: "dash 1.5s linear infinite",
@@ -727,12 +732,12 @@ function Page() {
           type: "smoothstep",
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            width: 4,
-            height: 4,
-            color,
+            width: 10,
+            height: 10,
+            // color: "#1F2937",
           },
           style: {
-            stroke: color,
+            // stroke: "#1F2937",
             strokeWidth: 2,
             strokeDasharray: "5,5",
             animation: "dash 1.5s linear infinite",
@@ -774,8 +779,36 @@ function Page() {
           }
         }
       `}</style>
-      <NodesPanel />
-      <div className="flex-1 flex flex-col relative">
+      {isSidebarOpen && <NodesPanel />}
+      <div
+        className={`flex-1 flex flex-col relative ${
+          !isSidebarOpen ? "w-full" : ""
+        }`}
+      >
+        {/* Sidebar Toggle Button */}
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={toggleSidebar}
+            className="bg-input border-border text-foreground"
+          >
+            {isSidebarOpen ? (
+              <Minus className="w-4 h-4" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+          </Button>
+          <Input
+            value={workflowTitle}
+            onChange={(e) => {
+              setWorkflowTitle(e.target.value);
+              setIsDirty(true);
+            }}
+            placeholder="Workflow Title"
+            className="bg-input border-border text-foreground w-48"
+          />
+        </div>
+
         {/* Top Bar */}
         <div className="absolute top-4 right-4 flex gap-2 z-10">
           <TooltipProvider>
@@ -869,19 +902,6 @@ function Page() {
               <TooltipContent>Run the workflow</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        </div>
-
-        {/* Workflow Title */}
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
-          <Input
-            value={workflowTitle}
-            onChange={(e) => {
-              setWorkflowTitle(e.target.value);
-              setIsDirty(true);
-            }}
-            placeholder="Workflow Title"
-            className="bg-input border-border text-foreground w-48"
-          />
         </div>
 
         {/* React Flow Canvas */}
