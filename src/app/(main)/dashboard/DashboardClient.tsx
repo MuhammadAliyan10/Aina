@@ -191,7 +191,7 @@ const DashboardPage = () => {
               <LayoutDashboard className="h-6 w-6 md:h-10 md:w-10 text-primary animate-pulse" />
               Welcome, {user?.fullName || "User"}!
             </h1>
-            <p className="text-muted-foreground mt-2 text-[12px] md:text-lg">
+            <p className="text-muted-foreground mt-2 text-[12px] md:text-lg ">
               Your command center for tasks, automations, and team
               collaboration.
             </p>

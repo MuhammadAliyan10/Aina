@@ -26,6 +26,7 @@ import {
   BarChart,
   Zap,
   BotIcon,
+  CalendarRange,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -57,6 +58,11 @@ export function AppSidebar({
       label: "Tasks",
       href: "/tasks",
       icon: <List className="h-5 w-5 flex-shrink-0" />,
+    },
+    {
+      label: "Schedule",
+      href: "/schedule",
+      icon: <CalendarRange className="h-5 w-5 flex-shrink-0" />,
     },
     {
       label: "Team",
