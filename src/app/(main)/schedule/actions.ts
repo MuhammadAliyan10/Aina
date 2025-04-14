@@ -631,34 +631,30 @@ export async function addStudyRoutine(
   }
 }
 
-// Create Daily Task
 export async function createDailyTask(
   userId: string,
   subjectId: string,
   title: string,
-  description?: string,
-  category?: "study" | "project" | "revision"
+  dueDate?: string,
+  category?: string
 ) {
   try {
-    const validated = TaskSchema.parse({ title, description, category });
-
     const task = await prisma.task.create({
       data: {
         userId,
         subjectId,
-        title: validated.title,
-        description: validated.description,
-        category: validated.category,
-        points: validated.points,
+        title,
         status: "pending",
-        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // Due tomorrow
+        points: category === "project" ? 50 : category === "study" ? 20 : 10,
+        category,
+        dueDate: dueDate ? new Date(dueDate) : undefined,
       },
     });
 
     await prisma.activity.create({
       data: {
         userId,
-        action: `Created task "${validated.title}"`,
+        action: `Created task ${title} for subject`,
         entityType: "schedule",
         entityId: task.id,
       },
@@ -705,5 +701,170 @@ export async function completeTask(userId: string, taskId: string) {
   } catch (error) {
     console.error("Error completing task:", error);
     throw new Error("Failed to complete task");
+  }
+}
+
+export async function fetchResources(userId: string) {
+  if (!userId) throw new Error("User ID is required");
+
+  try {
+    const subjects = await prisma.subject.findMany({
+      where: { userId },
+      include: {
+        recommendedContent: true,
+      },
+    });
+
+    const resources = subjects.flatMap((subject) =>
+      subject.recommendedContent.map((content) => ({
+        id: content.id,
+        type: content.type as "video" | "link" | "document" | "routine",
+        category: content.category,
+        title: content.title,
+        url: content.url,
+        description: content.description,
+        tags: content.tags,
+        completed: content.completed,
+        premium: content.premium,
+        subjectName: subject.name,
+        subjectId: subject.id,
+      }))
+    );
+
+    return { resources };
+  } catch (error) {
+    console.error("Error fetching resources:", error);
+    throw new Error("Failed to fetch resources");
+  }
+}
+
+// const SubjectSchema = z.object({
+//   name: z.string().min(1, "Subject name is required"),
+//   credits: z.number().min(1).max(6, "Credits must be between 1 and 6"),
+//   semester: z.number().min(1).max(8, "Semester must be between 1 and 8"),
+// });
+
+export async function fetchSubjects(userId: string) {
+  if (!userId) throw new Error("User ID is required");
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        degree: true,
+        subjects: {
+          include: { tasks: true },
+        },
+      },
+    });
+
+    if (!user) throw new Error("User not found");
+
+    return {
+      subjects: user.subjects.map((s) => ({
+        id: s.id,
+        name: s.name,
+        semester: s.semester,
+        credits: s.credits,
+        progress: s.progress,
+        tasks: s.tasks.map((t) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          status: t.status,
+          points: t.points,
+          category: t.category,
+        })),
+      })),
+      degree: user.degree
+        ? {
+            id: user.degree.id,
+            totalSemesters: user.degree.totalSemesters,
+            currentSemester: user.degree.currentSemester,
+          }
+        : null,
+    };
+  } catch (error) {
+    console.error("Error fetching subjects:", error);
+    throw new Error("Failed to fetch subjects");
+  }
+}
+
+export async function updateSubject(
+  userId: string,
+  subjectId: string,
+  name: string,
+  credits: number,
+  semester: number
+) {
+  try {
+    const validated = SubjectSchema.parse({ name, credits, semester });
+
+    const subject = await prisma.subject.update({
+      where: { id: subjectId, userId },
+      data: {
+        name: validated.name,
+        credits: validated.credits,
+        semester: validated.semester,
+      },
+    });
+
+    await prisma.activity.create({
+      data: {
+        userId,
+        action: `Updated subject ${validated.name}`,
+        entityType: "schedule",
+        entityId: subjectId,
+      },
+    });
+
+    return subject;
+  } catch (error) {
+    console.error("Error updating subject:", error);
+    throw new Error("Failed to update subject");
+  }
+}
+
+export async function deleteStudyRoutine(userId: string, routineId: string) {
+  try {
+    await prisma.studyRoutine.delete({
+      where: { id: routineId, userId },
+    });
+
+    await prisma.activity.create({
+      data: {
+        userId,
+        action: "Deleted study routine",
+        entityType: "schedule",
+        entityId: routineId,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting study routine:", error);
+    throw new Error("Failed to delete study routine");
+  }
+}
+
+export async function deleteSubject(userId: string, subjectId: string) {
+  try {
+    await prisma.subject.delete({
+      where: { id: subjectId, userId },
+    });
+
+    await prisma.activity.create({
+      data: {
+        userId,
+        action: `Deleted subject`,
+        entityType: "schedule",
+        entityId: subjectId,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting subject:", error);
+    throw new Error("Failed to delete subject");
   }
 }
