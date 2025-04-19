@@ -1,4 +1,3 @@
-// src/automation/AutomationExecutor.ts
 import { NodeProps } from "reactflow";
 import { chromium, Browser, Page } from "playwright";
 
@@ -238,7 +237,7 @@ export default class AutomationExecutor {
             title: await activePage.title(),
           };
           pageMap.set(node.id, activePage);
-          this.currentPage = activePage; // Update current page
+          this.currentPage = activePage;
           break;
 
         case "newTab":
@@ -273,7 +272,7 @@ export default class AutomationExecutor {
           );
           outputData = { opened: true, url, pageUrl: page.url() };
           pageMap.set(node.id, page);
-          this.currentPage = page; // Update current page
+          this.currentPage = page;
           break;
 
         case "switchTabs":
@@ -291,7 +290,7 @@ export default class AutomationExecutor {
           await switchPage.bringToFront();
           outputData = { switched: true, url: switchPage.url() };
           pageMap.set(node.id, switchPage);
-          this.currentPage = switchPage; // Update current page
+          this.currentPage = switchPage;
           break;
 
         case "newWindow":
@@ -309,7 +308,7 @@ export default class AutomationExecutor {
           });
           outputData = { opened: true, url: newWindowPage.url() };
           pageMap.set(node.id, newWindowPage);
-          this.currentPage = newWindowPage; // Update current page
+          this.currentPage = newWindowPage;
           break;
 
         case "proxy":
@@ -328,7 +327,7 @@ export default class AutomationExecutor {
           const proxyPage = await proxyContext.newPage();
           outputData = { proxySet: true, server: proxyServer };
           pageMap.set(node.id, proxyPage);
-          this.currentPage = proxyPage; // Update current page
+          this.currentPage = proxyPage;
           break;
 
         case "closeTabs":
@@ -343,7 +342,7 @@ export default class AutomationExecutor {
           }
           await pageToUse.close();
           pageMap.delete(node.id);
-          this.currentPage = null; // Reset current page
+          this.currentPage = null;
           outputData = { closed: true };
           break;
 
@@ -548,7 +547,7 @@ export default class AutomationExecutor {
             });
             outputData = { set: true, userAgent: userAgentString };
           } else {
-            outputData = { set: true, userAgent: userAgentString }; // For future pages
+            outputData = { set: true, userAgent: userAgentString };
           }
           break;
 
@@ -772,8 +771,8 @@ export default class AutomationExecutor {
           const frame = pageToUse.frame(frameSelector);
           if (!frame) throw new Error(`Frame not found: ${frameSelector}`);
           outputData = { switched: true, frame: frameSelector };
-          pageMap.set(node.id, frame as any); // Update pageMap
-          this.currentPage = frame as any; // Update current page (type assertion)
+          pageMap.set(node.id, frame as any);
+          this.currentPage = frame as any;
           break;
 
         case "customUploadFile":
@@ -1056,7 +1055,6 @@ export default class AutomationExecutor {
           const promptMessage =
             node.data.config?.promptMessage || "Please enter a value";
           if (pageToUse) {
-            // Simulate prompt in browser context
             const userInput = await pageToUse.evaluate((msg) => {
               return prompt(msg) || "User cancelled";
             }, promptMessage);
@@ -1065,7 +1063,6 @@ export default class AutomationExecutor {
             );
             outputData = { input: userInput };
           } else {
-            // Fallback for non-browser context (e.g., testing)
             log.warn(
               `PromptUserNode ${node.id}: No page available, simulating prompt`
             );
@@ -1081,7 +1078,6 @@ export default class AutomationExecutor {
           const confirmMessage =
             node.data.config?.confirmMessage || "Are you sure?";
           if (pageToUse) {
-            // Simulate confirm dialog in browser context
             const userResponse = await pageToUse.evaluate((msg) => {
               return confirm(msg);
             }, confirmMessage);
@@ -1090,11 +1086,10 @@ export default class AutomationExecutor {
             );
             outputData = { confirmed: userResponse };
           } else {
-            // Fallback for non-browser context
             log.warn(
               `ConfirmDialogNode ${node.id}: No page available, simulating confirm`
             );
-            outputData = { confirmed: true }; // Default to true for simulation
+            outputData = { confirmed: true };
           }
           break;
 
@@ -1108,7 +1103,6 @@ export default class AutomationExecutor {
             effectiveInput?.message ||
             "Alert!";
           if (pageToUse) {
-            // Simulate alert in browser context
             await pageToUse.evaluate((msg) => {
               alert(msg);
             }, alertMessage);
@@ -1117,7 +1111,6 @@ export default class AutomationExecutor {
             );
             outputData = { alerted: true, message: alertMessage };
           } else {
-            // Fallback for non-browser context
             log.info(
               `AlertUserNode ${node.id}: No page available, logged alert "${alertMessage}"`
             );
@@ -1133,7 +1126,6 @@ export default class AutomationExecutor {
           const source = node.data.config?.source || "browser";
           let profileData;
           if (source === "browser" && pageToUse) {
-            // Simulate fetching profile from browser (e.g., localStorage or navigator)
             profileData = await pageToUse.evaluate(() => {
               return {
                 userAgent: navigator.userAgent,
@@ -1149,7 +1141,6 @@ export default class AutomationExecutor {
               )}`
             );
           } else if (source === "system") {
-            // Simulate system-level profile (mock data)
             profileData = {
               username: "simulated_user",
               id: "12345",
@@ -1203,6 +1194,507 @@ export default class AutomationExecutor {
               body: emailData.body,
             },
           };
+          break;
+
+        // AI Nodes
+        case "AIAgentNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const prompt = node.data.config?.prompt || effectiveInput?.prompt;
+          const inferredTask =
+            node.data.config?.inferredTask || "textGeneration";
+          if (!prompt) {
+            throw new Error("Prompt required for AIAgentNode");
+          }
+          switch (inferredTask) {
+            case "textGeneration":
+              outputData = {
+                generated: true,
+                text: `Simulated text generation for prompt: ${prompt}`,
+              };
+              break;
+            case "codeGeneration":
+              outputData = {
+                generated: true,
+                code: `// Simulated ${
+                  node.data.config?.taskConfig?.language || "python"
+                } code for: ${prompt}\nconsole.log("Hello, World!");`,
+              };
+              break;
+            case "entityExtraction":
+              outputData = {
+                extracted: true,
+                entities: [
+                  {
+                    type: node.data.config?.taskConfig?.entityType || "all",
+                    value: "Simulated Entity",
+                  },
+                ],
+              };
+              break;
+            case "contentModeration":
+              outputData = {
+                moderated: true,
+                result: `Content is ${
+                  node.data.config?.taskConfig?.moderationLevel || "standard"
+                }`,
+              };
+              break;
+            case "contextualSearch":
+              outputData = {
+                searched: true,
+                results: [
+                  `Simulated search result from ${
+                    node.data.config?.taskConfig?.dataset || "default"
+                  } for: ${prompt}`,
+                ],
+              };
+              break;
+            case "decisionEngine":
+              outputData = {
+                decided: true,
+                decision: `Simulated decision using ${
+                  node.data.config?.taskConfig?.decisionModel || "default"
+                } model`,
+              };
+              break;
+            case "speechToText":
+              outputData = {
+                transcribed: true,
+                text: `Simulated transcription for audio input: ${prompt}`,
+              };
+              break;
+            case "textToSpeech":
+              outputData = {
+                synthesized: true,
+                audio: `Simulated audio file with ${
+                  node.data.config?.taskConfig?.voice || "default"
+                } voice`,
+              };
+              break;
+            case "anomalyDetection":
+              outputData = {
+                detected: true,
+                anomalies: [
+                  `Simulated anomaly with threshold ${
+                    node.data.config?.taskConfig?.threshold || 0.95
+                  }`,
+                ],
+              };
+              break;
+            case "dataClassification":
+              outputData = {
+                classified: true,
+                label: `Simulated ${
+                  node.data.config?.taskConfig?.classificationType || "binary"
+                } classification: Positive`,
+              };
+              break;
+            case "imageGeneration":
+              outputData = {
+                generated: true,
+                image: `Simulated image for: ${prompt}`,
+              };
+              break;
+            case "videoGeneration":
+              outputData = {
+                generated: true,
+                video: `Simulated video for: ${prompt}`,
+              };
+              break;
+            case "audioGeneration":
+              outputData = {
+                generated: true,
+                audio: `Simulated audio for: ${prompt}`,
+              };
+              break;
+            case "dataAnalysis":
+              outputData = {
+                analyzed: true,
+                insights: `Simulated data analysis for: ${prompt}`,
+              };
+              break;
+            case "predictiveModeling":
+              outputData = {
+                predicted: true,
+                prediction: `Simulated prediction for: ${prompt}`,
+              };
+              break;
+            case "nlp":
+              outputData = {
+                processed: true,
+                result: `Simulated NLP result for: ${prompt}`,
+              };
+              break;
+            case "computerVision":
+              outputData = {
+                processed: true,
+                result: `Simulated computer vision result for: ${prompt}`,
+              };
+              break;
+            case "modelTraining":
+              outputData = {
+                trained: true,
+                model: `Simulated trained model for: ${prompt}`,
+              };
+              break;
+            default:
+              outputData = {
+                error: `Unknown inferred task: ${inferredTask}`,
+              };
+          }
+          log.info(
+            `AIAgentNode ${node.id}: Processed task ${inferredTask} with prompt: ${prompt}`
+          );
+          break;
+
+        case "AITextGenerationNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const textInput =
+            node.data.config?.inputData ||
+            effectiveInput?.text ||
+            "Sample text";
+          outputData = {
+            generated: true,
+            text: `Simulated text generation for input: ${textInput}`,
+          };
+          log.info(
+            `AITextGenerationNode ${node.id}: Generated text for input: ${textInput}`
+          );
+          break;
+
+        case "AIImageGenerationNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const imagePrompt =
+            node.data.config?.inputData ||
+            effectiveInput?.prompt ||
+            "Sample image";
+          outputData = {
+            generated: true,
+            image: `Simulated image generation for prompt: ${imagePrompt}`,
+          };
+          log.info(
+            `AIImageGenerationNode ${node.id}: Generated image for prompt: ${imagePrompt}`
+          );
+          break;
+
+        case "AIVideoGenerationNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const videoPrompt =
+            node.data.config?.inputData ||
+            effectiveInput?.prompt ||
+            "Sample video";
+          outputData = {
+            generated: true,
+            video: `Simulated video generation for prompt: ${videoPrompt}`,
+          };
+          log.info(
+            `AIVideoGenerationNode ${node.id}: Generated video for prompt: ${videoPrompt}`
+          );
+          break;
+
+        case "AIAudioGenerationNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const audioPrompt =
+            node.data.config?.inputData ||
+            effectiveInput?.prompt ||
+            "Sample audio";
+          outputData = {
+            generated: true,
+            audio: `Simulated audio generation for prompt: ${audioPrompt}`,
+          };
+          log.info(
+            `AIAudioGenerationNode ${node.id}: Generated audio for prompt: ${audioPrompt}`
+          );
+          break;
+
+        case "AIDataAnalysisNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const analysisInput =
+            node.data.config?.inputData ||
+            effectiveInput?.data ||
+            "Sample data";
+          outputData = {
+            analyzed: true,
+            insights: `Simulated data analysis for input: ${analysisInput}`,
+          };
+          log.info(
+            `AIDataAnalysisNode ${node.id}: Analyzed data for input: ${analysisInput}`
+          );
+          break;
+
+        case "AIPredictiveModelingNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const predictInput =
+            node.data.config?.inputData ||
+            effectiveInput?.data ||
+            "Sample data";
+          outputData = {
+            predicted: true,
+            prediction: `Simulated prediction for input: ${predictInput}`,
+          };
+          log.info(
+            `AIPredictiveModelingNode ${node.id}: Predicted for input: ${predictInput}`
+          );
+          break;
+
+        case "AINLPNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const nlpInput =
+            node.data.config?.inputData ||
+            effectiveInput?.text ||
+            "Sample text";
+          outputData = {
+            processed: true,
+            result: `Simulated NLP result for input: ${nlpInput}`,
+          };
+          log.info(
+            `AINLPNode ${node.id}: Processed NLP for input: ${nlpInput}`
+          );
+          break;
+
+        case "AIComputerVisionNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const visionInput =
+            node.data.config?.inputData ||
+            effectiveInput?.image ||
+            "Sample image";
+          outputData = {
+            processed: true,
+            result: `Simulated computer vision result for input: ${visionInput}`,
+          };
+          log.info(
+            `AIComputerVisionNode ${node.id}: Processed vision for input: ${visionInput}`
+          );
+          break;
+
+        case "AIEntityExtractionNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const entityInput =
+            node.data.config?.inputData ||
+            effectiveInput?.text ||
+            "Sample text";
+          outputData = {
+            extracted: true,
+            entities: [
+              {
+                type: node.data.config?.entityType || "all",
+                value: "Simulated Entity",
+              },
+            ],
+          };
+          log.info(
+            `AIEntityExtractionNode ${node.id}: Extracted entities for input: ${entityInput}`
+          );
+          break;
+
+        case "AICodeGenerationNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const codeInput =
+            node.data.config?.inputData ||
+            effectiveInput?.prompt ||
+            "Sample code request";
+          outputData = {
+            generated: true,
+            code: `// Simulated ${
+              node.data.config?.language || "python"
+            } code for: ${codeInput}\nconsole.log("Hello, World!");`,
+          };
+          log.info(
+            `AICodeGenerationNode ${node.id}: Generated code for input: ${codeInput}`
+          );
+          break;
+
+        case "AIModelTrainingNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const trainingInput =
+            node.data.config?.inputData ||
+            effectiveInput?.data ||
+            "Sample data";
+          outputData = {
+            trained: true,
+            model: `Simulated trained model for input: ${trainingInput}`,
+          };
+          log.info(
+            `AIModelTrainingNode ${node.id}: Trained model for input: ${trainingInput}`
+          );
+          break;
+
+        case "AIAnomalyDetectionNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const anomalyInput =
+            node.data.config?.inputData ||
+            effectiveInput?.data ||
+            "Sample data";
+          outputData = {
+            detected: true,
+            anomalies: [
+              `Simulated anomaly with threshold ${
+                node.data.config?.threshold || 0.95
+              }`,
+            ],
+          };
+          log.info(
+            `AIAnomalyDetectionNode ${node.id}: Detected anomalies for input: ${anomalyInput}`
+          );
+          break;
+
+        case "AISpeechToTextNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const speechInput =
+            node.data.config?.inputData ||
+            effectiveInput?.audio ||
+            "Sample audio";
+          outputData = {
+            transcribed: true,
+            text: `Simulated transcription for audio input: ${speechInput}`,
+          };
+          log.info(
+            `AISpeechToTextNode ${node.id}: Transcribed audio for input: ${speechInput}`
+          );
+          break;
+
+        case "AITextToSpeechNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const ttsInput =
+            node.data.config?.inputData ||
+            effectiveInput?.text ||
+            "Sample text";
+          outputData = {
+            synthesized: true,
+            audio: `Simulated audio file with ${
+              node.data.config?.voice || "default"
+            } voice`,
+          };
+          log.info(
+            `AITextToSpeechNode ${node.id}: Synthesized audio for input: ${ttsInput}`
+          );
+          break;
+
+        case "AIContextualSearchNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const searchInput =
+            node.data.config?.inputData ||
+            effectiveInput?.query ||
+            "Sample query";
+          outputData = {
+            searched: true,
+            results: [
+              `Simulated search result from ${
+                node.data.config?.dataset || "default"
+              } for: ${searchInput}`,
+            ],
+          };
+          log.info(
+            `AIContextualSearchNode ${node.id}: Searched for input: ${searchInput}`
+          );
+          break;
+
+        case "AIDecisionEngineNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const decisionInput =
+            node.data.config?.inputData ||
+            effectiveInput?.data ||
+            "Sample data";
+          outputData = {
+            decided: true,
+            decision: `Simulated decision using ${
+              node.data.config?.decisionModel || "default"
+            } model`,
+          };
+          log.info(
+            `AIDecisionEngineNode ${node.id}: Made decision for input: ${decisionInput}`
+          );
+          break;
+
+        case "AIContentModerationNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const moderationInput =
+            node.data.config?.inputData ||
+            effectiveInput?.content ||
+            "Sample content";
+          outputData = {
+            moderated: true,
+            result: `Content is ${
+              node.data.config?.moderationLevel || "standard"
+            }`,
+          };
+          log.info(
+            `AIContentModerationNode ${node.id}: Moderated content for input: ${moderationInput}`
+          );
+          break;
+
+        case "AIDataClassificationNode":
+          if (!node.data.config?.isEnabled) {
+            outputData = { skipped: true };
+            break;
+          }
+          const classificationInput =
+            node.data.config?.inputData ||
+            effectiveInput?.text ||
+            "Sample text";
+          outputData = {
+            classified: true,
+            label: `Simulated ${
+              node.data.config?.classificationType || "binary"
+            } classification: Positive`,
+          };
+          log.info(
+            `AIDataClassificationNode ${node.id}: Classified input: ${classificationInput}`
+          );
           break;
 
         default:

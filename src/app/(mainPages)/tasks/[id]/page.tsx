@@ -59,6 +59,7 @@ import {
   DATA,
   ADVANCED,
   USER_INTERACTION,
+  AI,
 } from "../data/NodeDefinitions";
 import { TriggerNode } from "../Node/General/TriggerNode";
 import { WorkflowNode } from "../Node/General/WorkflowNode";
@@ -136,6 +137,23 @@ import { ConfirmDialogNode } from "../Node/User Interaction/ConfirmDialogNode";
 import { AlertUserNode } from "../Node/User Interaction/AlertUserNode";
 import { SendEmailNode } from "../Node/User Interaction/SendEmailNode";
 import { UserProfileNode } from "../Node/User Interaction/UserProfileNode";
+import { AITextGenerationNode } from "../Node/AI/AITextGenerationNode";
+import { AIImageGenerationNode } from "../Node/AI/AIImageGenerationNode";
+import { AISentimentAnalysisNode } from "../Node/AI/AISentimentAnalysisNode";
+import { AIDataPredictionNode } from "../Node/AI/AIDataPredictionNode";
+import { AIChatbotNode } from "../Node/AI/AIChatbotNode";
+import { AITextSummarizationNode } from "../Node/AI/AITextSummarizationNode";
+import { AITranslationNode } from "../Node/AI/AITranslationNode";
+import { AIEntityExtractionNode } from "../Node/AI/AIEntityExtractionNode";
+import { AICodeGenerationNode } from "../Node/AI/AICodeGenerationNode";
+import { AIModelTrainingNode } from "../Node/AI/AIModelTrainingNode";
+import { AIAnomalyDetectionNode } from "../Node/AI/AIAnomalyDetectionNode";
+import { AISpeechToTextNode } from "../Node/AI/AISpeechToTextNode";
+import { AITextToSpeechNode } from "../Node/AI/AITextToSpeechNode";
+import { AIContextualSearchNode } from "../Node/AI/AIContextualSearchNode";
+import { AIDecisionEngineNode } from "../Node/AI/AIDecisionEngineNode";
+import { AIAgentNode } from "../Node/AI/AIAgentNode";
+import { AIDataClassificationNode } from "../Node/AI/AIDataClassificationNode";
 
 // Define types
 interface NodeData {
@@ -220,6 +238,23 @@ const nodeTypes = {
   alertUser: AlertUserNode,
   sendEmail: SendEmailNode,
   userProfile: UserProfileNode,
+  aiTextGeneration: AITextGenerationNode,
+  aiImageGeneration: AIImageGenerationNode,
+  aiSentimentAnalysis: AISentimentAnalysisNode,
+  aiDataPrediction: AIDataPredictionNode,
+  aiChatbot: AIChatbotNode,
+  aiTextSummarization: AITextSummarizationNode,
+  aiTranslation: AITranslationNode,
+  aiEntityExtraction: AIEntityExtractionNode,
+  aiCodeGeneration: AICodeGenerationNode,
+  aiModelTraining: AIModelTrainingNode,
+  aiAnomalyDetection: AIAnomalyDetectionNode,
+  aiSpeechToText: AISpeechToTextNode,
+  aiTextToSpeech: AITextToSpeechNode,
+  aiContextualSearch: AIContextualSearchNode,
+  aiDecisionEngine: AIDecisionEngineNode,
+  aiAgent: AIAgentNode,
+  aiDataClassification: AIDataClassificationNode,
 };
 
 // Configure axios with retries
@@ -312,13 +347,14 @@ function Page() {
     const nodeDef = allNodes.find((node) => node.type === nodeType);
     const category = nodeDef?.category || "General";
     const categoryColors: Record<string, string> = {
-      General: "#6ede87", // Green
-      Browser: "#FDE047", // Yellow
-      "Web Interaction": "#87EFAC", // Light Green
-      "Control Flow": "#92C5FD", // Light Blue
-      Data: "#F472B6", // Pink
-      Advanced: "#A78BFA", // Purple
-      "User Interaction": "#FBBF24", // Amber
+      General: "#6ede87",
+      Browser: "#FDE047",
+      "Web Interaction": "#87EFAC",
+      "Control Flow": "#92C5FD",
+      Data: "#F472B6",
+      Advanced: "#A78BFA",
+      "User Interaction": "#FBBF24",
+      AI: "#FF6B6B",
     };
     return { category, color: categoryColors[category] || "#6ede87" };
   };
@@ -887,7 +923,7 @@ function Page() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  variant="ghost"
+                  variant="default"
                   onClick={runAutomation}
                   disabled={isRunning}
                 >
@@ -1100,6 +1136,7 @@ const NodesPanel = () => {
     Data: true,
     Advance: true,
     "User Interaction": true,
+    AI: true,
   });
 
   const toggleSection = (section: string) => {
@@ -1136,6 +1173,7 @@ const NodesPanel = () => {
           Data: DATA,
           Advance: ADVANCED,
           "User Interaction": USER_INTERACTION,
+          AI: AI,
         }).map(([title, items]) => {
           const filteredItems = items.filter((item) =>
             item.label.toLowerCase().includes(searchKeyWords.toLowerCase())
@@ -1164,8 +1202,10 @@ const NodesPanel = () => {
                         ? "fill-[#F472B6] stroke-[#F472B6]"
                         : title === "Advance"
                         ? "fill-[#A78BFA] stroke-[#A78BFA]"
+                        : title === "AI"
+                        ? "fill-[#FF6B6B] stroke-[#FF6B6B]"
                         : "fill-[#FBBF24] stroke-[#FBBF24]"
-                    } drop-shadow-sm`}
+                    } drop-shadow-sm animate-pulse`}
                   />
                 }
               >
