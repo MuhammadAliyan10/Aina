@@ -1321,7 +1321,7 @@ function Page() {
             style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
           />
           {executionResult && (
-            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-3/4 max-w-md bg-gray-800 p-6 rounded-lg shadow-lg z-20 border border-gray-700">
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-3/4 max-w-md bg-gray-800 p-6 rounded-lg shadow-lg z-20 border border-gray-700 overflow-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-white">
                   Automation Result

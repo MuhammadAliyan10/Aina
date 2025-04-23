@@ -1,5 +1,8 @@
 import { NodeProps } from "reactflow";
 import { chromium, Browser, Page } from "playwright";
+import { execSync } from "child_process";
+import { existsSync } from "fs";
+import { join } from "path";
 
 const log = {
   info: (message: string) => console.log(`[INFO] ${message}`),
@@ -10,9 +13,28 @@ const log = {
 let browser: Browser | null = null;
 const pageMap: Map<string, Page> = new Map();
 
-async function initializeBrowser(): Promise<Browser> {
+async function initializeBrowser(headless: boolean = true): Promise<Browser> {
+  // Check if Chromium executable exists
+  const playwrightCacheDir = join(
+    process.env.HOME || process.env.USERPROFILE || "",
+    "Library/Caches/ms-playwright/chromium-1155/chrome-mac/Chromium.app/Contents/MacOS/Chromium"
+  );
+  if (!existsSync(playwrightCacheDir)) {
+    log.warn(
+      "Chromium executable not found. Installing Playwright browsers..."
+    );
+    try {
+      execSync("npx playwright install chromium", { stdio: "inherit" });
+      log.info("Playwright browsers installed successfully.");
+    } catch (installError) {
+      log.error(`Failed to install Playwright browsers: ${installError}`);
+      throw new Error("Playwright browser installation failed.");
+    }
+  }
+
   if (!browser || !browser.isConnected()) {
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless });
+    log.info(`Browser initialized in ${headless ? "headless" : "headed"} mode`);
   }
   return browser;
 }
@@ -253,7 +275,7 @@ export default class AutomationExecutor {
             effectiveInput?.timeout || node.data.config.timeout || 5000
           );
 
-          const browserInstance = await initializeBrowser();
+          const browserInstance = await initializeBrowser(false);
           const context =
             browserInstance.contexts()[0] ||
             (await browserInstance.newContext());
@@ -653,47 +675,101 @@ export default class AutomationExecutor {
             outputData = { skipped: true };
             break;
           }
-          if (!pageToUse) {
-            log.warn(`FillFormNode ${node.id}: No page found to fill form`);
-            outputData = { filled: false, reason: "No page found" };
+          if (!pageToUse || pageToUse.isClosed()) {
+            log.warn(
+              `FillFormNode ${node.id}: No valid page found to fill form`
+            );
+            outputData = { filled: false, reason: "No valid page found" };
             break;
           }
           const formData =
             node.data.config?.formData || effectiveInput?.formData || {};
+          const selectorType = node.data.config?.selectorType || "css";
+          const selectorValue = node.data.config?.selectorValue || "";
+          const formTimeout = Number(node.data.config?.timeout) || 5000;
+          const retryOnFail = node.data.config?.retryOnFail || false;
+          const maxRetries = retryOnFail ? 3 : 1;
+
+          if (!selectorValue) {
+            log.warn(
+              `FillFormNode ${node.id}: No form selector value provided`
+            );
+            outputData = {
+              filled: false,
+              reason: "No form selector value provided",
+            };
+            break;
+          }
           if (Object.keys(formData).length === 0) {
             log.warn(`FillFormNode ${node.id}: No form data provided`);
             outputData = { filled: false, reason: "No form data provided" };
             break;
           }
-          try {
-            for (const [selector, value] of Object.entries(formData)) {
-              if (typeof value !== "string") {
-                log.warn(
-                  `FillFormNode ${node.id}: Invalid value for ${selector}: ${value}`
+
+          let attempts = 0;
+          let success = false;
+          let lastError: string | null = null;
+
+          while (attempts < maxRetries && !success) {
+            try {
+              const formLocator =
+                selectorType === "css"
+                  ? selectorValue
+                  : `xpath=${selectorValue}`;
+              const formElement = await pageToUse.locator(formLocator).first();
+              if (!(await formElement.isVisible())) {
+                throw new Error(
+                  `Form not found or not visible: ${selectorValue}`
                 );
-                continue;
               }
-              await pageToUse.fill(selector, value, {
-                timeout: node.data.config?.timeout || 5000,
-              });
+
+              for (const [selector, value] of Object.entries(formData)) {
+                if (typeof value !== "string") {
+                  log.warn(
+                    `FillFormNode ${node.id}: Invalid value for ${selector}: ${value}`
+                  );
+                  continue;
+                }
+                const fieldLocator =
+                  selectorType === "css" ? selector : `xpath=${selector}`;
+                await pageToUse.fill(fieldLocator, value, {
+                  timeout: formTimeout,
+                });
+                log.info(
+                  `FillFormNode ${node.id}: Filled ${selector} with ${value}`
+                );
+              }
+
+              const submitSelector =
+                node.data.config?.submitSelector || "button[type='submit']";
+              const submitLocator =
+                selectorType === "css"
+                  ? submitSelector
+                  : `xpath=${submitSelector}`;
+              await pageToUse.click(submitLocator, { timeout: formTimeout });
               log.info(
-                `FillFormNode ${node.id}: Filled ${selector} with ${value}`
+                `FillFormNode ${node.id}: Submitted form using ${submitSelector}`
               );
+
+              success = true;
+              outputData = { filled: true, formData, submitted: true };
+            } catch (e: any) {
+              attempts++;
+              lastError = e.message;
+              log.error(
+                `FillFormNode ${node.id}: Attempt ${attempts} failed - ${e.message}`
+              );
+              if (attempts < maxRetries) {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+              }
             }
-            const submitSelector =
-              node.data.config?.submitSelector || "button[type='submit']";
-            await pageToUse.click(submitSelector, {
-              timeout: node.data.config?.timeout || 5000,
-            });
-            log.info(
-              `FillFormNode ${node.id}: Submitted form using ${submitSelector}`
-            );
-            outputData = { filled: true, formData, submitted: true };
-          } catch (e: any) {
-            log.error(
-              `FillFormNode ${node.id}: Failed to fill form - ${e.message}`
-            );
-            outputData = { filled: false, error: e.message };
+          }
+
+          if (!success) {
+            outputData = {
+              filled: false,
+              error: lastError || "Failed to fill form",
+            };
           }
           break;
 

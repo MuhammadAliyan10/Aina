@@ -28,7 +28,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-// Placeholder for logging
 const log = {
   info: (message: string) => console.log(`[INFO] ${message}`),
   error: (message: string) => console.error(`[ERROR] ${message}`),
@@ -43,9 +42,9 @@ const FillFormNode = ({ id, data }: NodeProps) => {
     data.config?.selectorValue || ""
   );
   const [formFields, setFormFields] = useState<
-    { name: string; value: string }[]
-  >(data.config?.formFields || [{ name: "", value: "" }]);
-  const [timeout, setTimeout] = useState(data.config?.timeout || 5000);
+    { name: string; value: string; selector: string }[]
+  >(data.config?.formFields || [{ name: "", value: "", selector: "" }]);
+  const [formTimeout, setFormTimeout] = useState(data.config?.timeout || 5000);
   const [retryOnFail, setRetryOnFail] = useState(
     data.config?.retryOnFail || false
   );
@@ -59,7 +58,7 @@ const FillFormNode = ({ id, data }: NodeProps) => {
     if (data.error) {
       setStatus("error");
       log.error(`FillFormNode ${id}: ${data.error}`);
-    } else if (data.output) {
+    } else if (data.output?.filled) {
       setStatus("running");
       log.info(
         `FillFormNode ${id}: Form filled - ${JSON.stringify(data.output)}`
@@ -94,7 +93,7 @@ const FillFormNode = ({ id, data }: NodeProps) => {
   };
 
   const handleAddField = () => {
-    setFormFields([...formFields, { name: "", value: "" }]);
+    setFormFields([...formFields, { name: "", value: "", selector: "" }]);
   };
 
   const handleRemoveField = (index: number) => {
@@ -103,7 +102,7 @@ const FillFormNode = ({ id, data }: NodeProps) => {
 
   const handleFieldChange = (
     index: number,
-    key: "name" | "value",
+    key: "name" | "value" | "selector",
     value: string
   ) => {
     const updatedFields = [...formFields];
@@ -120,16 +119,21 @@ const FillFormNode = ({ id, data }: NodeProps) => {
       setError("Form selector value is required");
       return false;
     }
-    const timeoutNum = Number(timeout);
+    const timeoutNum = Number(formTimeout);
     if (isNaN(timeoutNum) || timeoutNum < 0) {
       setError("Timeout must be a non-negative number");
       return false;
     }
     if (
       formFields.length === 0 ||
-      formFields.every((field) => !field.name.trim() || !field.value.trim())
+      formFields.every(
+        (field) =>
+          !field.name.trim() || !field.value.trim() || !field.selector.trim()
+      )
     ) {
-      setError("At least one valid form field (name and value) is required");
+      setError(
+        "At least one valid form field (name, value, selector) is required"
+      );
       return false;
     }
     setError(null);
@@ -139,11 +143,13 @@ const FillFormNode = ({ id, data }: NodeProps) => {
   const handleSave = () => {
     if (!validateInputs()) return;
 
-    // Convert formFields array to a key-value object for formData
     const formData = formFields
-      .filter((field) => field.name.trim() && field.value.trim())
+      .filter(
+        (field) =>
+          field.name.trim() && field.value.trim() && field.selector.trim()
+      )
       .reduce((acc, field) => {
-        acc[field.name] = field.value;
+        acc[field.selector] = field.value;
         return acc;
       }, {} as Record<string, string>);
 
@@ -159,9 +165,9 @@ const FillFormNode = ({ id, data }: NodeProps) => {
                   ...node.data.config,
                   selectorType,
                   selectorValue,
-                  formFields: formFields, // Keep formFields for UI consistency
-                  formData, // Add formData for executor
-                  timeout: Number(timeout),
+                  formFields,
+                  formData,
+                  timeout: Number(formTimeout),
                   retryOnFail,
                   isEnabled,
                 },
@@ -184,7 +190,6 @@ const FillFormNode = ({ id, data }: NodeProps) => {
         !isEnabled ? "opacity-50" : ""
       }`}
     >
-      {/* Action buttons, visible on hover */}
       <div className="absolute -top-[44px] left-1/2 transform -translate-x-1/2 bg-gray-800 rounded-md p-2 flex justify-between items-center gap-x-3 opacity-0 group-hover:opacity-100 transition-opacity shadow-md">
         <TooltipProvider>
           <Tooltip>
@@ -259,7 +264,7 @@ const FillFormNode = ({ id, data }: NodeProps) => {
                       {formFields.map((field, index) => (
                         <div
                           key={index}
-                          className="mb-2 grid grid-cols-[40%_40%_20%] gap-2"
+                          className="mb-2 grid grid-cols-[30%_30%_30%_10%] gap-2"
                         >
                           <Input
                             type="text"
@@ -268,6 +273,23 @@ const FillFormNode = ({ id, data }: NodeProps) => {
                               handleFieldChange(index, "name", e.target.value)
                             }
                             placeholder="Field name (e.g., username)"
+                            className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
+                          />
+                          <Input
+                            type="text"
+                            value={field.selector}
+                            onChange={(e) =>
+                              handleFieldChange(
+                                index,
+                                "selector",
+                                e.target.value
+                              )
+                            }
+                            placeholder={
+                              selectorType === "css"
+                                ? "e.g., #username"
+                                : "e.g., //input[@id='username']"
+                            }
                             className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
                           />
                           <Input
@@ -284,7 +306,10 @@ const FillFormNode = ({ id, data }: NodeProps) => {
                             onClick={() => handleRemoveField(index)}
                             className="bg-red-600 hover:bg-red-500"
                           >
-                            Remove
+                            <Trash
+                              size={14}
+                              className="cursor-pointer text-white hover:text-red-500 transition-colors"
+                            />
                           </Button>
                         </div>
                       ))}
@@ -297,14 +322,14 @@ const FillFormNode = ({ id, data }: NodeProps) => {
                       </Button>
                     </div>
                     <div>
-                      <Label htmlFor="timeout" className="text-gray-300">
+                      <Label htmlFor="formTimeout" className="text-gray-300">
                         Timeout (ms)
                       </Label>
                       <Input
-                        id="timeout"
+                        id="formTimeout"
                         type="number"
-                        value={timeout}
-                        onChange={(e) => setTimeout(e.target.value)}
+                        value={formTimeout}
+                        onChange={(e) => setFormTimeout(e.target.value)}
                         placeholder="e.g., 5000"
                         min="0"
                         className="bg-gray-700 border-none text-white p-2 rounded-md focus:ring-2 focus:ring-blue-500"
@@ -372,7 +397,6 @@ const FillFormNode = ({ id, data }: NodeProps) => {
         </TooltipProvider>
       </div>
 
-      {/* Node Display */}
       <div className="flex flex-col items-start gap-3">
         <div className="flex items-center gap-2">
           {(isEnabled && (
@@ -385,7 +409,6 @@ const FillFormNode = ({ id, data }: NodeProps) => {
             </span>
           )}
           <span className="text-sm font-semibold">Fill Form</span>
-          {/* Status Indicator */}
           <span
             className={`ml-2 w-2 h-2 rounded-full ${
               status === "running"
@@ -395,7 +418,6 @@ const FillFormNode = ({ id, data }: NodeProps) => {
                 : "bg-gray-500"
             }`}
           />
-          {/* Enable/Disable Button */}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -429,7 +451,6 @@ const FillFormNode = ({ id, data }: NodeProps) => {
         </p>
       </div>
 
-      {/* Handles */}
       <Handle
         type="target"
         position={Position.Left}
