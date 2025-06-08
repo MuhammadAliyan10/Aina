@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSession } from "../SessionProvider";
 import Image from "next/image";
 import userAvatar from "@/assets/UserAvatar.png";
@@ -55,16 +55,31 @@ const ProfilePage = () => {
   const [imageLoading, setImageLoading] = useState(false);
   const [coverLoading, setCoverLoading] = useState(false);
 
-  const profile: UserProfile = {
-    ...user,
-    plan: user?.plan || "Free",
-    points: { automation: 150, tasks: 300, workflows: 75 }, // Example data, fetch from API if available
-    socialLinks: {
-      instagram: "user_insta",
-      twitter: "user_twitter",
-      website: "https://example.com",
-    }, // Example data
-  };
+  // Memoize the profile object to prevent re-creation on every render
+  const profile: UserProfile = useMemo(
+    () =>
+      user
+        ? {
+            ...user,
+            plan: user?.plan || "Free",
+            points: { automation: 150, tasks: 300, workflows: 75 },
+            socialLinks: {
+              instagram: "user_insta",
+              twitter: "user_twitter",
+              website: "https://example.com",
+            },
+          }
+        : {
+            fullName: "",
+            username: "",
+            email: "",
+            createdAt: new Date().toISOString(),
+            plan: "Free",
+            points: { automation: 0, tasks: 0, workflows: 0 },
+            socialLinks: { instagram: "", twitter: "", website: "" },
+          },
+    [user]
+  );
 
   const {
     control,
@@ -185,6 +200,10 @@ const ProfilePage = () => {
       setCoverLoading(false);
     }
   };
+
+  if (!user) {
+    return <div className="text-center p-4">Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background text-foreground">

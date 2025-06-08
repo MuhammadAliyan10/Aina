@@ -21,8 +21,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${font.className}`}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${font.className}`} suppressHydrationWarning>
         <Toaster />
         <ThemeProvider
           attribute="class"
